@@ -1,0 +1,9 @@
+entries:
+  - name: zshrc
+    source: files/zsh/.zshrc
+    target: ~/.zshrc
+    description: zsh 설정
+  - name: gitconfig
+    source: files/git/.gitconfig
+    target: ~/.gitconfig
+    description: git 전역 설정

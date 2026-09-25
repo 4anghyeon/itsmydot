@@ -104,5 +104,8 @@ go.work.sum
 # env file
 .env
 
+# local build output of go build ./...
+/itsmydot
+
 .idea
 .claude
