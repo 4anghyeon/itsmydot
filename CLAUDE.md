@@ -6,12 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `itsmydot` is a Go + bubbletea TUI for personal dotfiles management. It keeps dotfile originals in this
 public GitHub repo and, when run, shows a checklist TUI where toggling an item creates/removes a symlink
-from `$HOME` into a local cache of that file. Full design doc: `.claude/plans/PLAN.md`.
+from `$HOME` into a local cache of that file. Full design doc: `.claude/PLAN.md`.
 
-## Current status
+## Implementation order
 
-Implementation has not started yet — the repo only contains the GoLand-scaffolded `main.go` at the root.
-Build the project by following the step-by-step order in `.claude/plans/PLAN.md` section 7 (Step 0 project
+Build the project by following the step-by-step order in `.claude/PLAN.md` section 7 (Step 0 project
 init through Step 10 install flow); don't skip ahead, each step is meant to leave the tool in a working state.
 
 ## Development commands
