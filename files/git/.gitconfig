@@ -1,0 +1,9 @@
+[user]
+    name = 4anghyeon
+    email = uphyeon@kakao.com
+
+[includeIf "gitdir:~/Desktop/dev/work/"]
+    path = ~/.gitconfig-work
+
+[core]
+    autocrlf = input
