@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `itsmydot` is a Go + bubbletea TUI for personal dotfiles management. It keeps dotfile originals in this
 public GitHub repo and, when run, shows a checklist TUI where toggling an item creates/removes a symlink
-from `$HOME` into a local cache of that file. Full design doc: `.claude/PLAN.md`.
+from `$HOME` into a local copy of that file. Full design doc: `.claude/PLAN.md`.
 
 ## Implementation order
 
@@ -28,7 +28,7 @@ init through Step 10 install flow); don't skip ahead, each step is meant to leav
 **Core data flow** (no git binary, no auth token — public repo, unauthenticated GitHub API):
 
 ```
-GitHub Contents API → base64 decode → ~/.itsmydot/files/... (cache, mirrors repo's source path) → symlink → $HOME target
+GitHub Contents API → base64 decode → ~/.itsmydot/files/... (local copy, mirrors repo's source path) → symlink → $HOME target
 ```
 
 **There is no separate state store.** A target counts as `synced` purely by checking the filesystem: it's a
@@ -39,7 +39,7 @@ and reality can never drift apart.
 
 - `internal/manifest` — parses `manifest.yaml` into `Entry{name, source, target, description}`, expands `~` in `target`
 - `internal/github` — calls the Contents API, decodes base64 content, handles 404/rate-limit errors
-- `internal/cache` — owns `~/.itsmydot`, mirrors the repo's `source` path structure so no path-translation logic is needed elsewhere
+- `internal/localcopy` — owns `~/.itsmydot`, mirrors the repo's `source` path structure so no path-translation logic is needed elsewhere. Not a disposable cache: these files are the live symlink targets, so deleting them breaks `$HOME` dotfiles
 - `internal/link` — symlink state detection (`Lstat`/`Readlink`), create/remove, conflict detection, mandatory backup (`<target>.bak`, timestamped on collision)
 - `internal/tui` — bubbletea `Model`/`Update`/`View` (Elm architecture); async work (API calls) is wrapped in `tea.Cmd` and results come back into `Update()` as `tea.Msg` (e.g. `entryToggledMsg`)
 - `cmd/itsmydot/main.go` — entry point; just calls `tea.NewProgram()`
@@ -61,6 +61,6 @@ entries:
 - Refresh happens on toggle, not on a schedule or separate `sync` command — re-toggling an entry re-fetches the latest version.
 - Single entry point, no argv subcommands (no `itsmydot add <name>` style CLI is planned).
 - Conflicts always get backed up before symlinking — this isn't optional/prompted away, only the confirm step is.
-- Not yet implemented, intentionally deferred: remote-update detection (comparing Contents API `sha` against the local cache), `ITSMYDOT_TOKEN` support for private repos/higher rate limits, non-interactive subcommands, search/diff modes.
+- Not yet implemented, intentionally deferred: remote-update detection (comparing Contents API `sha` against the local copy), `ITSMYDOT_TOKEN` support for private repos/higher rate limits, non-interactive subcommands, search/diff modes.
 
 **Libraries:** `charmbracelet/bubbletea`, `charmbracelet/lipgloss`, `charmbracelet/bubbles`, `charmbracelet/harmonica`, `gopkg.in/yaml.v3`.

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
@@ -19,6 +20,10 @@ func main() {
 func run() error {
 	ctx := context.Background()
 	client := github.NewClient("4anghyeon", "itsmydot")
+	copies, err := localcopy.Default()
+	if err != nil {
+		return err
+	}
 
 	data, err := client.Fetch(ctx, "manifest.yaml")
 	if err != nil {
@@ -34,7 +39,11 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%-12s %-22s -> %s  (%d bytes)\n", e.Name, e.Source, e.Target, len(content))
+		saved, err := copies.Write(e.Source, content)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%-12s %-22s -> %s  (%d bytes)\n", e.Name, e.Source, saved, len(content))
 	}
 	return nil
 }
