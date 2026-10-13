@@ -37,7 +37,7 @@ type State int
 const (
 	// NotSynced 는 target 자리에 아무것도 없는 상태다. [ ]
 	NotSynced State = iota
-	// Synced 는 target이 로컬 사본을 가리키는 symlink인 상태다. [✓]
+	// Synced 는 target이 로컬 사본을 가리키는 symlink인 상태다. [+]
 	Synced
 	// Conflict 는 target 자리에 다른 것(일반 파일, 폴더, 다른 곳을 가리키는 symlink)이 있는 상태다. [!]
 	Conflict

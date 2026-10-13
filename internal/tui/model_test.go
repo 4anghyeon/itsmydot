@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
@@ -84,14 +85,14 @@ func TestQuit(t *testing.T) {
 }
 
 func TestView(t *testing.T) {
-	loading := Model{}.View().Content
+	loading := viewText(Model{})
 	if !strings.Contains(loading, "불러오는 중") {
 		t.Errorf("loading view = %q", loading)
 	}
 
 	failed := loadedModel()
 	failed.loadErr = errors.New("boom")
-	if v := failed.View().Content; !strings.Contains(v, "boom") {
+	if v := viewText(failed); !strings.Contains(v, "boom") {
 		t.Errorf("error view = %q", v)
 	}
 
@@ -101,11 +102,11 @@ func TestView(t *testing.T) {
 		item{entry: entry("vimrc", "/home/me/.vimrc"), state: errored, err: errors.New("not found")},
 		item{entry: entry("tmux", "/home/me/.tmux.conf"), state: syncing},
 	)
-	v := m.View().Content
+	v := viewText(m)
 	for _, want := range []string{
-		"> [✓] gitconfig  ~/.gitconfig",
+		"> [+] gitconfig  ~/.gitconfig",
 		"  [!] zshrc      ~/.zshrc   (다른 파일이 있음)",
-		"  [✗] vimrc      ~/.vimrc   (not found)",
+		"  [-] vimrc      ~/.vimrc   (not found)",
 		"  [~] tmux       ~/.tmux.conf",
 	} {
 		if !strings.Contains(v, want) {
@@ -335,7 +336,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	}
 	assertContent(t, target, "mine")
 
-	v := m.View().Content
+	v := viewText(m)
 	for _, want := range []string{"이미 파일이 있습니다", "1. 백업 후 연결", "2. 취소", "1/2 선택"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
@@ -362,7 +363,7 @@ func TestToggleFetchError(t *testing.T) {
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
 		t.Errorf("target should be untouched, got err %v", err)
 	}
-	if v := m.View().Content; !strings.Contains(v, "not found") {
+	if v := viewText(m); !strings.Contains(v, "not found") {
 		t.Errorf("view should show the error:\n%s", v)
 	}
 }
@@ -404,7 +405,7 @@ func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 	m, target := linkedFixture(t)
 
 	m, _ = press(t, m, "space")
-	v := m.View().Content
+	v := viewText(m)
 	for _, want := range []string{
 		"원래 파일(백업)을 찾을 수 없습니다",
 		"1. 지금 설정은 남겨 두고 연결만 끊기 (추천)",
@@ -460,4 +461,9 @@ func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
 	if cmd != nil || m.confirming == "" {
 		t.Fatal("3 should be ignored for a 2-option prompt")
 	}
+}
+
+// viewText 는 화면에서 색상 코드를 걷어낸 글자만 돌려준다.
+func viewText(m Model) string {
+	return ansi.Strip(m.View().Content)
 }

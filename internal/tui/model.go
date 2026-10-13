@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/link"
@@ -24,24 +25,24 @@ type itemState int
 
 const (
 	notSynced itemState = iota // [ ] symlink 없음
-	synced                     // [✓] 로컬 사본을 가리키는 symlink 있음
+	synced                     // [+] 로컬 사본을 가리키는 symlink 있음
 	syncing                    // [~] GitHub에서 받는 중
 	conflict                   // [!] target 자리에 다른 파일이 있음
-	errored                    // [✗] 상태 확인이나 동기화 실패
+	errored                    // [-] 상태 확인이나 동기화 실패
 )
 
 // marker 는 상태를 체크박스 모양으로 바꾼다.
-// 줄 정렬이 어긋나지 않도록 터미널에서 항상 한 칸 폭인 문자만 쓴다.
+// ASCII만 쓴다. ✓ 같은 기호는 폰트에 없으면 다른 폰트에서 빌려 그리면서 두 칸으로 그려져 정렬이 깨진다.
 func (s itemState) marker() string {
 	switch s {
 	case synced:
-		return "[✓]"
+		return "[+]"
 	case syncing:
 		return "[~]"
 	case conflict:
 		return "[!]"
 	case errored:
-		return "[✗]"
+		return "[-]"
 	default:
 		return "[ ]"
 	}
@@ -60,6 +61,8 @@ type Model struct {
 	client *github.Client
 	copies *localcopy.Dir
 	home   string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
+	width  int    // 터미널 폭. 모르면 0이고, 이때는 상자 폭을 제한하지 않는다
+	light  bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
 
 	items   []item
 	cursor  int    // 선택된 줄 번호 (0부터)
@@ -87,14 +90,15 @@ func New(client *github.Client, copies *localcopy.Dir) Model {
 	return Model{client: client, copies: copies, home: home}
 }
 
-// Init 은 manifest 불러오기를 시작한다.
+// Init 은 manifest 불러오기를 시작하고, 색을 고르기 위해 터미널 배경색을 물어본다.
 func (m Model) Init() tea.Cmd {
-	return func() tea.Msg {
+	load := func() tea.Msg {
 		return loadEntries(context.Background(), m.client, m.copies)
 	}
+	return tea.Batch(load, tea.RequestBackgroundColor)
 }
 
-// Update 는 불러오기/동기화 결과와 키 입력(↑/↓ 이동, space 토글, esc/q 종료, 확인 질문의 1/2)을 반영한다.
+// Update 는 불러오기/동기화 결과와 키 입력(방향키 이동, space 토글, esc/q 종료, 확인 질문의 1/2)을 반영한다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
@@ -105,6 +109,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case entrySyncedMsg:
 		return m.applySynced(msg), nil
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		return m, nil
+
+	case tea.BackgroundColorMsg:
+		m.light = !msg.IsDark()
+		return m, nil
 
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
@@ -313,68 +325,93 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	return m
 }
 
-// View 는 불러오는 중 / 에러 / 항목 목록 중 하나를 그린다.
+// View 는 상자 안에 제목·진행 게이지, 항목 목록(또는 불러오는 중/에러), 상태 메시지나 확인 질문을 그리고,
+// 상자 아래에 도움말을 붙인다.
 func (m Model) View() tea.View {
-	var b strings.Builder
-	b.WriteString("itsmydot\n\n")
+	st := newStyles(!m.light)
 
+	var body []string
 	switch {
 	case !m.ready:
-		b.WriteString("  manifest 불러오는 중...\n")
+		body = append(body, st.muted.Render("manifest 불러오는 중..."))
 	case m.loadErr != nil:
-		b.WriteString(fmt.Sprintf("  manifest를 불러오지 못했습니다: %v\n", m.loadErr))
+		body = append(body, st.state(errored).Render("manifest를 불러오지 못했습니다: "+m.loadErr.Error()))
 	case len(m.items) == 0:
-		b.WriteString("  항목이 없습니다.\n")
+		body = append(body, st.muted.Render("항목이 없습니다."))
 	default:
-		m.writeItems(&b)
+		body = append(body, m.itemLines(st)...)
 	}
 
+	footer := st.help("방향키", "이동", "space", "토글", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
-		b.WriteString("\n  " + question + "\n\n")
+		body = append(body, "", st.question.Render(question), "")
 		numbers := make([]string, len(options))
 		for i, opt := range options {
 			numbers[i] = strconv.Itoa(i + 1)
-			b.WriteString(fmt.Sprintf("  %d. %s\n", i+1, opt))
+			body = append(body, st.key.Render(numbers[i]+".")+" "+opt)
 		}
-		b.WriteString("\n  " + strings.Join(numbers, "/") + " 선택   esc 취소\n")
-		return tea.NewView(b.String())
+		footer = st.help(strings.Join(numbers, "/"), "선택", "esc", "취소")
+	} else if m.status != "" {
+		body = append(body, "", m.status)
 	}
-	if m.status != "" {
-		b.WriteString("\n  " + m.status + "\n")
+
+	// 상자 안쪽 폭: 가장 긴 줄에 맞추되, 터미널보다 넓으면 터미널 폭에 맞추고 긴 줄은 상자 안에서 줄바꿈한다.
+	title := st.title.Render("itsmydot")
+	right := ""
+	if m.ready && m.loadErr == nil && len(m.items) > 0 {
+		done := 0
+		for _, it := range m.items {
+			if it.state == synced {
+				done++
+			}
+		}
+		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(done, len(m.items))
 	}
-	b.WriteString("\n  ↑/↓ 이동   space 토글   esc 종료\n")
-	return tea.NewView(b.String())
+	inner := lipgloss.Width(title) + 4 + lipgloss.Width(right)
+	for _, line := range body {
+		inner = max(inner, lipgloss.Width(line))
+	}
+	if m.width > 0 && inner+frameExtra > m.width {
+		inner = max(m.width-frameExtra, 1)
+	}
+
+	header := title + strings.Repeat(" ", max(inner-lipgloss.Width(title)-lipgloss.Width(right), 1)) + right
+	content := header + "\n\n" + strings.Join(body, "\n")
+	box := st.frame.Width(inner + frameExtra).Render(content)
+	return tea.NewView(box + "\n " + footer + "\n")
 }
 
-// writeItems 는 항목 목록을 한 줄씩 쓴다.
+// itemLines 는 항목 목록을 한 줄씩 만든다.
 //
-//	> [✓] gitconfig  ~/.gitconfig
+//	> [+] gitconfig  ~/.gitconfig
 //	  [!] zshrc      ~/.zshrc   (다른 파일이 있음)
-func (m Model) writeItems(b *strings.Builder) {
+func (m Model) itemLines(st styles) []string {
 	// 이름 칸 너비를 가장 긴 이름에 맞춘다.
 	width := 0
 	for _, it := range m.items {
-		width = max(width, len(it.entry.Name))
+		width = max(width, lipgloss.Width(it.entry.Name))
 	}
 
+	lines := make([]string, 0, len(m.items))
 	for i, it := range m.items {
-		cursor := " "
+		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(it.entry.Name))
 		if i == m.cursor {
-			cursor = ">"
+			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
 		}
-		b.WriteString(fmt.Sprintf("%s %s %-*s  %s", cursor, it.state.marker(), width, it.entry.Name, tildify(it.entry.Target, m.home)))
+		line := cursor + " " + st.state(it.state).Render(it.state.marker()) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
 
 		switch it.state {
 		case conflict:
-			b.WriteString("   (다른 파일이 있음)")
+			line += st.state(it.state).Render("   (다른 파일이 있음)")
 		case errored:
-			b.WriteString(fmt.Sprintf("   (%v)", it.err))
+			line += st.state(it.state).Render(fmt.Sprintf("   (%v)", it.err))
 		case notSynced, synced, syncing:
-			// do nothing
+			// 체크박스만으로 충분해서 덧붙일 설명이 없다.
 		}
-		b.WriteString("\n")
+		lines = append(lines, line)
 	}
+	return lines
 }
 
 // loadEntries 는 GitHub에서 manifest를 받아 파싱하고, 각 항목의 현재 상태를 확인한다.
