@@ -41,7 +41,7 @@ and reality can never drift apart.
 - `internal/github` — calls the Contents API, decodes base64 content, handles 404/rate-limit errors
 - `internal/localcopy` — owns `~/.itsmydot`, mirrors the repo's `source` path structure so no path-translation logic is needed elsewhere. Not a disposable cache: these files are the live symlink targets, so deleting them breaks `$HOME` dotfiles
 - `internal/link` — symlink state detection (`Lstat`/`Readlink`), create/remove, conflict detection, mandatory backup (`<target>.itsmydot.bak`, timestamped on collision). Unlink restores the most recent itsmydot backup, so toggling off returns the target to its pre-toggle state
-- `internal/tui` — bubbletea `Model`/`Update`/`View` (Elm architecture); async work (API calls) is wrapped in `tea.Cmd` and results come back into `Update()` as `tea.Msg` (e.g. `entryToggledMsg`)
+- `internal/tui` — bubbletea `Model`/`Update`/`View` (Elm architecture); async work (API calls) is wrapped in `tea.Cmd` and results come back into `Update()` as `tea.Msg` (e.g. `entrySyncedMsg`)
 - `cmd/itsmydot/main.go` — entry point; just calls `tea.NewProgram()`
 
 **State model** — an entry is one of: `notSynced` (no symlink) / `synced` / `syncing` (API call in flight,
