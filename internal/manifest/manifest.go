@@ -36,21 +36,19 @@ type Manifest struct {
 
 // Load 는 디스크의 manifest.yaml 파일을 읽어서 파싱한다.
 func Load(filename string) (*Manifest, error) {
-	// 1. 파일 전체를 바이트 슬라이스([]byte)로 읽는다. 파일이 없거나 권한이 없으면 err가 채워진다.
+	// 1. 파일 읽기
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest: %w", err)
 	}
 
-	// 2. 읽은 바이트를 Parse에 넘겨서 나머지(변환/검증/치환)를 맡긴다.
+	// 2. 변환/검증/치환은 Parse가 담당
 	return Parse(data)
 }
 
 // Parse 는 manifest YAML을 파싱하고 검증한 뒤, 모든 target의 ~를 홈 디렉토리로 바꾼다.
 func Parse(data []byte) (*Manifest, error) {
-	// 2-1. YAML → 구조체 변환.
-	//      빈 Manifest를 만들고, 그 주소(&m)를 넘겨야 Unmarshal이 원본 m에 값을 채운다.
-	//      YAML 문법이 깨졌거나 타입이 안 맞으면 에러.
+	// 2-1. YAML → 구조체 변환
 	var m Manifest
 	if err := yaml.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("parse manifest: %w", err)
@@ -80,7 +78,7 @@ func (m *Manifest) validate() error {
 		return errors.New("manifest has no entries")
 	}
 
-	// 2. 발견한 에러를 모아 둘 슬라이스와, 이미 나온 이름을 기록할 맵(Set 용도)을 준비한다.
+	// 2. 발견한 에러와 이미 나온 이름을 모아 둔다.
 	var errs []error
 	seen := make(map[string]bool)
 

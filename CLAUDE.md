@@ -64,4 +64,4 @@ entries:
 - Backups use the `.itsmydot.bak` suffix (not plain `.bak`) so unlink never restores a `.bak` file that some other tool or the user created.
 - Not yet implemented, intentionally deferred: remote-update detection (comparing Contents API `sha` against the local copy), `ITSMYDOT_TOKEN` support for private repos/higher rate limits, non-interactive subcommands, search/diff modes.
 
-**Libraries:** `charmbracelet/bubbletea`, `charmbracelet/lipgloss`, `charmbracelet/bubbles`, `charmbracelet/harmonica`, `gopkg.in/yaml.v3`.
+**Libraries:** `charm.land/bubbletea/v2`, `charm.land/lipgloss/v2`, `charm.land/bubbles/v2`, `github.com/charmbracelet/harmonica`, `gopkg.in/yaml.v3`. Use the v2 `charm.land/...` import paths, not the v1 `github.com/charmbracelet/...` ones — v2's `View()` returns `tea.View` (via `tea.NewView`) and keys arrive as `tea.KeyPressMsg`.

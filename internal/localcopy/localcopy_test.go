@@ -7,7 +7,6 @@ import (
 )
 
 func TestWrite(t *testing.T) {
-	// t.TempDir()은 테스트용 임시 디렉토리를 만들고, 테스트가 끝나면 자동으로 지운다.
 	root := t.TempDir()
 	c := New(root)
 

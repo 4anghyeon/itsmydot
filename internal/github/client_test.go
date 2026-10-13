@@ -12,7 +12,6 @@ import (
 )
 
 // newTestClient 는 handler로 응답하는 가짜 서버를 띄우고, 그 서버를 바라보는 Client를 만든다.
-// 테스트가 끝나면 t.Cleanup이 서버를 자동으로 닫는다.
 func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
@@ -74,7 +73,6 @@ func TestFetchRateLimit(t *testing.T) {
 	})
 
 	_, err := c.Fetch(context.Background(), "manifest.yaml")
-	// errors.As 는 감싸진 에러 안에서 특정 타입(*RateLimitError)을 찾아 rle에 넣어 준다.
 	var rle *RateLimitError
 	if !errors.As(err, &rle) {
 		t.Fatalf("err = %v, want *RateLimitError", err)

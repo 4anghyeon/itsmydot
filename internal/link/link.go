@@ -42,7 +42,7 @@ const (
 	Conflict
 )
 
-// String 은 상태를 사람이 읽을 수 있는 글자로 바꾼다. fmt.Print 등에서 자동으로 쓰인다.
+// String 은 상태 이름을 돌려준다.
 func (s State) String() string {
 	switch s {
 	case NotSynced:
@@ -62,7 +62,6 @@ func (s State) String() string {
 const backupSuffix = ".itsmydot.bak"
 
 // timestampLayout 은 백업이 이미 있을 때 붙이는 시각 형식이다. ~/.zshrc.itsmydot.bak.20261013-103015
-// Go는 "2006-01-02 15:04:05"라는 정해진 기준 시각의 모양으로 형식을 표현한다.
 const timestampLayout = "20060102-150405"
 
 // now 는 현재 시각을 돌려준다. 테스트에서 시각을 고정하려고 변수로 둔다.
@@ -71,8 +70,7 @@ var now = time.Now
 // Check 는 target 자리를 보고 상태를 판단한다. 디스크는 바꾸지 않는다.
 // copyPath는 symlink가 가리켜야 할 로컬 사본의 절대 경로다.
 func Check(target, copyPath string) (State, error) {
-	// 1. Lstat은 symlink를 따라가지 않고 "그 자리에 있는 것 자체"의 정보를 준다.
-	//    (Stat은 symlink를 따라가서 가리키는 파일의 정보를 준다)
+	// 1. symlink를 따라가지 않고 target 자리 자체를 본다.
 	info, err := os.Lstat(target)
 	if errors.Is(err, fs.ErrNotExist) {
 		return NotSynced, nil
@@ -129,7 +127,7 @@ func Link(target, copyPath string) (backup string, err error) {
 		return backup, fmt.Errorf("create dir for %s: %w", target, err)
 	}
 
-	// 4. symlink 생성. os.Symlink(가리킬 곳, 만들 위치) 순서다.
+	// 4. symlink 생성
 	if err := os.Symlink(copyPath, target); err != nil {
 		return backup, fmt.Errorf("link %s: %w", target, err)
 	}
