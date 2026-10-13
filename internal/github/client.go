@@ -80,7 +80,7 @@ func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "itsmydot")
 
-	// 2. 요청 전송. 네트워크 오류나 타임아웃이면 여기서 에러가 난다.
+	// 2. 요청 전송
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", path, err)

@@ -74,7 +74,6 @@ func (d *Dir) Write(source string, data []byte) (string, error) {
 
 	// 2. 파일을 담을 폴더를 만든다.
 	//    ~/.itsmydot, ~/.itsmydot/files, ~/.itsmydot/files/zsh 중 없는 것만 만든다.
-	//    0o755 = 일반적인 폴더 권한 (나는 읽기/쓰기, 다른 사람은 읽기만)
 	dir := filepath.Dir(dst)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create local copy dir: %w", err)
@@ -87,8 +86,8 @@ func (d *Dir) Write(source string, data []byte) (string, error) {
 	}
 	tmpName := tmp.Name()
 
-	// 함수가 끝날 때 임시 파일을 지운다(defer = 함수 끝에 실행 예약).
-	// 중간 실페 -> 남은 임시 파일 정리
+	// 함수가 끝날 때 임시 파일을 지운다.
+	// 중간 실패 -> 남은 임시 파일 정리
 	// 성공 -> 임시 파일은 이미 .zshrc로 이름이 바뀌어 없으므로 아무 일도 일어나지 않는다.
 	defer func() { _ = os.Remove(tmpName) }()
 

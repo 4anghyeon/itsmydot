@@ -12,6 +12,7 @@
 //	  ├─ 2. target 자리에 다른 것이 있으면 백업 이름으로 옮김 (~/.zshrc → ~/.zshrc.itsmydot.bak)
 //	  ├─ 3. target의 폴더가 없으면 만듦
 //	  └─ 4. symlink 생성
+//	Detach(target, copyPath)  symlink를 같은 내용의 일반 파일로 바꿈 (연결만 끊고 설정은 유지)
 //	Unlink(target, copyPath)  symlink 떼기
 //	  ├─ 1. 우리가 건 symlink가 맞는지 확인. 아니면 아무것도 지우지 않고 에러
 //	  ├─ 2. symlink 삭제
@@ -36,13 +37,13 @@ type State int
 const (
 	// NotSynced 는 target 자리에 아무것도 없는 상태다. [ ]
 	NotSynced State = iota
-	// Synced 는 target이 로컬 사본을 가리키는 symlink인 상태다. [x]
+	// Synced 는 target이 로컬 사본을 가리키는 symlink인 상태다. [+]
 	Synced
 	// Conflict 는 target 자리에 다른 것(일반 파일, 폴더, 다른 곳을 가리키는 symlink)이 있는 상태다. [!]
 	Conflict
 )
 
-// String 은 상태를 사람이 읽을 수 있는 글자로 바꾼다. fmt.Print 등에서 자동으로 쓰인다.
+// String 은 상태 이름을 돌려준다.
 func (s State) String() string {
 	switch s {
 	case NotSynced:
@@ -62,7 +63,6 @@ func (s State) String() string {
 const backupSuffix = ".itsmydot.bak"
 
 // timestampLayout 은 백업이 이미 있을 때 붙이는 시각 형식이다. ~/.zshrc.itsmydot.bak.20261013-103015
-// Go는 "2006-01-02 15:04:05"라는 정해진 기준 시각의 모양으로 형식을 표현한다.
 const timestampLayout = "20060102-150405"
 
 // now 는 현재 시각을 돌려준다. 테스트에서 시각을 고정하려고 변수로 둔다.
@@ -71,8 +71,7 @@ var now = time.Now
 // Check 는 target 자리를 보고 상태를 판단한다. 디스크는 바꾸지 않는다.
 // copyPath는 symlink가 가리켜야 할 로컬 사본의 절대 경로다.
 func Check(target, copyPath string) (State, error) {
-	// 1. Lstat은 symlink를 따라가지 않고 "그 자리에 있는 것 자체"의 정보를 준다.
-	//    (Stat은 symlink를 따라가서 가리키는 파일의 정보를 준다)
+	// 1. symlink를 따라가지 않고 target 자리 자체를 본다.
 	info, err := os.Lstat(target)
 	if errors.Is(err, fs.ErrNotExist) {
 		return NotSynced, nil
@@ -129,7 +128,7 @@ func Link(target, copyPath string) (backup string, err error) {
 		return backup, fmt.Errorf("create dir for %s: %w", target, err)
 	}
 
-	// 4. symlink 생성. os.Symlink(가리킬 곳, 만들 위치) 순서다.
+	// 4. symlink 생성
 	if err := os.Symlink(copyPath, target); err != nil {
 		return backup, fmt.Errorf("link %s: %w", target, err)
 	}
@@ -163,6 +162,63 @@ func Unlink(target, copyPath string) (restored string, err error) {
 		return "", fmt.Errorf("restore %s: %w", latest, err)
 	}
 	return latest, nil
+}
+
+// HasBackup 은 target의 itsmydot 백업이 있는지 알려 준다.
+// Unlink하기 전에 되돌릴 원래 파일이 있는지 확인할 때 쓴다.
+func HasBackup(target string) (bool, error) {
+	latest, err := latestBackup(target)
+	return latest != "", err
+}
+
+// Detach 는 target에 걸린 symlink를 로컬 사본과 같은 내용의 일반 파일로 바꾼다.
+// 연결은 끊되 지금 설정은 그대로 남기고 싶을 때 쓴다. 백업은 건드리지 않는다.
+// target이 우리가 건 symlink가 아니면 아무것도 바꾸지 않고 에러를 돌려준다.
+func Detach(target, copyPath string) error {
+	// 1. 우리가 건 symlink인지 확인
+	state, err := Check(target, copyPath)
+	if err != nil {
+		return err
+	}
+	if state != Synced {
+		return fmt.Errorf("detach %s: not linked by itsmydot (state %s)", target, state)
+	}
+
+	// 2. 로컬 사본의 내용과 권한 읽기
+	data, err := os.ReadFile(copyPath)
+	if err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+	info, err := os.Stat(copyPath)
+	if err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+
+	// 3. target에 바로 쓰면 symlink를 따라가 로컬 사본이 바뀌므로,
+	//    같은 폴더의 임시 파일에 쓴 뒤 이름을 바꿔 symlink 자체를 교체한다.
+	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".itsmydot-*.tmp")
+	if err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+	if err := os.Chmod(tmpName, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+
+	// 4. symlink를 일반 파일로 교체
+	if err := os.Rename(tmpName, target); err != nil {
+		return fmt.Errorf("detach %s: %w", target, err)
+	}
+	return nil
 }
 
 // nextBackupPath 는 아직 쓰이지 않은 백업 경로를 정한다.

@@ -1,14 +1,20 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/4anghyeon/itsmydot/internal/github"
-	"github.com/4anghyeon/itsmydot/internal/link"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
-	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui"
+)
+
+// dotfile 원본이 있는 GitHub 리포
+const (
+	repoOwner = "4anghyeon"
+	repoName  = "itsmydot"
 )
 
 func main() {
@@ -19,36 +25,12 @@ func main() {
 }
 
 func run() error {
-	ctx := context.Background()
-	client := github.NewClient("4anghyeon", "itsmydot")
 	copies, err := localcopy.Default()
 	if err != nil {
 		return err
 	}
+	client := github.NewClient(repoOwner, repoName)
 
-	data, err := client.Fetch(ctx, "manifest.yaml")
-	if err != nil {
-		return err
-	}
-	m, err := manifest.Parse(data)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range m.Entries {
-		content, err := client.Fetch(ctx, e.Source)
-		if err != nil {
-			return err
-		}
-		saved, err := copies.Write(e.Source, content)
-		if err != nil {
-			return err
-		}
-		state, err := link.Check(e.Target, saved)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%-10s %-10s %s -> %s  (%d bytes)\n", state, e.Name, e.Target, saved, len(content))
-	}
-	return nil
+	_, err = tea.NewProgram(tui.New(client, copies)).Run()
+	return err
 }
