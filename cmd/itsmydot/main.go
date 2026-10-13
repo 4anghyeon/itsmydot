@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/link"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
@@ -43,7 +44,11 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%-12s %-22s -> %s  (%d bytes)\n", e.Name, e.Source, saved, len(content))
+		state, err := link.Check(e.Target, saved)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%-10s %-10s %s -> %s  (%d bytes)\n", state, e.Name, e.Target, saved, len(content))
 	}
 	return nil
 }
