@@ -156,15 +156,17 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 }
 
 // startSync 는 i번째 항목을 syncing으로 바꾸고, 받아서 연결하는 작업을 백그라운드로 시작한다.
+// 스피너도 함께 돌린다. 이미 돌고 있으면 스피너가 겹친 tick을 알아서 버린다.
 // 끝나면 entrySyncedMsg로 결과가 돌아온다. m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m Model) startSync(i int) (Model, tea.Cmd) {
 	it := &m.items[i]
 	it.state, it.err = syncing, nil
 	m.status = it.entry.Name + ": 받는 중..."
 	entry, client, copies := it.entry, m.client, m.copies
-	return m, func() tea.Msg {
+	sync := func() tea.Msg {
 		return syncEntry(context.Background(), client, copies, entry)
 	}
+	return m, tea.Batch(sync, m.spinner.Tick)
 }
 
 // applySynced 는 syncEntry의 결과를 해당 항목에 반영한다.

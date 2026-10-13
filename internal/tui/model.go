@@ -4,7 +4,9 @@ package tui
 import (
 	"context"
 	"os"
+	"slices"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
@@ -19,7 +21,7 @@ type itemState int
 const (
 	notSynced itemState = iota // [ ] symlink 없음
 	synced                     // [+] 로컬 사본을 가리키는 symlink 있음
-	syncing                    // [~] GitHub에서 받는 중
+	syncing                    // [~] GitHub에서 받는 중 (화면에서는 ~ 자리에 스피너가 돈다)
 	conflict                   // [!] target 자리에 다른 파일이 있음
 	errored                    // [-] 상태 확인이나 동기화 실패
 )
@@ -68,6 +70,8 @@ type Model struct {
 	confirming  string
 	confirmKind confirmKind
 	choice      int // 확인 질문에서 커서가 있는 선택지 (0부터)
+
+	spinner spinner.Model // 받는 중인 항목이 있을 때만 돈다
 }
 
 // confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
@@ -81,7 +85,7 @@ const (
 // New 는 처음 화면 상태를 만든다. 실제 불러오기는 Init에서 시작한다.
 func New(client *github.Client, copies *localcopy.Dir) Model {
 	home, _ := os.UserHomeDir() // 실패해도 경로를 줄이지 않고 그대로 보여 줄 뿐이라 무시한다
-	return Model{client: client, copies: copies, home: home}
+	return Model{client: client, copies: copies, home: home, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
 }
 
 // Init 은 manifest 불러오기를 시작하고, 색을 고르기 위해 터미널 배경색을 물어본다.
@@ -111,6 +115,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.BackgroundColorMsg:
 		m.light = !msg.IsDark()
 		return m, nil
+
+	case spinner.TickMsg:
+		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
+		if !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)

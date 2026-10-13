@@ -3,7 +3,9 @@ package tui
 import (
 	"image/color"
 	"strings"
+	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/lipgloss/v2"
 )
 
@@ -56,6 +58,13 @@ func newStyles(dark bool) styles {
 		question: lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
 		key:      lipgloss.NewStyle().Bold(true),
 	}
+}
+
+// syncSpinner 는 받는 중인 항목의 체크박스 안에서 돌아가는 스피너다. [.] → [o] → [O] → [o]
+// 기본 스피너의 점자 문자는 폰트에 따라 폭이 깨지고, 회전선(| / - \)은 실패 표시 [-]와 겹쳐서 직접 정의한다.
+var syncSpinner = spinner.Spinner{
+	Frames: []string{".", "o", "O", "o"},
+	FPS:    time.Second / 8,
 }
 
 // frameExtra 는 frame의 테두리(좌우 1칸씩)와 안쪽 여백(좌우 1칸씩)을 합친 폭이다.

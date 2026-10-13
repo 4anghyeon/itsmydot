@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -217,13 +218,37 @@ func toggleFixture(t *testing.T, files map[string]string) (m Model, target strin
 }
 
 // runCmd 는 백그라운드 작업을 바로 실행하고, 그 결과 메시지를 Update에 넣는다.
+// 묶인 작업(tea.Batch)은 풀어서 하나씩 실행하고, 스피너 tick은 건너뛴다.
 func runCmd(t *testing.T, m Model, cmd tea.Cmd) Model {
 	t.Helper()
 	if cmd == nil {
 		t.Fatal("expected a command")
 	}
-	next, _ := m.Update(cmd())
-	return next.(Model)
+	for _, msg := range runAll(cmd) {
+		if _, ok := msg.(spinner.TickMsg); ok {
+			continue
+		}
+		next, _ := m.Update(msg)
+		m = next.(Model)
+	}
+	return m
+}
+
+// runAll 은 cmd를 실행해 나온 메시지를 모두 모은다. tea.Batch로 묶인 작업도 풀어서 실행한다.
+func runAll(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		return []tea.Msg{msg}
+	}
+	var msgs []tea.Msg
+	for _, c := range batch {
+		msgs = append(msgs, runAll(c)...)
+	}
+	return msgs
 }
 
 func TestToggleOnAndOff(t *testing.T) {
@@ -515,5 +540,40 @@ func TestConfirmSpaceSelects(t *testing.T) {
 	m, _ = press(t, m, "space")
 	if m.choice != 0 {
 		t.Errorf("choice = %d, want 0 when reopened", m.choice)
+	}
+}
+
+// 받는 중인 항목은 체크박스 안에서 스피너가 돌고, 모두 끝나면 스피너가 멈춘다.
+func TestSpinner(t *testing.T) {
+	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
+
+	m, cmd := press(t, m, "space")
+	if v := viewText(m); !strings.Contains(v, "[.] gitconfig") {
+		t.Fatalf("syncing item should show the first spinner frame:\n%s", v)
+	}
+
+	// 스피너 tick이 오면 다음 모양으로 바뀌고, 다음 tick을 예약한다.
+	var tick, done tea.Msg
+	for _, msg := range runAll(cmd) {
+		if _, ok := msg.(spinner.TickMsg); ok {
+			tick = msg
+		} else {
+			done = msg
+		}
+	}
+	next, tickCmd := m.Update(tick)
+	m = next.(Model)
+	if tickCmd == nil {
+		t.Error("spinner should keep ticking while syncing")
+	}
+	if v := viewText(m); !strings.Contains(v, "[o] gitconfig") {
+		t.Errorf("spinner should advance:\n%s", v)
+	}
+
+	// 받기가 끝나면 다음 tick을 예약하지 않는다.
+	next, _ = m.Update(done)
+	m = next.(Model)
+	if _, tickCmd = m.Update(m.spinner.Tick()); tickCmd != nil {
+		t.Error("spinner should stop when nothing is syncing")
 	}
 }

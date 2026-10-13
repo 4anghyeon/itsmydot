@@ -89,7 +89,7 @@ func (m Model) itemLines(st styles) []string {
 		if i == m.cursor {
 			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
 		}
-		line := cursor + " " + st.state(it.state).Render(it.state.marker()) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+		line := cursor + " " + st.state(it.state).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
 
 		switch it.state {
 		case conflict:
@@ -102,6 +102,14 @@ func (m Model) itemLines(st styles) []string {
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// marker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
+func (m Model) marker(s itemState) string {
+	if s == syncing && len(m.spinner.Spinner.Frames) > 0 {
+		return "[" + m.spinner.View() + "]"
+	}
+	return s.marker()
 }
 
 // confirmPrompt 는 확인 질문 문구와 선택지를 만든다. 마지막 선택지는 항상 "취소"다.
