@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -65,7 +66,20 @@ type Model struct {
 	ready   bool   // manifest를 다 불러왔으면 true
 	loadErr error  // manifest 자체를 못 불러왔을 때의 에러
 	status  string // 마지막 토글 결과. 목록 아래에 한 줄로 보여 준다
+
+	// confirming 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 "".
+	// items는 Update마다 복사되므로 포인터 대신 이름으로 가리킨다.
+	confirming  string
+	confirmKind confirmKind
 }
+
+// confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
+type confirmKind int
+
+const (
+	confirmLink   confirmKind = iota // 다른 파일이 있어서, 백업한 뒤 연결할지 묻는 중
+	confirmUnlink                    // 되돌릴 백업이 없어서, 연결을 어떻게 끊을지 묻는 중
+)
 
 // New 는 처음 화면 상태를 만든다. 실제 불러오기는 Init에서 시작한다.
 func New(client *github.Client, copies *localcopy.Dir) Model {
@@ -80,7 +94,7 @@ func (m Model) Init() tea.Cmd {
 	}
 }
 
-// Update 는 불러오기/동기화 결과와 키 입력(↑/↓ 이동, space 토글, q 종료)을 반영한다.
+// Update 는 불러오기/동기화 결과와 키 입력(↑/↓ 이동, space 토글, esc/q 종료, 확인 질문의 1/2)을 반영한다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
@@ -93,8 +107,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.applySynced(msg), nil
 
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
+		key := normalizeKey(msg)
+		if m.confirming != "" {
+			return m.answerConfirm(key)
+		}
+		switch key {
+		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
 		case "up", "k":
 			if m.cursor > 0 {
@@ -115,6 +133,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 //
 // 화면에 표시된 상태가 아니라 디스크를 다시 확인해서 결정한다.
 // errored 항목도 실제로 연결돼 있으면 끄고, 아니면 다시 받아서 연결을 시도한다.
+// target 자리에 다른 파일이 있으면 바로 연결하지 않고 확인 질문을 띄운다.
 func (m Model) toggle() (Model, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
@@ -135,28 +154,140 @@ func (m Model) toggle() (Model, tea.Cmd) {
 
 	// 끄기: 로컬 작업이라 바로 처리한다.
 	if state == link.Synced {
-		restored, err := link.Unlink(it.entry.Target, it.copyPath)
+		// 되돌릴 백업이 없으면 target 자리가 비게 되므로 먼저 묻는다.
+		// 처음부터 파일이 없었던 건지, 백업이 사고로 사라진 건지 디스크만으로는 구분할 수 없다.
+		has, err := link.HasBackup(it.entry.Target)
 		if err != nil {
 			it.state, it.err = errored, err
-			m.status = it.entry.Name + ": 해제 실패"
+			m.status = it.entry.Name + ": 백업 확인 실패"
 			return m, nil
 		}
-		it.state, it.err = notSynced, nil
-		m.status = it.entry.Name + ": 해제됨"
-		if restored != "" {
-			// 백업을 되돌렸으면 target 자리에 다시 일반 파일이 있다.
-			it.state = conflict
-			m.status += " · 원래 파일을 되돌림"
+		if !has {
+			m.confirming, m.confirmKind = it.entry.Name, confirmUnlink
+			return m, nil
 		}
+		return m.unlink(m.cursor), nil
+	}
+
+	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업 자체는 생략할 수 없고, 진행 여부만 고른다.
+	if state == link.Conflict {
+		it.state, it.err = conflict, nil
+		m.confirming, m.confirmKind = it.entry.Name, confirmLink
 		return m, nil
 	}
 
-	// 켜기: GitHub 요청이 있어서 백그라운드에서 처리하고, 끝나면 entrySyncedMsg로 결과를 받는다.
+	return m.startSync(m.cursor)
+}
+
+// unlink 는 i번째 항목의 연결을 끊고, 백업이 있으면 원래 파일을 되돌린다.
+// m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) unlink(i int) Model {
+	it := &m.items[i]
+	restored, err := link.Unlink(it.entry.Target, it.copyPath)
+	if err != nil {
+		it.state, it.err = errored, err
+		m.status = it.entry.Name + ": 해제 실패"
+		return m
+	}
+	it.state, it.err = notSynced, nil
+	m.status = it.entry.Name + ": 해제됨"
+	if restored != "" {
+		// 백업을 되돌렸으면 target 자리에 다시 일반 파일이 있다.
+		it.state = conflict
+		m.status += " · 원래 파일을 되돌림"
+	}
+	return m
+}
+
+// detach 는 i번째 항목의 연결만 끊고, 지금 설정은 target에 일반 파일로 남긴다.
+// m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) detach(i int) Model {
+	it := &m.items[i]
+	if err := link.Detach(it.entry.Target, it.copyPath); err != nil {
+		it.state, it.err = errored, err
+		m.status = it.entry.Name + ": 해제 실패"
+		return m
+	}
+	// target 자리에 일반 파일이 남았으므로 디스크 기준으로는 conflict다.
+	it.state, it.err = conflict, nil
+	m.status = it.entry.Name + ": 연결 끊음 · 지금 설정은 " + tildify(it.entry.Target, m.home) + " 에 남겨 둠"
+	return m
+}
+
+// answerConfirm 은 확인 질문에 대한 키 입력(선택지 번호, esc 취소)을 처리한다.
+// y/n 대신 숫자를 쓰는 이유는, 한글 입력기가 자모를 조합 대기로 붙잡아 y/n이 늦게 도착하기 때문이다.
+// 그 밖의 키는 무시해서, 답하기 전에 다른 항목을 건드리지 않게 한다.
+func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
+	if key == "ctrl+c" {
+		return m, tea.Quit
+	}
+	_, options := m.confirmPrompt()
+	cancel := strconv.Itoa(len(options)) // 마지막 선택지는 항상 "취소"
+	if key == "esc" {
+		key = cancel
+	}
+	n, err := strconv.Atoi(key)
+	if err != nil || n < 1 || n > len(options) {
+		return m, nil
+	}
+
+	name := m.confirming
+	m.confirming = ""
+	if key == cancel {
+		m.status = name + ": 취소됨"
+		return m, nil
+	}
+
+	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == name })
+	if i < 0 {
+		return m, nil
+	}
+	m.items = slices.Clone(m.items)
+
+	switch m.confirmKind {
+	case confirmLink: // 1. 백업 후 연결
+		return m.startSync(i)
+	case confirmUnlink:
+		if n == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
+			return m.detach(i), nil
+		}
+		// 2. 연결을 끊고 파일도 지우기
+		m = m.unlink(i)
+		if m.items[i].state == notSynced {
+			m.status = name + ": 연결 끊음 · 내용은 " + tildify(m.items[i].copyPath, m.home) + " 에 남아 있음"
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+// startSync 는 i번째 항목을 syncing으로 바꾸고, 받아서 연결하는 작업을 백그라운드로 시작한다.
+// 끝나면 entrySyncedMsg로 결과가 돌아온다. m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) startSync(i int) (Model, tea.Cmd) {
+	it := &m.items[i]
 	it.state, it.err = syncing, nil
 	m.status = it.entry.Name + ": 받는 중..."
 	entry, client, copies := it.entry, m.client, m.copies
 	return m, func() tea.Msg {
 		return syncEntry(context.Background(), client, copies, entry)
+	}
+}
+
+// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. 마지막 선택지는 항상 "취소"다.
+func (m Model) confirmPrompt() (question string, options []string) {
+	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == m.confirming })
+	if i < 0 {
+		return "", []string{"취소"}
+	}
+	target := tildify(m.items[i].entry.Target, m.home)
+
+	switch m.confirmKind {
+	case confirmUnlink:
+		return fmt.Sprintf("%s 의 원래 파일(백업)을 찾을 수 없습니다. 연결을 어떻게 끊을까요?", target),
+			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
+	default:
+		return fmt.Sprintf("%s 에 이미 파일이 있습니다. 기존 파일을 백업한 뒤 연결할까요?", target),
+			[]string{"백업 후 연결", "취소"}
 	}
 }
 
@@ -198,10 +329,21 @@ func (m Model) View() tea.View {
 		m.writeItems(&b)
 	}
 
+	if m.confirming != "" {
+		question, options := m.confirmPrompt()
+		b.WriteString("\n  " + question + "\n\n")
+		numbers := make([]string, len(options))
+		for i, opt := range options {
+			numbers[i] = strconv.Itoa(i + 1)
+			b.WriteString(fmt.Sprintf("  %d. %s\n", i+1, opt))
+		}
+		b.WriteString("\n  " + strings.Join(numbers, "/") + " 선택   esc 취소\n")
+		return tea.NewView(b.String())
+	}
 	if m.status != "" {
 		b.WriteString("\n  " + m.status + "\n")
 	}
-	b.WriteString("\n  ↑/↓ 이동   space 토글   q 종료\n")
+	b.WriteString("\n  ↑/↓ 이동   space 토글   esc 종료\n")
 	return tea.NewView(b.String())
 }
 

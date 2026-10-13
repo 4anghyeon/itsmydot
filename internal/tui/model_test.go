@@ -29,6 +29,10 @@ func press(t *testing.T, m Model, key string) (Model, tea.Cmd) {
 		msg = tea.KeyPressMsg{Code: tea.KeyDown}
 	case "space":
 		msg = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
+	case "esc":
+		msg = tea.KeyPressMsg{Code: tea.KeyEscape}
+	case "enter":
+		msg = tea.KeyPressMsg{Code: tea.KeyEnter}
 	default:
 		msg = tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}
@@ -68,12 +72,14 @@ func TestCursorMovesWithinBounds(t *testing.T) {
 }
 
 func TestQuit(t *testing.T) {
-	_, cmd := press(t, loadedModel(), "q")
-	if cmd == nil {
-		t.Fatal("q should return a command")
-	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Error("q should quit")
+	for _, key := range []string{"q", "esc"} {
+		_, cmd := press(t, loadedModel(), key)
+		if cmd == nil {
+			t.Fatalf("%s should return a command", key)
+		}
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Errorf("%s should quit", key)
+		}
 	}
 }
 
@@ -234,10 +240,14 @@ func TestToggleOnAndOff(t *testing.T) {
 	}
 	assertContent(t, target, "[user]\n")
 
-	// 끄기: 백업이 없었으므로 target이 사라지고 notSynced
+	// 끄기: 백업이 없으므로 먼저 묻고, 2번(파일도 지우기)을 고르면 target이 사라진다.
 	m, cmd = press(t, m, "space")
-	if cmd != nil {
-		t.Error("turning off should not start a background command")
+	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlink {
+		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	}
+	m, _ = press(t, m, "2")
+	if !strings.Contains(m.status, "남아 있음") {
+		t.Errorf("status = %q, want where the content remains", m.status)
 	}
 	if m.items[0].state != notSynced {
 		t.Errorf("state = %d, want notSynced", m.items[0].state)
@@ -253,7 +263,17 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// 다른 파일이 있으면 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
+	if cmd != nil || m.confirming != "gitconfig" {
+		t.Fatalf("want confirm prompt, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+	}
+	assertContent(t, target, "mine")
+
+	m, cmd = press(t, m, "1")
+	if m.confirming != "" || m.items[0].state != syncing {
+		t.Fatalf("after 1: confirming=%q state=%d", m.confirming, m.items[0].state)
+	}
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
 		t.Fatalf("state = %d, want synced (err %v)", m.items[0].state, m.items[0].err)
@@ -269,6 +289,66 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 		t.Errorf("state = %d, want conflict (original file restored)", m.items[0].state)
 	}
 	assertContent(t, target, "mine")
+}
+
+func TestConfirmCancel(t *testing.T) {
+	for _, key := range []string{"2", "esc"} {
+		t.Run(key, func(t *testing.T) {
+			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+			if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			m, _ = press(t, m, "space")
+			m, cmd := press(t, m, key)
+			if cmd != nil || m.confirming != "" {
+				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+			}
+			if m.items[0].state != conflict {
+				t.Errorf("state = %d, want conflict", m.items[0].state)
+			}
+			if !strings.Contains(m.status, "취소") {
+				t.Errorf("status = %q", m.status)
+			}
+			assertContent(t, target, "mine")
+			if _, err := os.Lstat(target + ".itsmydot.bak"); !os.IsNotExist(err) {
+				t.Error("no backup should be made when cancelled")
+			}
+		})
+	}
+}
+
+// 확인 질문에 답하기 전에는 이동/토글/q/y/n/enter를 무시하고, ctrl+c만 종료한다.
+func TestConfirmIgnoresOtherKeys(t *testing.T) {
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ = press(t, m, "space")
+
+	for _, key := range []string{"down", "up", "space", "q", "y", "n", "enter"} {
+		var cmd tea.Cmd
+		m, cmd = press(t, m, key)
+		if cmd != nil || m.confirming != "gitconfig" {
+			t.Fatalf("%s: should be ignored while confirming", key)
+		}
+	}
+	assertContent(t, target, "mine")
+
+	v := m.View().Content
+	for _, want := range []string{"이미 파일이 있습니다", "1. 백업 후 연결", "2. 취소", "1/2 선택"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("ctrl+c should quit while confirming")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Error("ctrl+c should quit while confirming")
+	}
 }
 
 func TestToggleFetchError(t *testing.T) {
@@ -304,5 +384,80 @@ func assertContent(t *testing.T, path, want string) {
 	}
 	if string(got) != want {
 		t.Errorf("%s = %q, want %q", path, got, want)
+	}
+}
+
+// linkedFixture 는 백업 없이 연결된 항목 하나로 Model을 만든다.
+func linkedFixture(t *testing.T) (Model, string) {
+	t.Helper()
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+	m, cmd := press(t, m, "space")
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced {
+		t.Fatalf("setup: state = %d (err %v)", m.items[0].state, m.items[0].err)
+	}
+	return m, target
+}
+
+// 백업이 없을 때 1번: 연결만 끊고 지금 설정은 일반 파일로 남긴다.
+func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
+	m, target := linkedFixture(t)
+
+	m, _ = press(t, m, "space")
+	v := m.View().Content
+	for _, want := range []string{
+		"원래 파일(백업)을 찾을 수 없습니다",
+		"1. 지금 설정은 남겨 두고 연결만 끊기 (추천)",
+		"2. 연결을 끊고 파일도 지우기",
+		"3. 취소",
+		"1/2/3 선택",
+	} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+
+	m, _ = press(t, m, "1")
+	info, err := os.Lstat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("target should be a regular file now")
+	}
+	assertContent(t, target, "from repo")
+	if m.items[0].state != conflict {
+		t.Errorf("state = %d, want conflict (a regular file is left)", m.items[0].state)
+	}
+}
+
+// 백업이 없을 때 3번/esc: 아무것도 바꾸지 않는다.
+func TestUnlinkWithoutBackupCancel(t *testing.T) {
+	for _, key := range []string{"3", "esc"} {
+		t.Run(key, func(t *testing.T) {
+			m, target := linkedFixture(t)
+			m, _ = press(t, m, "space")
+			m, _ = press(t, m, key)
+			if m.confirming != "" || !strings.Contains(m.status, "취소") {
+				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirming, m.status)
+			}
+			info, err := os.Lstat(target)
+			if err != nil || info.Mode()&os.ModeSymlink == 0 {
+				t.Errorf("target should still be a symlink (err %v)", err)
+			}
+		})
+	}
+}
+
+// 연결 확인 질문은 선택지가 2개라서 3은 무시한다.
+func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ = press(t, m, "space")
+	m, cmd := press(t, m, "3")
+	if cmd != nil || m.confirming == "" {
+		t.Fatal("3 should be ignored for a 2-option prompt")
 	}
 }

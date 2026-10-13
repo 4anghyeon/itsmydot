@@ -256,3 +256,59 @@ func TestUnlinkIgnoresForeignBak(t *testing.T) {
 	assertState(t, target, copyPath, NotSynced)
 	assertContent(t, target+".bak", "made by oh-my-zsh")
 }
+
+// Detach하면 symlink가 같은 내용의 일반 파일로 바뀌고, 로컬 사본과 백업은 그대로 남는다.
+func TestDetach(t *testing.T) {
+	home, copyPath := setup(t)
+	target := filepath.Join(home, ".zshrc")
+	if _, err := Link(target, copyPath); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Detach(target, copyPath); err != nil {
+		t.Fatalf("Detach: %v", err)
+	}
+	info, err := os.Lstat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		t.Errorf("target mode = %v, want regular file", info.Mode())
+	}
+	assertContent(t, target, "from repo")
+	assertContent(t, copyPath, "from repo")
+
+	// 일반 파일이 된 target을 고쳐도 로컬 사본은 바뀌지 않아야 한다.
+	mustWrite(t, target, "edited")
+	assertContent(t, copyPath, "from repo")
+
+	// 우리가 건 symlink가 아니면 거부한다.
+	if err := Detach(target, copyPath); err == nil {
+		t.Error("Detach on a regular file should fail")
+	}
+	assertContent(t, target, "edited")
+}
+
+func TestHasBackup(t *testing.T) {
+	home, copyPath := setup(t)
+	target := filepath.Join(home, ".gitconfig")
+
+	if has, err := HasBackup(target); err != nil || has {
+		t.Fatalf("HasBackup = %v, %v; want false", has, err)
+	}
+
+	mustWrite(t, target, "mine")
+	if _, err := Link(target, copyPath); err != nil {
+		t.Fatal(err)
+	}
+	if has, err := HasBackup(target); err != nil || !has {
+		t.Fatalf("HasBackup = %v, %v; want true", has, err)
+	}
+
+	// 다른 도구가 만든 .bak은 itsmydot 백업으로 보지 않는다.
+	other := filepath.Join(home, ".zshrc")
+	mustWrite(t, other+".bak", "x")
+	if has, _ := HasBackup(other); has {
+		t.Error("plain .bak should not count as an itsmydot backup")
+	}
+}

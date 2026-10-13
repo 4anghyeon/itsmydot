@@ -61,6 +61,8 @@ entries:
 - Refresh happens on toggle, not on a schedule or separate `sync` command — re-toggling an entry re-fetches the latest version.
 - Single entry point, no argv subcommands (no `itsmydot add <name>` style CLI is planned).
 - Conflicts always get backed up before symlinking — this isn't optional/prompted away, only the confirm step is.
+- TUI shortcuts must also work while a Korean IME is active: always read keys through `normalizeKey()` in `internal/tui/keys.go` (never `msg.String()` directly). It maps the full 두벌식 layout to QWERTY, so new letter shortcuts need no extra registration. This is internal only — help text shows the English keys. Caveat: the macOS Korean IME holds a lone jamo until the next keystroke, so letter keys arrive late; important actions should use keys the IME never holds (digits, esc, arrows, space, enter) — that's why the conflict prompt uses `1`/`2` (Claude Code/Codex style) instead of `y`/`n`. (Switching the macOS input source instead was rejected: needs cgo/external tools, changes system-wide state, and CJK switching is unreliable.)
+- Toggling off with no itsmydot backup to restore asks first (keep current content as a regular file via `link.Detach` / delete the file / cancel). Without a state store we can't tell "target never existed" from "backup was lost", so the user decides.
 - Backups use the `.itsmydot.bak` suffix (not plain `.bak`) so unlink never restores a `.bak` file that some other tool or the user created.
 - Not yet implemented, intentionally deferred: remote-update detection (comparing Contents API `sha` against the local copy), `ITSMYDOT_TOKEN` support for private repos/higher rate limits, non-interactive subcommands, search/diff modes.
 
