@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="206" viewBox="0 0 940 206" role="img" aria-label="itsmydot 로드맵">
+<rect width="940" height="206" rx="14" fill="#16161e"/>
+<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="46" y1="64" x2="326" y2="64"><stop offset="0" stop-color="#4ADE80"/><stop offset="1" stop-color="#C084FC"/></linearGradient></defs>
+<line x1="46" y1="64" x2="326" y2="64" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>
+<line x1="326" y1="64" x2="904" y2="64" stroke="#2a2b3a" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round"/>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Segoe UI', sans-serif">
+<circle cx="46" cy="64" r="11" fill="#4ADE80"/>
+<path d="M41.0 64.0 l3.3 3.5 l6.6 -7.5" fill="none" stroke="#16161e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="38" fill="#4ADE80" font-size="15" font-weight="700" letter-spacing="0.5">완료</text>
+<circle cx="46" cy="107" r="8" fill="#4ADE80" opacity="0.16"/>
+<path d="M42.4 107.0 l2.4 2.6 l4.8 -5.4" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="112" fill="#d5d6db" font-size="14">목록에서 dotfile 연결 / 해제</text>
+<circle cx="46" cy="141" r="8" fill="#4ADE80" opacity="0.16"/>
+<path d="M42.4 141.0 l2.4 2.6 l4.8 -5.4" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="146" fill="#d5d6db" font-size="14">기존 파일 백업과 되돌리기</text>
+<circle cx="46" cy="175" r="8" fill="#4ADE80" opacity="0.16"/>
+<path d="M42.4 175.0 l2.4 2.6 l4.8 -5.4" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="180" fill="#d5d6db" font-size="14">백업이 없을 때 해제 방법 확인</text>
+<circle cx="326" cy="64" r="16" fill="#C084FC" opacity="0.18"/>
+<circle cx="326" cy="64" r="11" fill="#16161e" stroke="#C084FC" stroke-width="3"/>
+<circle cx="326" cy="64" r="4.5" fill="#C084FC"/>
+<text x="316" y="38" fill="#C084FC" font-size="15" font-weight="700" letter-spacing="0.5">다음</text>
+<circle cx="326" cy="107" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
+<text x="346" y="112" fill="#d5d6db" font-size="14">연결을 유지한 채 최신본 받기</text>
+<circle cx="326" cy="141" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
+<text x="346" y="146" fill="#d5d6db" font-size="14">리포와 로컬 사본이 다를 때 표시</text>
+<circle cx="326" cy="175" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
+<text x="346" y="180" fill="#d5d6db" font-size="14">변경 내용 비교 (diff)</text>
+<circle cx="606" cy="64" r="11" fill="#16161e" stroke="#8A8A8A" stroke-width="2.5" stroke-dasharray="3 3"/>
+<text x="596" y="38" fill="#8A8A8A" font-size="15" font-weight="700" letter-spacing="0.5">이후</text>
+<circle cx="606" cy="107" r="6.5" fill="none" stroke="#8A8A8A" stroke-width="1.6" stroke-dasharray="2.5 2.5"/>
+<text x="626" y="112" fill="#8a8a99" font-size="14">항목 설명 표시</text>
+<circle cx="606" cy="141" r="6.5" fill="none" stroke="#8A8A8A" stroke-width="1.6" stroke-dasharray="2.5 2.5"/>
+<text x="626" y="146" fill="#8a8a99" font-size="14">도움말 화면</text>
+</g></svg>

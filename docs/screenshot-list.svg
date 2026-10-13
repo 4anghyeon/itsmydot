@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="474" height="220" viewBox="0 0 474 220" role="img" aria-label="itsmydot">
+<rect width="474" height="220" rx="12" fill="#16161e"/>
+<path d="M0 12a12 12 0 0 1 12-12h450a12 12 0 0 1 12 12v22h-474z" fill="#1f2030"/>
+<circle cx="22" cy="17.0" r="6" fill="#ff5f57"/>
+<circle cx="42" cy="17.0" r="6" fill="#febc2e"/>
+<circle cx="62" cy="17.0" r="6" fill="#28c840"/>
+<text x="237.0" y="21.5" fill="#8a8a99" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" text-anchor="middle">itsmydot</text>
+<path d="M30.6 61.0H31.3Q26.3 61.0 26.3 66.0V72" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M30.6 61.0H443.4" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M443.4 61.0H442.7Q447.7 61.0 447.7 66.0V72" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M26.3 72V94" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<rect x="297.2" y="76" width="68.8" height="14" fill="#4ade80" opacity="1"/>
+<rect x="366.0" y="76" width="68.8" height="14" fill="#8a8a8a" opacity="0.28"/>
+<path d="M447.7 72V94" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M26.3 94V116" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M447.7 94V116" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M26.3 116V138" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M447.7 116V138" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M26.3 138V160" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M447.7 138V160" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M26.3 160V166.0Q26.3 171.0 31.3 171.0H30.6" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M30.6 171.0H443.4" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<path d="M447.7 160V166.0Q447.7 171.0 442.7 171.0H443.4" stroke="#8a8a8a" stroke-width="1.2" fill="none"/>
+<text x="39.2" y="88.0" fill="#c084fc" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="68.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">itsmydot</text>
+<text x="211.2" y="88.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">연</text>
+<text x="228.4" y="88.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">결</text>
+<text x="245.6" y="88.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">됨</text>
+<text x="262.8" y="88.0" fill="#8a8a8a" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="34.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">1/2 </text>
+<text x="39.2" y="132.0" fill="#c084fc" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="17.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">&gt; </text>
+<text x="56.4" y="132.0" fill="#fbbf24" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="77.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">[!] zshrc</text>
+<text x="185.4" y="132.0" fill="#8a8a8a" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="68.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">~/.zshrc</text>
+<text x="280.0" y="132.0" fill="#fbbf24" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="8.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">(</text>
+<text x="297.2" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">다</text>
+<text x="314.4" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">른</text>
+<text x="340.2" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">파</text>
+<text x="357.4" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">일</text>
+<text x="374.6" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">이</text>
+<text x="400.4" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">있</text>
+<text x="417.6" y="132.0" fill="#fbbf24" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">음</text>
+<text x="426.2" y="132.0" fill="#fbbf24" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="17.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">) </text>
+<text x="56.4" y="154.0" fill="#4ade80" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="111.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">[+] gitconfig</text>
+<text x="185.4" y="154.0" fill="#8a8a8a" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="103.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">~/.gitconfig</text>
+<text x="39.2" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">방</text>
+<text x="56.4" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">향</text>
+<text x="73.6" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">키</text>
+<text x="99.4" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">이</text>
+<text x="116.6" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">동</text>
+<text x="151.0" y="198.0" fill="#8a8a8a" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="51.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">space </text>
+<text x="211.2" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">토</text>
+<text x="228.4" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">글</text>
+<text x="262.8" y="198.0" fill="#8a8a8a" font-family="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace" font-size="14.2" textLength="34.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" font-weight="700">esc </text>
+<text x="305.8" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">종</text>
+<text x="323.0" y="198.0" fill="#8a8a8a" font-family="'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="15.4" text-anchor="middle" font-weight="700">료</text>
+</svg>
