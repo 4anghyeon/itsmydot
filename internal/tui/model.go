@@ -49,6 +49,8 @@ type item struct {
 	copyPath string // 이 항목의 로컬 사본 경로. symlink가 가리켜야 할 곳
 	state    itemState
 	err      error // state가 errored일 때의 원인
+
+	flash, flashVelocity float64 // 상태가 바뀐 직후의 강조 정도(1 → 0)와 그 속도. animation.go 참고
 }
 
 // Model 은 화면의 상태 전부를 담는다.
@@ -72,6 +74,9 @@ type Model struct {
 	choice      int // 확인 질문에서 커서가 있는 선택지 (0부터)
 
 	spinner spinner.Model // 받는 중인 항목이 있을 때만 돈다
+
+	gauge, gaugeVelocity float64 // 게이지에 그려지는 연결 비율(0~1)과 그 속도. syncedRatio를 향해 움직인다
+	animating            bool    // animationTick이 예약돼 있으면 true
 }
 
 // confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
@@ -103,10 +108,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		m.items = msg.items
 		m.loadErr = msg.err
+		m.gauge = m.syncedRatio() // 처음 불러올 때는 애니메이션 없이 바로 맞춘다
 		return m, nil
 
 	case entrySyncedMsg:
-		return m.applySynced(msg), nil
+		return m.applySynced(msg).startAnimation()
+
+	case animationTickMsg:
+		return m.stepAnimation()
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

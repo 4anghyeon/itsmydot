@@ -56,7 +56,7 @@ func (m Model) View() tea.View {
 				done++
 			}
 		}
-		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(done, len(m.items))
+		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(m.gauge)
 	}
 	inner := lipgloss.Width(title) + 4 + lipgloss.Width(right)
 	for _, line := range body {
@@ -89,7 +89,7 @@ func (m Model) itemLines(st styles) []string {
 		if i == m.cursor {
 			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
 		}
-		line := cursor + " " + st.state(it.state).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+		line := cursor + " " + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
 
 		switch it.state {
 		case conflict:

@@ -50,7 +50,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmUnlink, 0
 			return m, nil
 		}
-		return m.unlink(m.cursor), nil
+		return m.unlink(m.cursor).startAnimation()
 	}
 
 	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업 자체는 생략할 수 없고, 진행 여부만 고른다.
@@ -67,6 +67,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 // m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m Model) unlink(i int) Model {
 	it := &m.items[i]
+	it.flash = 1
 	restored, err := link.Unlink(it.entry.Target, it.copyPath)
 	if err != nil {
 		it.state, it.err = errored, err
@@ -87,6 +88,7 @@ func (m Model) unlink(i int) Model {
 // m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m Model) detach(i int) Model {
 	it := &m.items[i]
+	it.flash = 1
 	if err := link.Detach(it.entry.Target, it.copyPath); err != nil {
 		it.state, it.err = errored, err
 		m.status = it.entry.Name + ": 해제 실패"
@@ -143,14 +145,14 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m.startSync(i)
 	case confirmUnlink:
 		if n == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
-			return m.detach(i), nil
+			return m.detach(i).startAnimation()
 		}
 		// 2. 연결을 끊고 파일도 지우기
 		m = m.unlink(i)
 		if m.items[i].state == notSynced {
 			m.status = name + ": 연결 끊음 · 내용은 " + tildify(m.items[i].copyPath, m.home) + " 에 남아 있음"
 		}
-		return m, nil
+		return m.startAnimation()
 	}
 	return m, nil
 }
@@ -177,6 +179,7 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	}
 	m.items = slices.Clone(m.items)
 	it := &m.items[i]
+	it.flash = 1
 
 	if msg.err != nil {
 		it.state, it.err = errored, msg.err

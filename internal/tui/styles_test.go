@@ -12,21 +12,23 @@ import (
 
 func TestGauge(t *testing.T) {
 	tests := []struct {
-		done, total, filled int
+		ratio  float64
+		filled int
 	}{
-		{0, 2, 0},
-		{1, 2, gaugeWidth / 2},
-		{2, 2, gaugeWidth},
-		{1, 100, 1}, // 하나라도 연결돼 있으면 최소 한 칸
-		{0, 0, 0},
+		{0, 0},
+		{0.5, gaugeWidth / 2},
+		{1, gaugeWidth},
+		{0.01, 1},         // 하나라도 연결돼 있으면 최소 한 칸
+		{1.2, gaugeWidth}, // 범위를 넘어도 막대 길이는 그대로
+		{-0.1, 0},
 	}
 	for _, tt := range tests {
-		g := ansi.Strip(newStyles(true).gauge(tt.done, tt.total))
+		g := ansi.Strip(newStyles(true).gauge(tt.ratio))
 		if got := strings.Count(g, "█"); got != tt.filled {
-			t.Errorf("gauge(%d, %d) filled = %d, want %d", tt.done, tt.total, got, tt.filled)
+			t.Errorf("gauge(%v) filled = %d, want %d", tt.ratio, got, tt.filled)
 		}
 		if w := lipgloss.Width(g); w != gaugeWidth {
-			t.Errorf("gauge(%d, %d) width = %d, want %d", tt.done, tt.total, w, gaugeWidth)
+			t.Errorf("gauge(%v) width = %d, want %d", tt.ratio, w, gaugeWidth)
 		}
 	}
 }

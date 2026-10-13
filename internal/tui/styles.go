@@ -2,6 +2,7 @@ package tui
 
 import (
 	"image/color"
+	"math"
 	"strings"
 	"time"
 
@@ -75,28 +76,42 @@ const gaugeWidth = 16
 
 // state 는 상태별 체크박스 색이다.
 func (st styles) state(s itemState) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(st.stateColor(s))
+}
+
+// stateColor 는 상태별 색이다.
+func (st styles) stateColor(s itemState) color.Color {
 	switch s {
 	case synced:
-		return lipgloss.NewStyle().Foreground(st.palette.synced)
+		return st.palette.synced
 	case syncing:
-		return lipgloss.NewStyle().Foreground(st.palette.syncing)
+		return st.palette.syncing
 	case conflict:
-		return lipgloss.NewStyle().Foreground(st.palette.conflict)
+		return st.palette.conflict
 	case errored:
-		return lipgloss.NewStyle().Foreground(st.palette.errored)
+		return st.palette.errored
 	default:
-		return st.muted
+		return st.palette.muted
 	}
 }
 
-// gauge 는 total 중 done만큼 채운 진행 막대를 그린다.
-// 채워진 칸은 목록의 [+]와 같은 초록이라, 색만 봐도 연결된 비율임을 알 수 있다.
-func (st styles) gauge(done, total int) string {
-	filled := 0
-	if total > 0 {
-		filled = done * gaugeWidth / total
+// flashing 은 상태 색과 강조색을 flash(0~1) 비율로 섞은 스타일이다. 1이면 강조색, 0이면 상태 색.
+func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
+	if flash <= 0 {
+		return st.state(s)
 	}
-	if done > 0 && filled == 0 {
+	const steps = 101
+	blend := lipgloss.Blend1D(steps, st.stateColor(s), st.palette.accent)
+	i := int(math.Round(min(flash, 1) * (steps - 1)))
+	return lipgloss.NewStyle().Foreground(blend[i])
+}
+
+// gauge 는 ratio(0~1)만큼 채운 진행 막대를 그린다.
+// 채워진 칸은 목록의 [+]와 같은 초록이라, 색만 봐도 연결된 비율임을 알 수 있다.
+func (st styles) gauge(ratio float64) string {
+	ratio = min(max(ratio, 0), 1)
+	filled := int(math.Round(ratio * gaugeWidth))
+	if ratio > animationSettle && filled == 0 {
 		filled = 1 // 하나라도 연결돼 있으면 빈 막대로 보이지 않게 한다
 	}
 
