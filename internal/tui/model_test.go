@@ -319,7 +319,7 @@ func TestConfirmCancel(t *testing.T) {
 	}
 }
 
-// 확인 질문에 답하기 전에는 이동/토글/q/y/n/enter를 무시하고, ctrl+c만 종료한다.
+// 확인 질문 중에는 선택과 상관없는 키(q/y/n 등)를 무시하고, ctrl+c만 종료한다.
 func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
@@ -327,7 +327,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	}
 	m, _ = press(t, m, "space")
 
-	for _, key := range []string{"down", "up", "space", "q", "y", "n", "enter"} {
+	for _, key := range []string{"q", "y", "n", "x"} {
 		var cmd tea.Cmd
 		m, cmd = press(t, m, key)
 		if cmd != nil || m.confirming != "gitconfig" {
@@ -337,7 +337,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	assertContent(t, target, "mine")
 
 	v := viewText(m)
-	for _, want := range []string{"이미 파일이 있습니다", "1. 백업 후 연결", "2. 취소", "1/2 선택"} {
+	for _, want := range []string{"이미 파일이 있습니다", "> 1. 백업 후 연결", "  2. 취소", "1/2 바로 선택"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -411,7 +411,7 @@ func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 		"1. 지금 설정은 남겨 두고 연결만 끊기 (추천)",
 		"2. 연결을 끊고 파일도 지우기",
 		"3. 취소",
-		"1/2/3 선택",
+		"1/2/3 바로 선택",
 	} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
@@ -466,4 +466,54 @@ func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
 // viewText 는 화면에서 색상 코드를 걷어낸 글자만 돌려준다.
 func viewText(m Model) string {
 	return ansi.Strip(m.View().Content)
+}
+
+// 확인 질문에서 방향키로 커서를 옮기고 enter로 고른다. 커서는 처음에 1번이고 범위를 벗어나지 않는다.
+func TestConfirmArrowSelection(t *testing.T) {
+	m, target := linkedFixture(t)
+	m, _ = press(t, m, "space")
+	if m.choice != 0 {
+		t.Fatalf("initial choice = %d, want 0", m.choice)
+	}
+
+	m, _ = press(t, m, "up") // 맨 위에서 위로 → 그대로
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "down") // 맨 아래에서 아래로 → 그대로
+	if m.choice != 2 {
+		t.Fatalf("choice = %d, want 2", m.choice)
+	}
+	if v := viewText(m); !strings.Contains(v, "> 3. 취소") {
+		t.Errorf("cursor should be on 3:\n%s", v)
+	}
+
+	m, _ = press(t, m, "k") // 2번(파일도 지우기)으로
+	m, _ = press(t, m, "enter")
+	if m.confirming != "" {
+		t.Fatal("enter should answer the prompt")
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Errorf("option 2 should delete the target, got err %v", err)
+	}
+}
+
+// space도 커서가 있는 선택지를 고른다.
+func TestConfirmSpaceSelects(t *testing.T) {
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ = press(t, m, "space")
+	m, _ = press(t, m, "down") // 2. 취소
+	m, cmd := press(t, m, "space")
+	if cmd != nil || m.confirming != "" || !strings.Contains(m.status, "취소") {
+		t.Fatalf("space on 2 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	}
+	assertContent(t, target, "mine")
+
+	// 다시 열면 커서는 1번부터
+	m, _ = press(t, m, "space")
+	if m.choice != 0 {
+		t.Errorf("choice = %d, want 0 when reopened", m.choice)
+	}
 }
