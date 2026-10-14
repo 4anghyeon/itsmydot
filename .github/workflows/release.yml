@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # 이전 태그를 찾으려면 커밋 기록 전체가 필요하다
+          fetch-depth: 0
+
+      # main에 바로 커밋하는 흐름이라 PR 제목으로 만드는 --generate-notes 대신 커밋 제목을 모은다
+      - name: Release 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous="$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)"
+          range="${previous:+$previous..}$GITHUB_REF_NAME"
+          git log --no-merges --pretty='- %s' "$range" > notes.md
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
