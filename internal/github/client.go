@@ -1,14 +1,5 @@
-// Package github 는 GitHub Contents API로 리포의 파일 내용을 읽어 온다.
-// git 바이너리나 인증 토큰 없이, public 리포에 GET 요청만 보낸다.
-//
-// 전체 흐름:
-//
-//	Fetch(ctx, 경로)
-//	  ├─ 1. 요청 URL 조립: {BaseURL}/repos/{owner}/{repo}/contents/{경로}
-//	  ├─ 2. GET 요청 전송
-//	  ├─ 3. 상태 코드 확인: 404 → ErrNotFound, 레이트 리밋 → *RateLimitError
-//	  ├─ 4. JSON 응답 → contentResponse 구조체로 변환
-//	  └─ 5. base64로 인코딩된 content 디코딩 → 원본 파일 바이트
+// Package github 는 GitHub Contents API로 리포의 파일 내용을 받아 온다.
+// public 리포만 다루므로 git 바이너리나 인증 토큰 없이 GET 요청만 보낸다.
 package github
 
 import (
@@ -24,12 +15,13 @@ import (
 	"time"
 )
 
-// DefaultBaseURL 은 GitHub REST API의 기본 주소다. 테스트에서는 가짜 서버 주소로 바꿔 끼운다.
+// DefaultBaseURL 은 GitHub REST API 주소다. 테스트에서는 가짜 서버 주소로 바꿔 끼운다.
 const DefaultBaseURL = "https://api.github.com"
 
+// ErrNotFound 는 요청한 경로가 리포에 없을 때 [Client.Fetch] 가 돌려준다.
 var ErrNotFound = errors.New("not found")
 
-// RateLimitError 는 비인증 요청 한도(시간당 60회)를 다 썼을 때 돌려주는 에러
+// RateLimitError 는 인증 없이 쓸 수 있는 요청 한도인 시간당 60회를 다 썼을 때 돌려주는 에러다.
 type RateLimitError struct {
 	Reset time.Time // 한도가 다시 채워지는 시각
 }
@@ -41,6 +33,7 @@ func (e *RateLimitError) Error() string {
 	return fmt.Sprintf("github API rate limit exceeded (resets at %s)", e.Reset.Local().Format("15:04"))
 }
 
+// Client 는 Owner의 Repo 리포에서 파일을 받아 온다.
 type Client struct {
 	Owner      string
 	Repo       string
@@ -48,6 +41,7 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// NewClient 는 기본 주소와 10초 타임아웃을 쓰는 Client를 만든다.
 func NewClient(owner, repo string) *Client {
 	return &Client{
 		Owner:      owner,
@@ -59,15 +53,14 @@ func NewClient(owner, repo string) *Client {
 
 // contentResponse 는 Contents API 응답 JSON 중 필요한 필드만 담는다.
 type contentResponse struct {
-	Type     string `json:"type"`     // "file", "dir", "symlink" 등
-	Encoding string `json:"encoding"` // 보통 "base64". 1MB가 넘는 파일은 "none"
+	Type     string `json:"type"`     // file, dir, symlink 중 하나
+	Encoding string `json:"encoding"` // 보통 base64이고 1MB가 넘는 파일은 none으로 온다
 	Content  string `json:"content"`
 }
 
-// Fetch 는 리포 루트 기준 경로(예: "files/zsh/.zshrc")의 파일 내용을 받아 온다.
+// Fetch 는 files/zsh/.zshrc 처럼 리포 루트 기준 경로에 있는 파일 내용을 받아 온다.
+// 파일이 없으면 [ErrNotFound] 를, 요청 한도를 넘었으면 [*RateLimitError] 를 감싼 에러를 돌려준다.
 func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
-	// 1. 요청 URL 조립.
-	//    경로의 각 부분을 URL 인코딩해서 공백이나 특수문자가 있어도 안전하게 만든다.
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/contents/%s",
 		strings.TrimRight(c.BaseURL, "/"), url.PathEscape(c.Owner), url.PathEscape(c.Repo), escapePath(path))
 
@@ -75,12 +68,11 @@ func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", path, err)
 	}
-	// GitHub 권장 헤더. User-Agent가 없으면 GitHub가 요청을 거부한다.
+	// User-Agent가 없으면 GitHub가 요청을 거부한다. 나머지 둘은 GitHub가 권장하는 헤더다.
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "itsmydot")
 
-	// 2. 요청 전송
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", path, err)
@@ -88,12 +80,10 @@ func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 
 	defer func() { _ = resp.Body.Close() }()
 
-	// 3. 상태 코드 확인.
 	if err := checkStatus(resp); err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", path, err)
 	}
 
-	// 4. JSON 응답 → 구조체.
 	var body contentResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("fetch %s: unexpected response (is it a directory?): %w", path, err)
@@ -105,7 +95,6 @@ func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 		return nil, fmt.Errorf("fetch %s: unsupported encoding %q (file larger than 1MB?)", path, body.Encoding)
 	}
 
-	// 5. base64 디코딩.
 	data, err := base64.StdEncoding.DecodeString(body.Content)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: decode content: %w", path, err)
@@ -113,7 +102,7 @@ func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 	return data, nil
 }
 
-// checkStatus 는 HTTP 상태 코드를 보고 실패면 알맞은 에러를 만든다. 200이면 nil.
+// checkStatus 는 200이 아닌 응답을 상태 코드에 맞는 에러로 바꾼다.
 func checkStatus(resp *http.Response) error {
 	switch {
 	case resp.StatusCode == http.StatusOK:
@@ -122,8 +111,8 @@ func checkStatus(resp *http.Response) error {
 	case resp.StatusCode == http.StatusNotFound:
 		return ErrNotFound
 
-	// rate limit은 403 또는 429로 온다.
-	// 403은 권한 문제일 수도 있으므로, 남은 횟수 헤더가 0일 때만 rate limit으로 본다.
+	// 요청 한도 초과는 403이나 429로 온다. 403은 권한 문제일 때도 오기 때문에
+	// 남은 횟수 헤더가 0일 때만 한도 초과로 본다.
 	case resp.StatusCode == http.StatusTooManyRequests,
 		resp.StatusCode == http.StatusForbidden && resp.Header.Get("X-RateLimit-Remaining") == "0":
 		return &RateLimitError{Reset: parseReset(resp.Header.Get("X-RateLimit-Reset"))}
@@ -141,7 +130,7 @@ func parseReset(v string) time.Time {
 	return time.Unix(sec, 0)
 }
 
-// escapePath 는 "files/zsh/.zshrc"처럼 / 로 나뉜 경로의 각 부분만 URL 인코딩한다.
+// escapePath 는 경로를 / 로 나눈 각 부분만 URL 인코딩한다. / 는 경로 구분자로 남아 있어야 한다.
 func escapePath(p string) string {
 	parts := strings.Split(strings.Trim(p, "/"), "/")
 	for i, part := range parts {

@@ -61,7 +61,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 	}
 }
 
-// 배경색 감지 결과에 따라 어두운/밝은 배경용 색을 쓴다. 감지 전에는 어두운 배경용.
+// 배경색을 감지한 결과에 따라 어두운 배경용이나 밝은 배경용 색을 쓴다. 감지 전에는 어두운 배경용을 쓴다.
 func TestBackgroundSelectsPalette(t *testing.T) {
 	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: synced})
 	darkGreen, lightGreen := "38;2;74;222;128", "38;2;21;128;61" // #4ADE80, #15803D

@@ -11,8 +11,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// View 는 상자 안에 제목·진행 게이지, 항목 목록(또는 불러오는 중/에러), 상태 메시지나 확인 질문을 그리고,
-// 상자 아래에 도움말을 붙인다.
+// View 는 상자 안에 제목과 진행 게이지, 항목 목록, 상태 메시지나 확인 질문을 그리고
+// 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
 
@@ -46,7 +46,6 @@ func (m Model) View() tea.View {
 		body = append(body, "", m.status)
 	}
 
-	// 상자 안쪽 폭: 가장 긴 줄에 맞추되, 터미널보다 넓으면 터미널 폭에 맞추고 긴 줄은 상자 안에서 줄바꿈한다.
 	title := st.title.Render("itsmydot")
 	right := ""
 	if m.ready && m.loadErr == nil && len(m.items) > 0 {
@@ -58,6 +57,7 @@ func (m Model) View() tea.View {
 		}
 		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(m.gauge)
 	}
+	// 상자 안쪽 폭은 가장 긴 줄에 맞춘다. 터미널보다 넓어지면 터미널 폭에 맞추고 긴 줄은 상자 안에서 줄바꿈한다.
 	inner := lipgloss.Width(title) + 4 + lipgloss.Width(right)
 	for _, line := range body {
 		inner = max(inner, lipgloss.Width(line))
@@ -77,7 +77,6 @@ func (m Model) View() tea.View {
 //	> [+] gitconfig  ~/.gitconfig
 //	  [!] zshrc      ~/.zshrc   (다른 파일이 있음)
 func (m Model) itemLines(st styles) []string {
-	// 이름 칸 너비를 가장 긴 이름에 맞춘다.
 	width := 0
 	for _, it := range m.items {
 		width = max(width, lipgloss.Width(it.entry.Name))
@@ -112,7 +111,7 @@ func (m Model) marker(s itemState) string {
 	return s.marker()
 }
 
-// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. 마지막 선택지는 항상 "취소"다.
+// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. answerConfirm이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
 func (m Model) confirmPrompt() (question string, options []string) {
 	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == m.confirming })
 	if i < 0 {
@@ -130,7 +129,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	}
 }
 
-// tildify 는 홈 디렉토리로 시작하는 경로를 ~로 줄인다. "/Users/me/.zshrc" → "~/.zshrc"
+// tildify 는 홈 디렉토리 아래 경로를 ~로 줄인다. /Users/me/.zshrc 는 ~/.zshrc 가 된다.
 func tildify(path, home string) string {
 	if home == "" {
 		return path

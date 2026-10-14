@@ -66,7 +66,7 @@ func assertContent(t *testing.T, path, want string) {
 	}
 }
 
-// fakeRepo 는 files(리포 경로 → 내용)를 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
+// fakeRepo 는 files에 담긴 리포 경로별 내용을 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
 // files에 없는 경로는 404를 돌려준다.
 func fakeRepo(t *testing.T, files map[string]string) *github.Client {
 	t.Helper()
@@ -116,8 +116,8 @@ func linkedFixture(t *testing.T) (Model, string) {
 	return m, target
 }
 
-// runCmd 는 백그라운드 작업을 바로 실행하고, 그 결과 메시지를 Update에 넣는다.
-// 묶인 작업(tea.Batch)은 풀어서 하나씩 실행하고, 스피너 tick은 건너뛴다.
+// runCmd 는 백그라운드 작업을 바로 실행하고 그 결과 메시지를 Update에 넣는다.
+// tea.Batch로 묶인 작업은 풀어서 하나씩 실행하고 스피너 tick은 건너뛴다.
 func runCmd(t *testing.T, m Model, cmd tea.Cmd) Model {
 	t.Helper()
 	if cmd == nil {

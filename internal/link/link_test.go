@@ -68,7 +68,7 @@ func TestCheck(t *testing.T) {
 
 func TestLinkAndUnlinkEmptyTarget(t *testing.T) {
 	home, copyPath := setup(t)
-	// 폴더가 아직 없는 경우 (새 Mac의 ~/.claude/CLAUDE.md 같은 상황)
+	// 새 Mac에서 ~/.claude/CLAUDE.md를 처음 연결할 때처럼 폴더가 아직 없는 경우
 	target := filepath.Join(home, ".claude", "CLAUDE.md")
 
 	backup, err := Link(target, copyPath)
@@ -98,7 +98,7 @@ func TestLinkAndUnlinkEmptyTarget(t *testing.T) {
 	assertContent(t, copyPath, "from repo")
 }
 
-// 일반 파일이 있던 자리: Link하면 .itsmydot.bak으로 백업, Unlink하면 원래 파일로 되돌린다.
+// 일반 파일이 있던 자리에 Link하면 .itsmydot.bak으로 백업하고 Unlink하면 원래 파일을 되돌린다.
 func TestLinkBacksUpAndUnlinkRestores(t *testing.T) {
 	home, copyPath := setup(t)
 	target := filepath.Join(home, ".gitconfig")
@@ -157,7 +157,7 @@ func TestBackupNamingAndOrder(t *testing.T) {
 		t.Errorf("second backup = %q, want %q", backups[1], want)
 	}
 
-	// 마지막(11번째) 백업이 가장 최근이어야 한다. "-11"이 "-2"보다 뒤로 정렬되는지 확인.
+	// 11번째 백업이 가장 최근이어야 한다. -11이 -2보다 뒤로 정렬되는지 본다.
 	if err := os.Symlink(copyPath, target); err != nil {
 		t.Fatal(err)
 	}

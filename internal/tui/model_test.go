@@ -14,7 +14,7 @@ func TestCursorMovesWithinBounds(t *testing.T) {
 		item{entry: entry("b", "/home/me/.b")},
 	)
 
-	m, _ = press(t, m, "up") // 맨 위에서 위로 → 그대로
+	m, _ = press(t, m, "up") // 맨 위라서 그대로
 	if m.cursor != 0 {
 		t.Errorf("cursor = %d, want 0", m.cursor)
 	}

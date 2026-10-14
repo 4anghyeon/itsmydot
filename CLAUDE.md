@@ -22,6 +22,8 @@
 ## Conventions
 
 - Code comments are Korean and explain this project's domain or *why*, not Go/library basics. Doc comments put a space before the particle (`// Load 는 ...`), otherwise GoLand flags them.
+  Doc links need the same space (`[Parse] 가`), otherwise go/doc does not treat them as links.
+- Write comments as plain Korean sentences: no arrows, `·`, tree drawings, colon labels or parenthetical asides, and few commas.
 - Spell names out in full (`animation`, not `anim`).
 - No progress/status notes in code comments or this file.
 

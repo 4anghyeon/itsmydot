@@ -11,8 +11,8 @@ import (
 )
 
 // palette 는 화면에 쓰는 색 묶음이다.
-// 터미널 테마의 기본 16색은 테마에 따라 초록이 올리브색으로 보이는 등 의미가 흐려져서,
-// 색을 직접 지정하고 배경 밝기에 따라 두 벌 중 하나를 고른다.
+// 터미널의 기본 16색은 테마에 따라 초록이 올리브색으로 보이기도 해서 색을 직접 지정한다.
+// 배경 밝기에 따라 두 벌 중 하나를 고른다.
 type palette struct {
 	synced, conflict, errored, syncing color.Color
 	muted, accent                      color.Color
@@ -61,14 +61,14 @@ func newStyles(dark bool) styles {
 	}
 }
 
-// syncSpinner 는 받는 중인 항목의 체크박스 안에서 돌아가는 스피너다. [.] → [o] → [O] → [o]
-// 기본 스피너의 점자 문자는 폰트에 따라 폭이 깨지고, 회전선(| / - \)은 실패 표시 [-]와 겹쳐서 직접 정의한다.
+// syncSpinner 는 받는 중인 항목의 체크박스 안에서 . o O o 순서로 돈다.
+// 기본 스피너의 점자 문자는 폰트에 따라 폭이 깨지고 막대가 도는 모양은 실패 표시 [-]와 헷갈려서 직접 정의한다.
 var syncSpinner = spinner.Spinner{
 	Frames: []string{".", "o", "O", "o"},
 	FPS:    time.Second / 8,
 }
 
-// frameExtra 는 frame의 테두리(좌우 1칸씩)와 안쪽 여백(좌우 1칸씩)을 합친 폭이다.
+// frameExtra 는 frame의 좌우 테두리와 안쪽 여백을 합친 폭이다. 네 가지 모두 한 칸씩이다.
 const frameExtra = 4
 
 // gaugeWidth 는 진행 게이지의 칸 수다.
@@ -95,7 +95,7 @@ func (st styles) stateColor(s itemState) color.Color {
 	}
 }
 
-// flashing 은 상태 색과 강조색을 flash(0~1) 비율로 섞은 스타일이다. 1이면 강조색, 0이면 상태 색.
+// flashing 은 상태 색에 강조색을 flash만큼 섞은 스타일이다. flash가 1이면 강조색이고 0이면 상태 색 그대로다.
 func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
 	if flash <= 0 {
 		return st.state(s)
@@ -106,8 +106,8 @@ func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(blend[i])
 }
 
-// gauge 는 ratio(0~1)만큼 채운 진행 막대를 그린다.
-// 채워진 칸은 목록의 [+]와 같은 초록이라, 색만 봐도 연결된 비율임을 알 수 있다.
+// gauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
+// 채운 칸은 목록의 연결 표시와 같은 초록이라 색만 봐도 연결된 비율인 걸 알 수 있다.
 func (st styles) gauge(ratio float64) string {
 	ratio = min(max(ratio, 0), 1)
 	filled := int(math.Round(ratio * gaugeWidth))
@@ -119,7 +119,7 @@ func (st styles) gauge(ratio float64) string {
 		st.muted.Render(strings.Repeat("░", gaugeWidth-filled))
 }
 
-// help 는 "키 설명" 쌍을 이어 붙인 도움말 한 줄을 만든다. help("space", "토글", "esc", "종료")
+// help 는 키와 설명을 번갈아 받아 도움말 한 줄로 이어 붙인다.
 func (st styles) help(pairs ...string) string {
 	parts := make([]string, 0, len(pairs)/2)
 	for i := 0; i+1 < len(pairs); i += 2 {

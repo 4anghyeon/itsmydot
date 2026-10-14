@@ -46,7 +46,7 @@ func TestWrite(t *testing.T) {
 	}
 }
 
-// symlink가 가리키고 있는 사본 파일을 덮어써도, symlink를 통해 새 내용이 보여야 한다.
+// symlink가 가리키는 사본 파일을 덮어쓰면 symlink를 통해서도 새 내용이 보여야 한다.
 func TestWriteThroughSymlink(t *testing.T) {
 	root := t.TempDir()
 	c := New(root)

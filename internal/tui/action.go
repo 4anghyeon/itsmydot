@@ -22,7 +22,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
-	// m.items는 원래 Model과 같은 배열을 가리키므로, 고치기 전에 복사해서 원래 상태를 건드리지 않는다.
+	// m.items는 이전 Model과 같은 배열을 쓴다. 복사하지 않고 고치면 이전 Model까지 바뀐다.
 	m.items = slices.Clone(m.items)
 	it := &m.items[m.cursor]
 	if it.state == syncing {
@@ -36,7 +36,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// 끄기: 로컬 작업이라 바로 처리한다.
+	// 끄는 건 네트워크가 필요 없어서 바로 처리한다.
 	if state == link.Synced {
 		// 되돌릴 백업이 없으면 target 자리가 비게 되므로 먼저 묻는다.
 		// 처음부터 파일이 없었던 건지, 백업이 사고로 사라진 건지 디스크만으로는 구분할 수 없다.
@@ -53,7 +53,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 		return m.unlink(m.cursor).startAnimation()
 	}
 
-	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업 자체는 생략할 수 없고, 진행 여부만 고른다.
+	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업은 건너뛸 수 없고 진행할지만 고른다.
 	if state == link.Conflict {
 		it.state, it.err = conflict, nil
 		m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmLink, 0
@@ -101,15 +101,15 @@ func (m Model) detach(i int) Model {
 }
 
 // answerConfirm 은 확인 질문에 대한 키 입력을 처리한다.
-// 방향키로 커서를 옮기고 enter/space로 고르거나, 선택지 번호로 바로 고른다. esc는 취소.
-// y/n 대신 숫자를 쓰는 이유는, 한글 입력기가 자모를 조합 대기로 붙잡아 y/n이 늦게 도착하기 때문이다.
-// 그 밖의 키는 무시해서, 답하기 전에 다른 항목을 건드리지 않게 한다.
+// 방향키로 커서를 옮겨 enter나 space로 고르거나 번호를 눌러 바로 고른다. esc는 취소다.
+// y와 n 대신 숫자를 쓰는 건 한글 입력기가 자모를 조합 대기로 붙잡아서 늦게 도착하기 때문이다.
+// 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
 func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
 	_, options := m.confirmPrompt()
-	cancel := strconv.Itoa(len(options)) // 마지막 선택지는 항상 "취소"
+	cancel := strconv.Itoa(len(options)) // 마지막 선택지는 항상 취소다
 	switch key {
 	case "up", "k":
 		m.choice = max(m.choice-1, 0)
@@ -197,7 +197,6 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 // loadEntries 는 GitHub에서 manifest를 받아 파싱하고, 각 항목의 현재 상태를 확인한다.
 // 디스크는 바꾸지 않는다. Init의 백그라운드 작업에서 호출된다.
 func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir) entriesLoadedMsg {
-	// 1. manifest 받기 + 파싱
 	data, err := client.Fetch(ctx, "manifest.yaml")
 	if err != nil {
 		return entriesLoadedMsg{err: err}
@@ -207,7 +206,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 		return entriesLoadedMsg{err: err}
 	}
 
-	// 2. 항목마다 상태 확인. 한 항목이 실패해도 나머지는 보여 주도록 그 항목만 errored로 표시한다.
+	// 한 항목이 실패해도 나머지는 보여 주도록 그 항목만 errored로 표시한다.
 	items := make([]item, 0, len(m.Entries))
 	for _, e := range m.Entries {
 		it := item{entry: e}

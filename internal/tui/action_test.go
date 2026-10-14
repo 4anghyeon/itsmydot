@@ -16,7 +16,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 )
 
-// loadEntries는 GitHub에서 manifest를 받아 각 항목의 상태를 확인한다. 가짜 서버와 임시 폴더로 확인한다.
+// loadEntries가 manifest를 받아 항목마다 상태를 제대로 판단하는지 가짜 서버와 임시 폴더로 확인한다.
 func TestLoadEntries(t *testing.T) {
 	home := t.TempDir()
 	copies := localcopy.New(t.TempDir())
@@ -34,7 +34,7 @@ func TestLoadEntries(t *testing.T) {
 	client := github.NewClient("o", "r")
 	client.BaseURL = srv.URL
 
-	// .a는 로컬 사본을 가리키는 symlink, .b는 없음, .c는 일반 파일
+	// .a는 로컬 사본을 가리키는 symlink이고 .b는 없고 .c는 일반 파일이다.
 	aCopy, err := copies.Path("files/a")
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestLoadEntries(t *testing.T) {
 func TestToggleOnAndOff(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "[user]\n"})
 
-	// 켜기: 바로 syncing이 되고, 작업이 끝나면 synced
+	// 켜면 바로 syncing이 되고 작업이 끝나면 synced가 된다.
 	m, cmd := press(t, m, "space")
 	if m.items[0].state != syncing {
 		t.Fatalf("state = %d, want syncing", m.items[0].state)
@@ -79,7 +79,7 @@ func TestToggleOnAndOff(t *testing.T) {
 	}
 	assertContent(t, target, "[user]\n")
 
-	// 끄기: 백업이 없으므로 먼저 묻고, 2번(파일도 지우기)을 고르면 target이 사라진다.
+	// 백업이 없어서 끌 때 먼저 묻는다. 2번 파일도 지우기를 고르면 target이 사라진다.
 	m, cmd = press(t, m, "space")
 	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlink {
 		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
@@ -157,7 +157,7 @@ func TestConfirmCancel(t *testing.T) {
 	}
 }
 
-// 확인 질문 중에는 선택과 상관없는 키(q/y/n 등)를 무시하고, ctrl+c만 종료한다.
+// 확인 질문 중에는 q, y, n처럼 선택과 상관없는 키를 무시하고 ctrl+c만 종료한다.
 func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
@@ -191,7 +191,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 }
 
 func TestToggleFetchError(t *testing.T) {
-	m, target := toggleFixture(t, map[string]string{}) // 리포에 파일이 없음 → 404
+	m, target := toggleFixture(t, map[string]string{}) // 리포에 파일이 없어서 404가 난다
 
 	m, cmd := press(t, m, "space")
 	m = runCmd(t, m, cmd)
@@ -215,7 +215,7 @@ func TestToggleDoesNotMutatePreviousModel(t *testing.T) {
 	}
 }
 
-// 백업이 없을 때 1번: 연결만 끊고 지금 설정은 일반 파일로 남긴다.
+// 백업이 없을 때 1번을 고르면 연결만 끊고 지금 설정은 일반 파일로 남긴다.
 func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 	m, target := linkedFixture(t)
 
@@ -247,7 +247,7 @@ func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 	}
 }
 
-// 백업이 없을 때 3번/esc: 아무것도 바꾸지 않는다.
+// 백업이 없을 때 3번이나 esc를 누르면 아무것도 바꾸지 않는다.
 func TestUnlinkWithoutBackupCancel(t *testing.T) {
 	for _, key := range []string{"3", "esc"} {
 		t.Run(key, func(t *testing.T) {
@@ -286,10 +286,10 @@ func TestConfirmArrowSelection(t *testing.T) {
 		t.Fatalf("initial choice = %d, want 0", m.choice)
 	}
 
-	m, _ = press(t, m, "up") // 맨 위에서 위로 → 그대로
+	m, _ = press(t, m, "up") // 맨 위라서 그대로
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "down")
-	m, _ = press(t, m, "down") // 맨 아래에서 아래로 → 그대로
+	m, _ = press(t, m, "down") // 맨 아래라서 그대로
 	if m.choice != 2 {
 		t.Fatalf("choice = %d, want 2", m.choice)
 	}
@@ -297,7 +297,7 @@ func TestConfirmArrowSelection(t *testing.T) {
 		t.Errorf("cursor should be on 3:\n%s", v)
 	}
 
-	m, _ = press(t, m, "k") // 2번(파일도 지우기)으로
+	m, _ = press(t, m, "k") // 2번 파일도 지우기로 올라간다
 	m, _ = press(t, m, "enter")
 	if m.confirming != "" {
 		t.Fatal("enter should answer the prompt")
