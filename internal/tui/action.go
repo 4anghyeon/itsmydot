@@ -2,8 +2,10 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -17,7 +19,7 @@ import (
 //
 // 화면에 표시된 상태가 아니라 디스크를 다시 확인해서 결정한다.
 // errored 항목도 실제로 연결돼 있으면 끄고, 아니면 다시 받아서 연결을 시도한다.
-// target 자리에 다른 파일이 있으면 바로 연결하지 않고 확인 질문을 띄운다.
+// target 자리에 다른 파일이 있거나 켜진 하위 항목까지 함께 꺼지는 경우에는 먼저 확인 질문을 띄운다.
 func (m Model) toggle() (Model, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
@@ -50,53 +52,101 @@ func (m Model) toggle() (Model, tea.Cmd) {
 			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmUnlink, 0
 			return m, nil
 		}
+		if len(m.syncedChildren(m.cursor)) > 0 {
+			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmGroupUnlink, 0
+			return m, nil
+		}
 		return m.unlink(m.cursor).startAnimation()
 	}
 
-	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업은 건너뛸 수 없고 진행할지만 고른다.
-	if state == link.Conflict {
-		it.state, it.err = conflict, nil
-		m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmLink, 0
-		return m, nil
+	return m.turnOn(m.cursor, state)
+}
+
+// turnOn 은 i번째 항목을 켠다. 하위 항목이면 꺼져 있는 그룹 파일도 함께 켠다.
+// state는 i번째 항목의 디스크 상태다. m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
+	indexes, states := []int{i}, []link.State{state}
+	if parent := m.items[i].parent; parent != "" {
+		p := m.indexOf(parent)
+		group := &m.items[p]
+		if group.state != syncing {
+			groupState, err := link.Check(group.entry.Target, group.copyPath)
+			if err != nil {
+				group.state, group.err = errored, err
+				m.status = group.entry.Name + ": 상태 확인 실패"
+				return m, nil
+			}
+			if groupState != link.Synced {
+				indexes, states = []int{p, i}, []link.State{groupState, state}
+			}
+		}
 	}
 
-	return m.startSync(m.cursor)
+	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업은 건너뛸 수 없고 진행할지만 고른다.
+	// 그룹 파일과 하위 파일이 둘 다 걸려도 질문은 한 번만 한다.
+	conflicted := false
+	for k, j := range indexes {
+		if states[k] == link.Conflict {
+			m.items[j].state, m.items[j].err = conflict, nil
+			conflicted = true
+		}
+	}
+	if conflicted {
+		m.pending = make([]string, len(indexes))
+		for k, j := range indexes {
+			m.pending[k] = m.items[j].entry.Name
+		}
+		m.confirming, m.confirmKind, m.choice = m.items[i].entry.Name, confirmLink, 0
+		return m, nil
+	}
+	return m.startSync(indexes...)
 }
 
 // unlink 는 i번째 항목의 연결을 끊고, 백업이 있으면 원래 파일을 되돌린다.
-// m.items는 호출하기 전에 복사돼 있어야 한다.
+// 그룹이면 연결된 하위 항목도 함께 끈다. m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m Model) unlink(i int) Model {
+	m, childrenOff := m.unlinkChildren(i)
 	it := &m.items[i]
 	it.flash = 1
 	restored, err := link.Unlink(it.entry.Target, it.copyPath)
 	if err != nil {
 		it.state, it.err = errored, err
 		m.status = it.entry.Name + ": 해제 실패"
-		return m
+		return m.withChildrenOff(childrenOff)
 	}
-	it.state, it.err = notSynced, nil
-	m.status = it.entry.Name + ": 해제됨"
 	if restored != "" {
 		// 백업을 되돌렸으면 target 자리에 다시 일반 파일이 있다.
-		it.state = conflict
-		m.status += " · 원래 파일을 되돌림"
+		it.state, it.err = conflict, nil
+		m.status = it.entry.Name + ": 해제됨 · 원래 파일을 되돌림"
+	} else {
+		it.state, it.err = notSynced, nil
+		m.status = it.entry.Name + ": 연결 끊음 · 내용은 " + tildify(it.copyPath, m.home) + " 에 남아 있음"
 	}
-	return m
+	return m.withChildrenOff(childrenOff)
 }
 
 // detach 는 i번째 항목의 연결만 끊고, 지금 설정은 target에 일반 파일로 남긴다.
-// m.items는 호출하기 전에 복사돼 있어야 한다.
+// 그룹이면 연결된 하위 항목도 함께 끈다. m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m Model) detach(i int) Model {
+	m, childrenOff := m.unlinkChildren(i)
 	it := &m.items[i]
 	it.flash = 1
 	if err := link.Detach(it.entry.Target, it.copyPath); err != nil {
 		it.state, it.err = errored, err
 		m.status = it.entry.Name + ": 해제 실패"
-		return m
+		return m.withChildrenOff(childrenOff)
 	}
 	// target 자리에 일반 파일이 남았으므로 디스크 기준으로는 conflict다.
 	it.state, it.err = conflict, nil
 	m.status = it.entry.Name + ": 연결 끊음 · 지금 설정은 " + tildify(it.entry.Target, m.home) + " 에 남겨 둠"
+	return m.withChildrenOff(childrenOff)
+}
+
+// withChildrenOff 는 그룹을 끌 때 함께 끈 하위 항목 수를 상태 메시지에 덧붙인다.
+func (m Model) withChildrenOff(count int) Model {
+	if count > 0 {
+		m.status += fmt.Sprintf(" · 하위 항목 %d개도 끔", count)
+	}
 	return m
 }
 
@@ -127,14 +177,14 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	name := m.confirming
-	m.confirming = ""
+	name, pending := m.confirming, m.pending
+	m.confirming, m.pending = "", nil
 	if key == cancel {
 		m.status = name + ": 취소됨"
 		return m, nil
 	}
 
-	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == name })
+	i := m.indexOf(name)
 	if i < 0 {
 		return m, nil
 	}
@@ -142,38 +192,49 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 
 	switch m.confirmKind {
 	case confirmLink: // 1. 백업 후 연결
-		return m.startSync(i)
+		indexes := make([]int, 0, len(pending))
+		for _, p := range pending {
+			if j := m.indexOf(p); j >= 0 {
+				indexes = append(indexes, j)
+			}
+		}
+		return m.startSync(indexes...)
 	case confirmUnlink:
 		if n == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
 			return m.detach(i).startAnimation()
 		}
 		// 2. 연결을 끊고 파일도 지우기
-		m = m.unlink(i)
-		if m.items[i].state == notSynced {
-			m.status = name + ": 연결 끊음 · 내용은 " + tildify(m.items[i].copyPath, m.home) + " 에 남아 있음"
-		}
-		return m.startAnimation()
+		return m.unlink(i).startAnimation()
+	case confirmGroupUnlink: // 1. 모두 끄기
+		return m.unlink(i).startAnimation()
 	}
 	return m, nil
 }
 
-// startSync 는 i번째 항목을 syncing으로 바꾸고, 받아서 연결하는 작업을 백그라운드로 시작한다.
+// startSync 는 indexes의 항목들을 syncing으로 바꾸고, 받아서 연결하는 작업을 항목마다 백그라운드로 시작한다.
 // 스피너도 함께 돌린다. 이미 돌고 있으면 스피너가 겹친 tick을 알아서 버린다.
-// 끝나면 entrySyncedMsg로 결과가 돌아온다. m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) startSync(i int) (Model, tea.Cmd) {
-	it := &m.items[i]
-	it.state, it.err = syncing, nil
-	m.status = it.entry.Name + ": 받는 중..."
-	entry, client, copies := it.entry, m.client, m.copies
-	sync := func() tea.Msg {
-		return syncEntry(context.Background(), client, copies, entry)
+// 끝나면 항목마다 entrySyncedMsg로 결과가 돌아온다. m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) startSync(indexes ...int) (Model, tea.Cmd) {
+	cmds := make([]tea.Cmd, 0, len(indexes)+1)
+	names := make([]string, 0, len(indexes))
+	for _, i := range indexes {
+		it := &m.items[i]
+		it.state, it.err = syncing, nil
+		names = append(names, it.entry.Name)
+		entry, client, copies := it.entry, m.client, m.copies
+		cmds = append(cmds, func() tea.Msg {
+			return syncEntry(context.Background(), client, copies, entry)
+		})
 	}
-	return m, tea.Batch(sync, m.spinner.Tick)
+	m.status = strings.Join(names, ", ") + ": 받는 중..."
+	return m, tea.Batch(append(cmds, m.spinner.Tick)...)
 }
 
 // applySynced 는 syncEntry의 결과를 해당 항목에 반영한다.
+// 그룹 파일과 하위 파일을 함께 받으면 결과가 따로 도착한다. 먼저 온 결과의 백업 안내가 묻히지 않도록
+// 모두 끝날 때까지 모아 두었다가 목록 순서대로 한 줄에 보여 준다.
 func (m Model) applySynced(msg entrySyncedMsg) Model {
-	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == msg.name })
+	i := m.indexOf(msg.name)
 	if i < 0 {
 		return m
 	}
@@ -181,16 +242,28 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	it := &m.items[i]
 	it.flash = 1
 
+	var result string
 	if msg.err != nil {
 		it.state, it.err = errored, msg.err
-		m.status = it.entry.Name + ": 연결 실패"
+		result = it.entry.Name + ": 연결 실패"
+	} else {
+		it.state, it.err = synced, nil
+		result = it.entry.Name + ": 연결됨"
+		if msg.backup != "" {
+			result += " · 기존 파일 백업: " + tildify(msg.backup, m.home)
+		}
+	}
+
+	m.syncResults = append(slices.Clone(m.syncResults), syncResult{index: i, text: result})
+	if slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 		return m
 	}
-	it.state, it.err = synced, nil
-	m.status = it.entry.Name + ": 연결됨"
-	if msg.backup != "" {
-		m.status += " · 기존 파일 백업: " + tildify(msg.backup, m.home)
+	slices.SortFunc(m.syncResults, func(a, b syncResult) int { return a.index - b.index })
+	texts := make([]string, len(m.syncResults))
+	for k, r := range m.syncResults {
+		texts[k] = r.text
 	}
+	m.status, m.syncResults = strings.Join(texts, " / "), nil
 	return m
 }
 
@@ -206,22 +279,33 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 		return entriesLoadedMsg{err: err}
 	}
 
-	// 한 항목이 실패해도 나머지는 보여 주도록 그 항목만 errored로 표시한다.
-	items := make([]item, 0, len(m.Entries))
+	// 하위 항목은 그룹 바로 뒤에 이어 붙여서 목록 순서가 화면 순서와 같게 한다.
+	var items []item
 	for _, e := range m.Entries {
-		it := item{entry: e}
-		it.copyPath, err = copies.Path(e.Source)
-		if err == nil {
-			var s link.State
-			s, err = link.Check(e.Target, it.copyPath)
-			it.state = fromLinkState(s)
+		items = append(items, checkItem(e, "", copies))
+		for _, child := range e.Children {
+			items = append(items, checkItem(child, e.Name, copies))
 		}
-		if err != nil {
-			it.state, it.err = errored, err
-		}
-		items = append(items, it)
 	}
 	return entriesLoadedMsg{items: items}
+}
+
+// checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.
+// 확인에 실패해도 나머지 항목은 보여 주도록 그 항목만 errored로 표시한다.
+func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir) item {
+	e.Children = nil
+	it := item{entry: e, parent: parent}
+	var err error
+	it.copyPath, err = copies.Path(e.Source)
+	if err == nil {
+		var s link.State
+		s, err = link.Check(e.Target, it.copyPath)
+		it.state = fromLinkState(s)
+	}
+	if err != nil {
+		it.state, it.err = errored, err
+	}
+	return it
 }
 
 // syncEntry 는 항목 하나를 GitHub에서 최신본으로 받아 로컬 사본에 저장하고 target에 연결한다.

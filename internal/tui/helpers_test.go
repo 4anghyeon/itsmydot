@@ -27,6 +27,10 @@ func press(t *testing.T, m Model, key string) (Model, tea.Cmd) {
 		msg = tea.KeyPressMsg{Code: tea.KeyUp}
 	case "down":
 		msg = tea.KeyPressMsg{Code: tea.KeyDown}
+	case "left":
+		msg = tea.KeyPressMsg{Code: tea.KeyLeft}
+	case "right":
+		msg = tea.KeyPressMsg{Code: tea.KeyRight}
 	case "space":
 		msg = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 	case "esc":

@@ -48,7 +48,8 @@ type item struct {
 	entry    manifest.Entry
 	copyPath string // 로컬 사본 경로. symlink가 가리켜야 하는 곳이다
 	state    itemState
-	err      error // state가 errored일 때의 원인
+	err      error  // state가 errored일 때의 원인
+	parent   string // 하위 항목이면 그룹 이름. 하위 항목은 items에서 그룹 바로 뒤에 이어 붙는다
 
 	flash, flashVelocity float64 // 상태가 바뀐 직후 남아 있는 강조색의 정도와 그 속도. 1에서 0으로 줄어든다
 }
@@ -67,24 +68,36 @@ type Model struct {
 	loadErr error  // manifest 자체를 못 불러왔을 때의 에러
 	status  string // 마지막 토글 결과. 목록 아래 한 줄로 보여 준다
 
+	// collapsed 는 접힌 그룹의 이름이다. Model이 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
+	collapsed map[string]bool
+
 	// confirming 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
 	// items는 Update마다 복사되므로 포인터 대신 이름으로 가리킨다.
 	confirming  string
 	confirmKind confirmKind
-	choice      int // 확인 질문에서 커서가 있는 선택지. 0부터 센다
+	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
+	pending     []string // confirmLink에서 백업 후 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
 
-	spinner spinner.Model // 받는 중인 항목이 있을 때만 돈다
+	spinner     spinner.Model // 받는 중인 항목이 있을 때만 돈다
+	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
 
 	gauge, gaugeVelocity float64 // 게이지가 지금 그리는 연결 비율과 그 속도. syncedRatio 쪽으로 움직인다
 	animating            bool    // animationTick이 예약돼 있으면 true
+}
+
+// syncResult 는 받기가 끝난 항목 하나의 결과 문구다. index는 목록에서의 위치로 정렬에 쓴다.
+type syncResult struct {
+	index int
+	text  string
 }
 
 // confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
 type confirmKind int
 
 const (
-	confirmLink   confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
-	confirmUnlink                    // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
+	confirmLink        confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
+	confirmUnlink                         // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
+	confirmGroupUnlink                    // 켜진 하위 항목이 있어서 그룹 파일과 함께 끌지 묻는 중
 )
 
 // New 는 처음 화면 상태를 만든다. 실제 불러오기는 [Model.Init] 에서 시작한다.
@@ -144,13 +157,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.cursor = m.nextVisible(m.cursor, -1)
 		case "down", "j":
-			if m.cursor < len(m.items)-1 {
-				m.cursor++
-			}
+			m.cursor = m.nextVisible(m.cursor, 1)
+		case "left", "h":
+			m = m.collapse()
+		case "right", "l":
+			m = m.expand()
 		case "space":
 			return m.toggle()
 		}

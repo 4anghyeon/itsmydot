@@ -2,7 +2,36 @@ entries:
   - name: zshrc
     source: files/zsh/.zshrc
     target: ~/.zshrc
-    description: zsh 설정
+    description: zsh 설정. 아래 파일을 정해진 순서로 불러온다
+    children:
+      - name: env
+        source: files/zsh/env.zsh
+        target: ~/.config/zsh/env.zsh
+        description: 언어와 PATH
+      - name: oh-my-zsh
+        source: files/zsh/oh-my-zsh.zsh
+        target: ~/.config/zsh/oh-my-zsh.zsh
+        description: oh-my-zsh 테마와 플러그인. 설치돼 있을 때만 불러온다
+      - name: mise
+        source: files/zsh/mise.zsh
+        target: ~/.config/zsh/mise.zsh
+        description: mise 활성화. 설치돼 있을 때만 불러온다
+      - name: go
+        source: files/zsh/go.zsh
+        target: ~/.config/zsh/go.zsh
+        description: go install 로 받은 도구를 PATH에 추가
+      - name: git
+        source: files/zsh/git.zsh
+        target: ~/.config/zsh/git.zsh
+        description: 브랜치 만들기 함수 agcb
+      - name: killport
+        source: files/zsh/killport.zsh
+        target: ~/.config/zsh/killport.zsh
+        description: 포트를 쓰는 프로세스 종료 함수
+      - name: android
+        source: files/zsh/android.zsh
+        target: ~/.config/zsh/android.zsh
+        description: Android SDK 경로
   - name: gitconfig
     source: files/git/.gitconfig
     target: ~/.gitconfig
