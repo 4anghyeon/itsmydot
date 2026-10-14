@@ -29,6 +29,9 @@ func (m Model) View() tea.View {
 	}
 
 	footer := st.help("방향키", "이동", "space", "토글", "esc", "종료")
+	if slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }) {
+		footer = st.help("방향키", "이동/접기", "space", "토글", "esc", "종료")
+	}
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
 		body = append(body, "", st.question.Render(question), "")
@@ -72,23 +75,41 @@ func (m Model) View() tea.View {
 	return tea.NewView(box + "\n " + footer + "\n")
 }
 
-// itemLines 는 항목 목록을 한 줄씩 만든다.
+// itemLines 는 항목 목록을 한 줄씩 만든다. 하위 항목은 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
+// 그룹 줄의 체크박스는 그룹 파일의 상태이고 하위 항목이 몇 개 켜졌는지는 줄 끝에 따로 적는다.
 //
-//	> [+] gitconfig  ~/.gitconfig
-//	  [!] zshrc      ~/.zshrc   (다른 파일이 있음)
+//	  [+] gitconfig  ~/.gitconfig
+//	> [+] zshrc      ~/.zshrc  1/2
+//	      [+] env    ~/.config/zsh/00-env.zsh
+//	      [!] git    ~/.config/zsh/20-git.zsh   (다른 파일이 있음)
 func (m Model) itemLines(st styles) []string {
+	// 들여 쓴 하위 항목도 경로 칸이 맞도록 들여쓰기를 이름 폭에 넣어 센다.
 	width := 0
-	for _, it := range m.items {
-		width = max(width, lipgloss.Width(it.entry.Name))
+	for i, it := range m.items {
+		if m.visible(i) {
+			width = max(width, len(indent(it))+lipgloss.Width(it.entry.Name))
+		}
 	}
 
 	lines := make([]string, 0, len(m.items))
 	for i, it := range m.items {
-		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(it.entry.Name))
+		if !m.visible(i) {
+			continue
+		}
+		pad := indent(it)
+		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-len(pad)-lipgloss.Width(it.entry.Name))
 		if i == m.cursor {
 			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
 		}
-		line := cursor + " " + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+		line := cursor + " " + pad + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+
+		if children := m.children(i); len(children) > 0 {
+			count := fmt.Sprintf("  %d/%d", len(m.syncedChildren(i)), len(children))
+			if m.collapsed[it.entry.Name] {
+				count += " 접힘"
+			}
+			line += st.muted.Render(count)
+		}
 
 		switch it.state {
 		case conflict:
@@ -103,6 +124,14 @@ func (m Model) itemLines(st styles) []string {
 	return lines
 }
 
+// indent 는 하위 항목 앞에 넣는 들여쓰기다.
+func indent(it item) string {
+	if it.parent == "" {
+		return ""
+	}
+	return "    "
+}
+
 // marker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
 func (m Model) marker(s itemState) string {
 	if s == syncing && len(m.spinner.Spinner.Frames) > 0 {
@@ -113,19 +142,38 @@ func (m Model) marker(s itemState) string {
 
 // confirmPrompt 는 확인 질문 문구와 선택지를 만든다. answerConfirm이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
 func (m Model) confirmPrompt() (question string, options []string) {
-	i := slices.IndexFunc(m.items, func(it item) bool { return it.entry.Name == m.confirming })
+	i := m.indexOf(m.confirming)
 	if i < 0 {
 		return "", []string{"취소"}
 	}
-	target := tildify(m.items[i].entry.Target, m.home)
+	it := m.items[i]
+	target := tildify(it.entry.Target, m.home)
+
+	// 켜진 하위 항목이 있으면 그룹 파일을 끌 때 함께 꺼진다는 걸 미리 알린다.
+	childrenNote := ""
+	if n := len(m.syncedChildren(i)); n > 0 {
+		childrenNote = fmt.Sprintf("하위 항목 %d개도 함께 꺼집니다. ", n)
+	}
 
 	switch m.confirmKind {
 	case confirmUnlink:
-		return fmt.Sprintf("%s 의 원래 파일(백업)을 찾을 수 없습니다. 연결을 어떻게 끊을까요?", target),
+		return fmt.Sprintf("%s 의 원래 파일(백업)을 찾을 수 없습니다. %s연결을 어떻게 끊을까요?", target, childrenNote),
 			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
+	case confirmGroupUnlink:
+		return fmt.Sprintf("%s 를 끄면 %s계속할까요?", it.entry.Name, childrenNote),
+			[]string{"모두 끄기", "취소"}
 	default:
-		return fmt.Sprintf("%s 에 이미 파일이 있습니다. 기존 파일을 백업한 뒤 연결할까요?", target),
-			[]string{"백업 후 연결", "취소"}
+		var conflicted []string
+		for _, name := range m.pending {
+			if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
+				conflicted = append(conflicted, tildify(m.items[j].entry.Target, m.home))
+			}
+		}
+		question := fmt.Sprintf("%s 에 이미 파일이 있습니다. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
+		if it.parent != "" && slices.Contains(m.pending, it.parent) {
+			question = fmt.Sprintf("%s 는 %s 가 불러오는 파일이라 %s 도 함께 켭니다. ", it.entry.Name, it.parent, it.parent) + question
+		}
+		return question, []string{"백업 후 연결", "취소"}
 	}
 }
 

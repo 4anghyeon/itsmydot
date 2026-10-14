@@ -3,6 +3,7 @@ package manifest
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -32,11 +33,40 @@ entries:
 
 	got := m.Entries[0]
 	want := Entry{Name: "zshrc", Source: "files/zsh/.zshrc", Target: filepath.Join(home, ".zshrc"), Description: "zsh 설정"}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("entry 0 = %+v, want %+v", got, want)
 	}
 	if m.Entries[1].Target != "/etc/x" {
 		t.Errorf("absolute target changed: %q", m.Entries[1].Target)
+	}
+}
+
+// 하위 항목의 target도 ~를 홈 디렉토리로 바꾼다.
+func TestParseChildren(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := Parse([]byte(`
+entries:
+  - name: zshrc
+    source: files/zsh/.zshrc
+    target: ~/.zshrc
+    children:
+      - name: env
+        source: files/zsh/00-env.zsh
+        target: ~/.config/zsh/00-env.zsh
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	children := m.Entries[0].Children
+	if len(children) != 1 {
+		t.Fatalf("got %d children, want 1", len(children))
+	}
+	if want := filepath.Join(home, ".config/zsh/00-env.zsh"); children[0].Target != want {
+		t.Errorf("child target = %q, want %q", children[0].Target, want)
 	}
 }
 
@@ -53,6 +83,11 @@ func TestParseValidation(t *testing.T) {
 		{"escaping source", `entries: [{name: a, source: ../etc/passwd, target: y}]`, []string{"without '..'"}},
 		{"absolute source", `entries: [{name: a, source: /etc/passwd, target: y}]`, []string{"without '..'"}},
 		{"bad yaml", `entries: [`, []string{"parse manifest"}},
+		{"child missing fields", `entries: [{name: g, source: x, target: y, children: [{}]}]`, []string{
+			`entry "g" child #1: name is required`, "source is required", "target is required",
+		}},
+		{"duplicate across group", `entries: [{name: a, source: x, target: y}, {name: g, source: x, target: y, children: [{name: a, source: x, target: y}]}]`, []string{`"a": duplicate name`}},
+		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{`"c": children cannot have children`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

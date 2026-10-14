@@ -13,11 +13,15 @@ import (
 )
 
 // Entry 는 동기화할 수 있는 dotfile 하나다. Target에 들어 있던 ~는 [Parse] 가 홈 디렉토리로 바꿔 둔다.
+//
+// Children이 있으면 그룹이다. 그룹도 자기 파일을 가진다. zsh라면 ~/.zshrc가 그룹 파일이고
+// 그 파일이 불러오는 ~/.config/zsh/*.zsh가 하위 항목이다. 하위 항목은 다시 Children을 가질 수 없다.
 type Entry struct {
-	Name        string `yaml:"name"`
-	Source      string `yaml:"source"`
-	Target      string `yaml:"target"`
-	Description string `yaml:"description"`
+	Name        string  `yaml:"name"`
+	Source      string  `yaml:"source"`
+	Target      string  `yaml:"target"`
+	Description string  `yaml:"description"`
+	Children    []Entry `yaml:"children"`
 }
 
 // Manifest 는 manifest.yaml 파일 전체다.
@@ -52,7 +56,11 @@ func Parse(data []byte) (*Manifest, error) {
 		return nil, fmt.Errorf("resolve home dir: %w", err)
 	}
 	for i := range m.Entries {
-		m.Entries[i].Target = expandHome(m.Entries[i].Target, home)
+		e := &m.Entries[i]
+		e.Target = expandHome(e.Target, home)
+		for j := range e.Children {
+			e.Children[j].Target = expandHome(e.Children[j].Target, home)
+		}
 	}
 
 	return &m, nil
@@ -66,34 +74,56 @@ func (m *Manifest) validate() error {
 	}
 
 	var errs []error
+	// 그룹 안팎을 가리지 않고 이름이 겹치면 안 된다. TUI가 이름으로 항목을 찾는다.
 	seen := make(map[string]bool)
 
 	for i, e := range m.Entries {
 		// 이름이 없는 항목은 몇 번째인지로 가리킨다.
 		label := fmt.Sprintf("entry #%d", i+1)
-		if e.Name != "" {
-			label = fmt.Sprintf("entry %q", e.Name)
-		}
+		errs = append(errs, validateEntry(e, label, seen)...)
 
-		if e.Name == "" {
-			errs = append(errs, fmt.Errorf("%s: name is required", label))
-		} else if seen[e.Name] {
-			errs = append(errs, fmt.Errorf("%s: duplicate name", label))
-		}
-		seen[e.Name] = true
-
-		if e.Source == "" {
-			errs = append(errs, fmt.Errorf("%s: source is required", label))
-		} else if !isSafeRelPath(e.Source) {
-			errs = append(errs, fmt.Errorf("%s: source must be a repo-relative path without '..' (got %q)", label, e.Source))
-		}
-
-		if e.Target == "" {
-			errs = append(errs, fmt.Errorf("%s: target is required", label))
+		for j, child := range e.Children {
+			childLabel := fmt.Sprintf("%s child #%d", entryLabel(e, label), j+1)
+			errs = append(errs, validateEntry(child, childLabel, seen)...)
+			if len(child.Children) > 0 {
+				errs = append(errs, fmt.Errorf("%s: children cannot have children", entryLabel(child, childLabel)))
+			}
 		}
 	}
 
 	return errors.Join(errs...)
+}
+
+// validateEntry 는 항목 하나의 이름과 경로를 검사한다. 하위 항목은 따로 넘겨받으므로 여기서 보지 않는다.
+func validateEntry(e Entry, label string, seen map[string]bool) []error {
+	label = entryLabel(e, label)
+	var errs []error
+
+	if e.Name == "" {
+		errs = append(errs, fmt.Errorf("%s: name is required", label))
+	} else if seen[e.Name] {
+		errs = append(errs, fmt.Errorf("%s: duplicate name", label))
+	}
+	seen[e.Name] = true
+
+	if e.Source == "" {
+		errs = append(errs, fmt.Errorf("%s: source is required", label))
+	} else if !isSafeRelPath(e.Source) {
+		errs = append(errs, fmt.Errorf("%s: source must be a repo-relative path without '..' (got %q)", label, e.Source))
+	}
+
+	if e.Target == "" {
+		errs = append(errs, fmt.Errorf("%s: target is required", label))
+	}
+	return errs
+}
+
+// entryLabel 은 에러 메시지에서 항목을 가리킬 이름이다. 이름이 없으면 fallback을 쓴다.
+func entryLabel(e Entry, fallback string) string {
+	if e.Name != "" {
+		return fmt.Sprintf("entry %q", e.Name)
+	}
+	return fallback
 }
 
 // isSafeRelPath 는 p가 리포 안을 가리키는 상대 경로인지 확인한다.
