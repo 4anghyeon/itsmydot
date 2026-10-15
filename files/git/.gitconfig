@@ -6,4 +6,4 @@
     path = ~/.gitconfig-work
 
 [core]
-    autocrlf = input
+    autocrlf = input 
