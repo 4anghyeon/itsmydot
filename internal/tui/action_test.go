@@ -327,3 +327,110 @@ func TestConfirmSpaceSelects(t *testing.T) {
 		t.Errorf("choice = %d, want 0 when reopened", m.choice)
 	}
 }
+
+// 연결된 항목에서 enter를 누르면 메뉴가 뜨고, 1번을 고르면 연결은 그대로 두고 로컬 사본만 새로 받는다.
+func TestMenuUpdateCopy(t *testing.T) {
+	files := map[string]string{"files/git/.gitconfig": "v1"}
+	m, target := toggleFixture(t, files)
+	m, cmd := press(t, m, "space")
+	m = runCmd(t, m, cmd)
+
+	files["files/git/.gitconfig"] = "v2"
+	m, _ = press(t, m, "enter")
+	v := viewText(m)
+	for _, want := range []string{"> 1. 최신으로 받기", "  2. 끄기", "  3. 닫기"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+
+	m, cmd = press(t, m, "1")
+	if m.items[0].state != syncing {
+		t.Fatalf("state = %d, want syncing", m.items[0].state)
+	}
+	if m.status != "gitconfig 받는 중이에요..." {
+		t.Errorf("status = %q", m.status)
+	}
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced || m.status != "gitconfig 사본을 최신으로 바꿨어요" {
+		t.Fatalf("state = %d status = %q", m.items[0].state, m.status)
+	}
+	assertContent(t, target, "v2")
+	if _, err := os.Lstat(target + ".itsmydot.bak"); !os.IsNotExist(err) {
+		t.Error("updating the copy should not make a backup")
+	}
+}
+
+// 받기에 실패해도 연결과 이전 사본은 그대로라 연결된 상태로 남는다.
+func TestMenuUpdateCopyFetchError(t *testing.T) {
+	files := map[string]string{"files/git/.gitconfig": "v1"}
+	m, target := toggleFixture(t, files)
+	m, cmd := press(t, m, "space")
+	m = runCmd(t, m, cmd)
+
+	delete(files, "files/git/.gitconfig")
+	m, _ = press(t, m, "enter")
+	m, cmd = press(t, m, "1")
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced || !strings.Contains(m.status, "최신본을 받지 못해서 이전 사본을 그대로 써요") {
+		t.Fatalf("state = %d status = %q", m.items[0].state, m.status)
+	}
+	assertContent(t, target, "v1")
+}
+
+// 메뉴를 연 뒤 연결이 사라졌으면 받지 않고 상태만 바로잡는다.
+func TestMenuUpdateCopyWhenNoLongerLinked(t *testing.T) {
+	m, target := linkedFixture(t)
+	m, _ = press(t, m, "enter")
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	m, cmd := press(t, m, "1")
+	if cmd != nil || m.items[0].state != notSynced || !strings.Contains(m.status, "연결이 풀려 있어서 받지 않았어요") {
+		t.Fatalf("cmd=%v state=%d status=%q", cmd != nil, m.items[0].state, m.status)
+	}
+}
+
+// 연결되지 않은 항목의 메뉴에는 켜기만 있고, 고르면 space와 똑같이 켠다.
+func TestMenuTurnOn(t *testing.T) {
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+	m, _ = press(t, m, "enter")
+	v := viewText(m)
+	for _, want := range []string{"gitconfig  ~/.gitconfig", "> 1. 켜기", "  2. 닫기"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+	m, cmd := press(t, m, "1")
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced {
+		t.Fatalf("state = %d, want synced", m.items[0].state)
+	}
+	assertContent(t, target, "from repo")
+}
+
+// 메뉴에서 끄기를 고르면 space와 같은 흐름을 탄다. 백업이 없으니 이어서 해제 방법을 묻는다.
+func TestMenuTurnOffAsksLikeSpace(t *testing.T) {
+	m, _ := linkedFixture(t)
+	m, _ = press(t, m, "enter")
+	m, _ = press(t, m, "2")
+	if m.confirmKind != confirmUnlink || m.confirming != "gitconfig" {
+		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirming)
+	}
+}
+
+// esc로 메뉴를 닫으면 아무것도 하지 않고 취소 메시지도 남기지 않는다. 받는 중에는 메뉴를 열지 않는다.
+func TestMenuCancelAndSyncing(t *testing.T) {
+	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
+	m, _ = press(t, m, "enter")
+	m, cmd := press(t, m, "esc")
+	if cmd != nil || m.confirming != "" || m.status != "" {
+		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	}
+
+	m, _ = press(t, m, "space")
+	m, _ = press(t, m, "enter")
+	if m.confirming != "" {
+		t.Error("menu should not open while syncing")
+	}
+}

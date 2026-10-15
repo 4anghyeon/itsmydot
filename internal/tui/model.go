@@ -98,6 +98,7 @@ const (
 	confirmLink        confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
 	confirmUnlink                         // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
 	confirmGroupUnlink                    // 켜진 하위 항목이 있어서 그룹 파일과 함께 끌지 묻는 중
+	confirmAction                         // enter로 연 항목 메뉴에서 할 일을 고르는 중
 )
 
 // New 는 처음 화면 상태를 만든다. 실제 불러오기는 [Model.Init] 에서 시작한다.
@@ -166,6 +167,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.expand()
 		case "space":
 			return m.toggle()
+		case "enter":
+			return m.openMenu(), nil
 		}
 	}
 	return m, nil
