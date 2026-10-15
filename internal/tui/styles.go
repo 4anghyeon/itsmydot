@@ -41,6 +41,7 @@ var (
 type styles struct {
 	palette
 	frame, title, muted, cursor, selected, question, key lipgloss.Style
+	update                                               lipgloss.Style
 }
 
 // newStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
@@ -58,6 +59,7 @@ func newStyles(dark bool) styles {
 		selected: lipgloss.NewStyle().Bold(true),
 		question: lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
 		key:      lipgloss.NewStyle().Bold(true),
+		update:   lipgloss.NewStyle().Bold(true).Foreground(p.syncing),
 	}
 }
 

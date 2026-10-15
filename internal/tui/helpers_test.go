@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -71,10 +72,18 @@ func assertContent(t *testing.T, path, want string) {
 }
 
 // fakeRepo 는 files에 담긴 리포 경로별 내용을 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
-// files에 없는 경로는 404를 돌려준다.
+// files에 없는 경로는 404를 돌려준다. Git Trees API에는 files 전체의 blob 해시로 답한다.
 func fakeRepo(t *testing.T, files map[string]string) *github.Client {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/repos/o/r/git/trees/HEAD" {
+			var entries []string
+			for path, content := range files {
+				entries = append(entries, fmt.Sprintf(`{"path":%q,"type":"blob","sha":%q}`, path, github.BlobHash([]byte(content))))
+			}
+			_, _ = w.Write([]byte(`{"tree":[` + strings.Join(entries, ",") + `]}`))
+			return
+		}
 		path := strings.TrimPrefix(r.URL.Path, "/repos/o/r/contents/")
 		content, ok := files[path]
 		if !ok {

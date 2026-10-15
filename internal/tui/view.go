@@ -111,6 +111,13 @@ func (m Model) itemLines(st styles) []string {
 			}
 			line += st.muted.Render(count)
 		}
+		if it.state == synced && it.outdated {
+			line += "  " + st.update.Render("^ 업데이트 있음")
+		}
+		// 접힌 그룹은 하위 항목 줄이 안 보이므로 하위 항목의 업데이트를 그룹 줄에 모아 보여 준다.
+		if n := m.outdatedChildren(i); n > 0 && m.collapsed[it.entry.Name] {
+			line += "  " + st.update.Render(fmt.Sprintf("^ 하위 %d개 업데이트 있음", n))
+		}
 
 		switch it.state {
 		case conflict:

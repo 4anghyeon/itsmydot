@@ -76,3 +76,18 @@ func TestBackgroundSelectsPalette(t *testing.T) {
 		t.Errorf("white background: want light palette")
 	}
 }
+
+// 업데이트 표시는 받는 중 스피너와 같은 청록색 글자로 그린다. 배경 밝기에 따라 색도 바뀐다.
+func TestUpdateMarkColors(t *testing.T) {
+	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: synced, outdated: true})
+	darkCyan := "38;2;34;211;238"  // #22D3EE
+	lightCyan := "38;2;14;116;144" // #0E7490
+
+	if v := m.View().Content; !strings.Contains(v, darkCyan) {
+		t.Errorf("dark background: want the mark color %s", darkCyan)
+	}
+	next, _ := m.Update(tea.BackgroundColorMsg{Color: lipgloss.Color("#FFFFFF")})
+	if v := next.(Model).View().Content; !strings.Contains(v, lightCyan) {
+		t.Errorf("white background: want the mark color %s", lightCyan)
+	}
+}

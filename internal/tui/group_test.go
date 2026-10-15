@@ -269,3 +269,30 @@ func TestLoadEntriesWithChildren(t *testing.T) {
 		t.Errorf("items = %s, want %s", strings.Join(got, " "), want)
 	}
 }
+
+// 접힌 그룹은 하위 항목의 업데이트를 그룹 줄에 모아 보여 준다. 연결되지 않은 항목에는 표시하지 않는다.
+func TestOutdatedMarkInGroup(t *testing.T) {
+	m := loadedModel(
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced, outdated: true},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced, outdated: true},
+		item{entry: entry("git", "/home/me/.config/zsh/git.zsh"), parent: "zshrc", state: synced, outdated: true},
+		item{entry: entry("android", "/home/me/.config/zsh/android.zsh"), parent: "zshrc", outdated: true},
+	)
+	v := viewText(m)
+	for _, want := range []string{
+		"~/.zshrc  2/3  ^ 업데이트 있음",
+		"~/.config/zsh/env.zsh  ^ 업데이트 있음",
+	} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+	if strings.Contains(v, "android.zsh  ^") || strings.Contains(v, "하위 2개") {
+		t.Errorf("unexpected mark:\n%s", v)
+	}
+
+	m, _ = press(t, m, "left")
+	if v := viewText(m); !strings.Contains(v, "~/.zshrc  2/3 접힘  ^ 업데이트 있음  ^ 하위 2개 업데이트 있음") {
+		t.Errorf("collapsed group should collect the children:\n%s", v)
+	}
+}
