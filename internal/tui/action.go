@@ -180,7 +180,10 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	name, pending := m.confirming, m.pending
 	m.confirming, m.pending = "", nil
 	if key == cancel {
-		m.status = name + ": 취소됨"
+		// 메뉴는 아무것도 하지 않고 닫는 것이라 취소를 알릴 필요가 없다.
+		if m.confirmKind != confirmAction {
+			m.status = name + ": 취소됨"
+		}
 		return m, nil
 	}
 
@@ -207,8 +210,49 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m.unlink(i).startAnimation()
 	case confirmGroupUnlink: // 1. 모두 끄기
 		return m.unlink(i).startAnimation()
+	case confirmAction:
+		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
+		if n == 1 && m.items[i].state == synced { // 1. 최신으로 받기
+			return m.updateCopy(i)
+		}
+		return m.toggle() // 켜기 또는 끄기
 	}
 	return m, nil
+}
+
+// openMenu 는 커서가 있는 항목에서 할 수 있는 일을 번호 메뉴로 띄운다. 받는 중인 항목에서는 열지 않는다.
+func (m Model) openMenu() Model {
+	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == syncing {
+		return m
+	}
+	m.confirming, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
+	return m
+}
+
+// updateCopy 는 i번째 항목의 로컬 사본만 GitHub에서 다시 받는다. 연결은 건드리지 않는다.
+// 메뉴를 연 뒤에 디스크가 바뀌었을 수 있어서 받기 전에 아직 연결돼 있는지 다시 본다.
+// m.items는 호출하기 전에 복사돼 있어야 한다.
+func (m Model) updateCopy(i int) (Model, tea.Cmd) {
+	it := &m.items[i]
+	state, err := link.Check(it.entry.Target, it.copyPath)
+	if err != nil {
+		it.state, it.err = errored, err
+		m.status = it.entry.Name + ": 상태 확인 실패"
+		return m, nil
+	}
+	if state != link.Synced {
+		it.state, it.err = fromLinkState(state), nil
+		m.status = it.entry.Name + " 연결이 풀려 있어서 받지 않았어요"
+		return m, nil
+	}
+
+	it.state, it.err = syncing, nil
+	m.status = it.entry.Name + " 받는 중이에요..."
+	entry, client, copies := it.entry, m.client, m.copies
+	fetch := func() tea.Msg {
+		return fetchCopy(context.Background(), client, copies, entry)
+	}
+	return m, tea.Batch(fetch, m.spinner.Tick)
 }
 
 // startSync 는 indexes의 항목들을 syncing으로 바꾸고, 받아서 연결하는 작업을 항목마다 백그라운드로 시작한다.
@@ -243,10 +287,18 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	it.flash = 1
 
 	var result string
-	if msg.err != nil {
+	switch {
+	case msg.err != nil && msg.copyUpdated:
+		// 받기에 실패해도 연결과 이전 사본은 그대로라 연결된 상태로 둔다.
+		it.state, it.err = synced, nil
+		result = it.entry.Name + " 최신본을 받지 못해서 이전 사본을 그대로 써요 (" + msg.err.Error() + ")"
+	case msg.err != nil:
 		it.state, it.err = errored, msg.err
 		result = it.entry.Name + ": 연결 실패"
-	} else {
+	case msg.copyUpdated:
+		it.state, it.err = synced, nil
+		result = it.entry.Name + " 사본을 최신으로 바꿨어요"
+	default:
 		it.state, it.err = synced, nil
 		result = it.entry.Name + ": 연결됨"
 		if msg.backup != "" {
@@ -324,6 +376,18 @@ func syncEntry(ctx context.Context, client *github.Client, copies *localcopy.Dir
 		return msg
 	}
 	msg.backup, msg.err = link.Link(e.Target, copyPath)
+	return msg
+}
+
+// fetchCopy 는 연결된 항목의 최신본을 받아 로컬 사본만 바꾼다. symlink는 사본을 가리키고 있으므로 바로 반영된다.
+func fetchCopy(ctx context.Context, client *github.Client, copies *localcopy.Dir, e manifest.Entry) entrySyncedMsg {
+	msg := entrySyncedMsg{name: e.Name, copyUpdated: true}
+	data, err := client.Fetch(ctx, e.Source)
+	if err != nil {
+		msg.err = err
+		return msg
+	}
+	_, msg.err = copies.Write(e.Source, data)
 	return msg
 }
 

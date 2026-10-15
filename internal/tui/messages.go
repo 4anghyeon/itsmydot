@@ -8,7 +8,8 @@ type entriesLoadedMsg struct {
 
 // entrySyncedMsg 는 항목 하나를 받아서 연결하는 작업(syncEntry)의 결과다.
 type entrySyncedMsg struct {
-	name   string
-	backup string // 기존 파일을 옮겨 둔 백업 경로. 백업하지 않았으면 빈 문자열
-	err    error
+	name        string
+	backup      string // 기존 파일을 옮겨 둔 백업 경로. 백업하지 않았으면 빈 문자열
+	copyUpdated bool   // 연결은 그대로 두고 로컬 사본만 새로 받았으면 true
+	err         error
 }

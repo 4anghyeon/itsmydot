@@ -28,10 +28,11 @@ func (m Model) View() tea.View {
 		body = append(body, m.itemLines(st)...)
 	}
 
-	footer := st.help("방향키", "이동", "space", "토글", "esc", "종료")
+	move := "이동"
 	if slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }) {
-		footer = st.help("방향키", "이동/접기", "space", "토글", "esc", "종료")
+		move = "이동/접기"
 	}
+	footer := st.help("방향키", move, "space", "토글", "enter", "메뉴", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
 		body = append(body, "", st.question.Render(question), "")
@@ -159,6 +160,12 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	case confirmUnlink:
 		return fmt.Sprintf("%s 의 원래 파일(백업)을 찾을 수 없습니다. %s연결을 어떻게 끊을까요?", target, childrenNote),
 			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
+	case confirmAction:
+		question := it.entry.Name + "  " + target
+		if it.state == synced {
+			return question, []string{"최신으로 받기", "끄기", "닫기"}
+		}
+		return question, []string{"켜기", "닫기"}
 	case confirmGroupUnlink:
 		return fmt.Sprintf("%s 를 끄면 %s계속할까요?", it.entry.Name, childrenNote),
 			[]string{"모두 끄기", "취소"}
