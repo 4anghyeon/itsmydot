@@ -15,7 +15,7 @@ func TestWrite(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 
-	// 리포 경로가 그대로 미러링됐는지 확인한다.
+	// 저장소 경로가 그대로 미러링됐는지 확인한다.
 	want := filepath.Join(root, "files", "zsh", ".zshrc")
 	if got != want {
 		t.Errorf("path = %q, want %q", got, want)

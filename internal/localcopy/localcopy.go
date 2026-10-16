@@ -1,5 +1,5 @@
 // Package localcopy 는 GitHub에서 받은 dotfile을 ~/.itsmydot에 저장한다.
-// 리포의 source 경로를 그대로 따르므로 files/zsh/.zshrc 는 ~/.itsmydot/files/zsh/.zshrc 에 놓인다.
+// 저장소의 source 경로를 그대로 따르므로 files/zsh/.zshrc 는 ~/.itsmydot/files/zsh/.zshrc 에 놓인다.
 //
 // 이 파일들은 $HOME의 symlink가 가리키는 실제 파일이다. 지우면 연결된 dotfile이 깨진다.
 package localcopy
@@ -34,7 +34,7 @@ func Default() (*Dir, error) {
 	return New(filepath.Join(home, DirName)), nil
 }
 
-// Path 는 리포의 source 경로에 해당하는 사본 파일의 절대 경로를 돌려준다. Root 밖으로 나가면 에러다.
+// Path 는 저장소의 source 경로에 해당하는 사본 파일의 절대 경로를 돌려준다. Root 밖으로 나가면 에러다.
 func (d *Dir) Path(source string) (string, error) {
 	p := filepath.Join(d.Root, filepath.FromSlash(source))
 

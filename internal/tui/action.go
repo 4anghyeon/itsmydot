@@ -179,8 +179,17 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// 차이 보기는 답이 아니라 답을 고르려고 보는 것이라 질문을 닫지 않는다.
+	if m.confirmKind == confirmLink && n == 2 {
+		return m.startTargetCompare()
+	}
+
 	name, pending := m.confirming, m.pending
-	m.confirming, m.pending = "", nil
+	m.confirming, m.pending, m.confirmNote = "", nil, ""
+	if m.confirmKind == confirmLink {
+		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
+		m.comparing = ""
+	}
 	if key == cancel {
 		// 메뉴는 아무것도 하지 않고 닫는 것이라 취소를 알릴 필요가 없다.
 		if m.confirmKind != confirmAction {
@@ -196,7 +205,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	m.items = slices.Clone(m.items)
 
 	switch m.confirmKind {
-	case confirmLink: // 1. 백업 후 연결
+	case confirmLink: // 1. 백업 후 연결. 2. 차이 보기는 위에서 처리했다
 		indexes := make([]int, 0, len(pending))
 		for _, p := range pending {
 			if j := m.indexOf(p); j >= 0 {
@@ -214,8 +223,13 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m.unlink(i).startAnimation()
 	case confirmAction:
 		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
-		if n == 1 && m.items[i].state == synced { // 1. 최신으로 받기
-			return m.updateCopy(i)
+		if m.items[i].state == synced {
+			switch n {
+			case 1: // 최신으로 받기
+				return m.updateCopy(i)
+			case 2: // 비교 보기
+				return m.startCompare(i)
+			}
 		}
 		return m.toggle() // 켜기 또는 끄기
 	}
@@ -367,8 +381,8 @@ func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes ma
 	return it
 }
 
-// differsFromRepo 는 로컬 사본이 리포의 source 파일과 다른지 알려 준다.
-// 리포 해시가 없거나 사본을 읽지 못하면 비교할 수 없으므로 다르지 않다고 본다.
+// differsFromRepo 는 로컬 사본이 저장소의 source 파일과 다른지 알려 준다.
+// 저장소 해시가 없거나 사본을 읽지 못하면 비교할 수 없으므로 다르지 않다고 본다.
 func differsFromRepo(copyPath, source string, hashes map[string]string) bool {
 	remote, ok := hashes[path.Clean(source)]
 	if !ok {

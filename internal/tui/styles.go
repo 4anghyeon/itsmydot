@@ -18,6 +18,16 @@ type palette struct {
 	muted, accent                      color.Color
 	update                             color.Color // 업데이트 있음 표시. 충돌의 노란색과 헷갈리지 않게 주황 쪽으로 둔다
 	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름. 다른 상태 색과 겹치지 않는 파랑과 분홍
+
+	diffRemoved, diffAdded diffTones   // 비교 보기에서 지운 줄과 추가한 줄의 배경
+	diffHunk               color.Color // 비교 보기에서 @@ 줄의 배경
+}
+
+// diffTones 는 비교 보기에서 지운 줄이나 추가한 줄 한쪽을 칠하는 배경색이다. 줄, 줄 번호 칸, 바뀐 단어 순으로 진하다.
+// 256색 터미널은 색을 가장 가까운 칸으로 바꾸는데 옅은 분홍은 노랑으로, 옅은 초록은 하늘색으로 바뀐다.
+// 그래서 256색표에 있는 색만 골라 어느 터미널에서나 빨강과 초록 계열로 보이게 한다.
+type diffTones struct {
+	line, number, word color.Color
 }
 
 var (
@@ -31,6 +41,10 @@ var (
 		update:   lipgloss.Color("#FB923C"),
 		group:    lipgloss.Color("#60A5FA"),
 		file:     lipgloss.Color("#F472B6"),
+
+		diffRemoved: diffTones{lipgloss.Color("#5F0000"), lipgloss.Color("#870000"), lipgloss.Color("#AF0000")},
+		diffAdded:   diffTones{lipgloss.Color("#005F00"), lipgloss.Color("#008700"), lipgloss.Color("#00AF00")},
+		diffHunk:    lipgloss.Color("#303030"),
 	}
 	lightPalette = palette{
 		synced:   lipgloss.Color("#15803D"),
@@ -42,6 +56,10 @@ var (
 		update:   lipgloss.Color("#C2410C"),
 		group:    lipgloss.Color("#2563EB"),
 		file:     lipgloss.Color("#DB2777"),
+
+		diffRemoved: diffTones{lipgloss.Color("#FFD7D7"), lipgloss.Color("#FFAFAF"), lipgloss.Color("#FF8787")},
+		diffAdded:   diffTones{lipgloss.Color("#D7FFD7"), lipgloss.Color("#AFFFAF"), lipgloss.Color("#87FF87")},
+		diffHunk:    lipgloss.Color("#EEEEEE"),
 	}
 )
 
@@ -50,6 +68,24 @@ type styles struct {
 	palette
 	frame, title, muted, cursor, selected, question, key lipgloss.Style
 	update, groupName, fileName                          lipgloss.Style
+	diffRemoved, diffAdded                               diffStyles
+	diffHunk                                             lipgloss.Style
+}
+
+// diffStyles 는 비교 보기에서 지운 줄이나 추가한 줄 한쪽을 그리는 스타일이다.
+// 글자 색은 터미널 기본색을 두고 배경만 칠한다. 빨간 배경에 빨간 글자는 읽기 어렵다.
+type diffStyles struct {
+	line, number, word, marker lipgloss.Style
+}
+
+// newDiffStyles 는 tones로 칠하는 diffStyles를 만든다. marker는 +나 - 표시라서 줄 배경 위에 mark 색 글자로 그린다.
+func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
+	return diffStyles{
+		line:   lipgloss.NewStyle().Background(tones.line),
+		number: lipgloss.NewStyle().Background(tones.number).Foreground(muted),
+		word:   lipgloss.NewStyle().Background(tones.word),
+		marker: lipgloss.NewStyle().Background(tones.line).Foreground(mark).Bold(true),
+	}
 }
 
 // newStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
@@ -59,17 +95,20 @@ func newStyles(dark bool) styles {
 		p = darkPalette
 	}
 	return styles{
-		palette:   p,
-		frame:     lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
-		title:     lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		muted:     lipgloss.NewStyle().Foreground(p.muted),
-		cursor:    lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		selected:  lipgloss.NewStyle().Bold(true),
-		question:  lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
-		key:       lipgloss.NewStyle().Bold(true),
-		update:    lipgloss.NewStyle().Bold(true).Foreground(p.update),
-		groupName: lipgloss.NewStyle().Bold(true).Foreground(p.group),
-		fileName:  lipgloss.NewStyle().Bold(true).Foreground(p.file),
+		palette:     p,
+		frame:       lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
+		title:       lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		muted:       lipgloss.NewStyle().Foreground(p.muted),
+		cursor:      lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		selected:    lipgloss.NewStyle().Bold(true),
+		question:    lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
+		key:         lipgloss.NewStyle().Bold(true),
+		update:      lipgloss.NewStyle().Bold(true).Foreground(p.update),
+		groupName:   lipgloss.NewStyle().Bold(true).Foreground(p.group),
+		fileName:    lipgloss.NewStyle().Bold(true).Foreground(p.file),
+		diffRemoved: newDiffStyles(p.diffRemoved, p.errored, p.muted),
+		diffAdded:   newDiffStyles(p.diffAdded, p.synced, p.muted),
+		diffHunk:    lipgloss.NewStyle().Background(p.diffHunk).Foreground(p.muted),
 	}
 }
 

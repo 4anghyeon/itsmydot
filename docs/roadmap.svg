@@ -23,7 +23,7 @@
 <circle cx="326" cy="107" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
 <text x="346" y="112" fill="#d5d6db" font-size="14">연결을 유지한 채 최신본 받기</text>
 <circle cx="326" cy="141" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
-<text x="346" y="146" fill="#d5d6db" font-size="14">리포와 로컬 사본이 다를 때 표시</text>
+<text x="346" y="146" fill="#d5d6db" font-size="14">저장소와 로컬 사본이 다를 때 표시</text>
 <circle cx="326" cy="175" r="6.5" fill="none" stroke="#C084FC" stroke-width="2"/>
 <text x="346" y="180" fill="#d5d6db" font-size="14">변경 내용 비교 (diff)</text>
 <circle cx="606" cy="64" r="11" fill="#16161e" stroke="#8A8A8A" stroke-width="2.5" stroke-dasharray="3 3"/>

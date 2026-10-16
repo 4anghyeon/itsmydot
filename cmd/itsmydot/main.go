@@ -11,7 +11,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/tui"
 )
 
-// dotfile 원본이 있는 GitHub 리포
+// dotfile 원본이 있는 GitHub 저장소
 const (
 	repoOwner = "4anghyeon"
 	repoName  = "itsmydot"

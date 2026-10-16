@@ -15,6 +15,9 @@ import (
 // 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
+	if m.diffScreen.name != "" {
+		return m.diffView(st)
+	}
 
 	var body []string
 	switch {
@@ -49,7 +52,15 @@ func (m Model) View() tea.View {
 			}
 			body = append(body, cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
 		}
+		switch {
+		case m.comparing != "":
+			body = append(body, "", "["+m.spinner.View()+"] "+m.confirmNote)
+		case m.confirmNote != "":
+			body = append(body, "", m.confirmNote)
+		}
 		footer = st.help("방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
+	} else if m.comparing != "" {
+		body = append(body, "", "["+m.spinner.View()+"] "+m.status)
 	} else if m.status != "" {
 		body = append(body, "", m.status)
 	}
@@ -179,7 +190,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	case confirmAction:
 		question := it.entry.Name + "  " + target
 		if it.state == synced {
-			return question, []string{"최신으로 받기", "끄기", "닫기"}
+			return question, []string{"최신으로 받기", "비교 보기", "끄기", "닫기"}
 		}
 		return question, []string{"켜기", "닫기"}
 	case confirmGroupUnlink:
@@ -196,7 +207,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 		if it.parent != "" && slices.Contains(m.pending, it.parent) {
 			question = fmt.Sprintf("%s 는 %s 가 불러오는 파일이라 %s 도 함께 켭니다. ", it.entry.Name, it.parent, it.parent) + question
 		}
-		return question, []string{"백업 후 연결", "취소"}
+		return question, []string{"백업 후 연결", "차이 보기", "취소"}
 	}
 }
 
@@ -205,7 +216,11 @@ func (m Model) confirmPrompt() (question string, options []string) {
 //
 // gitconfig  ~/.gitconfig
 func (m Model) menuTitle(st styles) string {
-	i := m.indexOf(m.confirming)
+	return m.itemTitle(st, m.indexOf(m.confirming))
+}
+
+// itemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓴다.
+func (m Model) itemTitle(st styles, i int) string {
 	if i < 0 {
 		return ""
 	}

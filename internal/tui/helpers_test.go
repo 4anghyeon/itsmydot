@@ -71,7 +71,7 @@ func assertContent(t *testing.T, path, want string) {
 	}
 }
 
-// fakeRepo 는 files에 담긴 리포 경로별 내용을 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
+// fakeRepo 는 files에 담긴 저장소 경로별 내용을 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
 // files에 없는 경로는 404를 돌려준다. Git Trees API에는 files 전체의 blob 해시로 답한다.
 func fakeRepo(t *testing.T, files map[string]string) *github.Client {
 	t.Helper()
@@ -99,7 +99,7 @@ func fakeRepo(t *testing.T, files map[string]string) *github.Client {
 	return c
 }
 
-// toggleFixture 는 가짜 리포, 임시 로컬 사본 폴더, 임시 홈에 놓인 항목 하나로 Model을 만든다.
+// toggleFixture 는 가짜 저장소, 임시 로컬 사본 폴더, 임시 홈에 놓인 항목 하나로 Model을 만든다.
 func toggleFixture(t *testing.T, files map[string]string) (m Model, target string) {
 	t.Helper()
 	home := t.TempDir()
