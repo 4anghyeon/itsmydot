@@ -49,7 +49,7 @@ func groupFixture(t *testing.T) (m Model, home string) {
 func turnOnEnv(t *testing.T, m Model) Model {
 	t.Helper()
 	m, _ = press(t, m, "down")
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced || m.items[1].state != synced {
 		t.Fatalf("setup: zshrc=%d env=%d, want both synced", m.items[0].state, m.items[1].state)
@@ -129,7 +129,14 @@ func TestChildTurnsOnGroup(t *testing.T) {
 	m, home := groupFixture(t)
 
 	m, _ = press(t, m, "down")
-	m, cmd := press(t, m, "space")
+	m, _ = press(t, m, "space")
+	v := viewText(m)
+	for _, want := range []string{"env  ~/.config/zsh/00-env.zsh 를 연결할까요?", "env 가 불러오는 파일이라 zshrc  ~/.zshrc 도 함께 연결해요.", "> 1. 연결", "  2. 취소"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("view missing %q:\n%s", want, v)
+		}
+	}
+	m, cmd := press(t, m, "1")
 	if m.items[0].state != syncing || m.items[1].state != syncing {
 		t.Fatalf("zshrc=%d env=%d, want both syncing", m.items[0].state, m.items[1].state)
 	}
@@ -144,7 +151,11 @@ func TestChildTurnsOnGroup(t *testing.T) {
 
 	// 그룹 파일이 이미 켜져 있으면 하위 항목만 받는다.
 	m, _ = press(t, m, "down")
-	m, cmd = press(t, m, "space")
+	m, _ = press(t, m, "space")
+	if v := viewText(m); strings.Contains(v, "함께 연결해요") {
+		t.Errorf("group is already on, prompt should not mention it:\n%s", v)
+	}
+	m, cmd = press(t, m, "1")
 	if m.items[0].state != synced || m.items[2].state != syncing {
 		t.Fatalf("zshrc=%d git=%d, want synced and syncing", m.items[0].state, m.items[2].state)
 	}
@@ -195,7 +206,7 @@ func TestGroupUnlinkWithoutBackupTurnsOffChildren(t *testing.T) {
 	if m.confirmKind != confirmUnlink {
 		t.Fatalf("kind = %d, want confirmUnlink", m.confirmKind)
 	}
-	if v := viewText(m); !strings.Contains(v, "하위 항목 1개도 함께 꺼집니다.") {
+	if v := viewText(m); !strings.Contains(v, "하위 항목 1개(env)도 함께 꺼집니다.") {
 		t.Errorf("prompt should mention the children:\n%s", v)
 	}
 
@@ -228,7 +239,7 @@ func TestGroupUnlinkWithBackupAsksFirst(t *testing.T) {
 	if cmd != nil || m.confirmKind != confirmGroupUnlink {
 		t.Fatalf("want a group unlink prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
 	}
-	if v := viewText(m); !strings.Contains(v, "zshrc 를 끄면 하위 항목 1개도 함께 꺼집니다. 계속할까요?") {
+	if v := viewText(m); !strings.Contains(v, "zshrc 를 끄면 하위 항목 1개(env)도 함께 꺼집니다. 계속할까요?") {
 		t.Errorf("view:\n%s", v)
 	}
 

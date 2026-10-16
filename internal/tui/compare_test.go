@@ -18,7 +18,7 @@ func compareFixture(t *testing.T, local, remote string) (Model, tea.Cmd, string)
 	t.Helper()
 	files := map[string]string{"files/git/.gitconfig": local}
 	m, target := toggleFixture(t, files)
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
 		t.Fatalf("setup: state = %d (err %v)", m.items[0].state, m.items[0].err)
@@ -90,7 +90,7 @@ func TestMenuCompareWithoutDiff(t *testing.T) {
 func TestMenuCompareFetchError(t *testing.T) {
 	files := map[string]string{"files/git/.gitconfig": "v1"}
 	m, _ := toggleFixture(t, files)
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 
 	delete(files, "files/git/.gitconfig")

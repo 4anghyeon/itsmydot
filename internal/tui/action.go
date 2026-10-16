@@ -21,7 +21,7 @@ import (
 //
 // 화면에 표시된 상태가 아니라 디스크를 다시 확인해서 결정한다.
 // errored 항목도 실제로 연결돼 있으면 끄고, 아니면 다시 받아서 연결을 시도한다.
-// target 자리에 다른 파일이 있거나 켜진 하위 항목까지 함께 꺼지는 경우에는 먼저 확인 질문을 띄운다.
+// 언제나 확인 질문을 먼저 띄운다.
 func (m Model) toggle() (Model, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
@@ -40,7 +40,6 @@ func (m Model) toggle() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// 끄는 건 네트워크가 필요 없어서 바로 처리한다.
 	if state == link.Synced {
 		// 되돌릴 백업이 없으면 target 자리가 비게 되므로 먼저 묻는다.
 		// 처음부터 파일이 없었던 건지, 백업이 사고로 사라진 건지 디스크만으로는 구분할 수 없다.
@@ -58,7 +57,8 @@ func (m Model) toggle() (Model, tea.Cmd) {
 			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmGroupUnlink, 0
 			return m, nil
 		}
-		return m.unlink(m.cursor).startAnimation()
+		m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmTurnOff, 0
+		return m, nil
 	}
 
 	return m.turnOn(m.cursor, state)
@@ -84,8 +84,8 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 		}
 	}
 
-	// 다른 파일이 있으면 백업이 일어나므로 먼저 묻는다. 백업은 건너뛸 수 없고 진행할지만 고른다.
-	// 그룹 파일과 하위 파일이 둘 다 걸려도 질문은 한 번만 한다.
+	// 다른 파일이 있으면 백업이 일어나므로 백업 질문으로 묻는다. 백업은 건너뛸 수 없고 진행할지만 고른다.
+	// 그룹 파일과 하위 파일이 둘 다 걸려도 질문은 한 번만 한다. 걸린 파일이 없으면 켤지만 묻는다.
 	conflicted := false
 	for k, j := range indexes {
 		if states[k] == link.Conflict {
@@ -93,15 +93,15 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 			conflicted = true
 		}
 	}
-	if conflicted {
-		m.pending = make([]string, len(indexes))
-		for k, j := range indexes {
-			m.pending[k] = m.items[j].entry.Name
-		}
-		m.confirming, m.confirmKind, m.choice = m.items[i].entry.Name, confirmLink, 0
-		return m, nil
+	m.pending = make([]string, len(indexes))
+	for k, j := range indexes {
+		m.pending[k] = m.items[j].entry.Name
 	}
-	return m.startSync(indexes...)
+	m.confirming, m.confirmKind, m.choice = m.items[i].entry.Name, confirmTurnOn, 0
+	if conflicted {
+		m.confirmKind = confirmLink
+	}
+	return m, nil
 }
 
 // unlink 는 i번째 항목의 연결을 끊고, 백업이 있으면 원래 파일을 되돌린다.
@@ -205,7 +205,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	m.items = slices.Clone(m.items)
 
 	switch m.confirmKind {
-	case confirmLink: // 1. 백업 후 연결. 2. 차이 보기는 위에서 처리했다
+	case confirmLink, confirmTurnOn:
 		indexes := make([]int, 0, len(pending))
 		for _, p := range pending {
 			if j := m.indexOf(p); j >= 0 {
@@ -219,7 +219,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		}
 		// 2. 연결을 끊고 파일도 지우기
 		return m.unlink(i).startAnimation()
-	case confirmGroupUnlink: // 1. 모두 끄기
+	case confirmGroupUnlink, confirmTurnOff:
 		return m.unlink(i).startAnimation()
 	case confirmAction:
 		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.

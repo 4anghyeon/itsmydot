@@ -12,7 +12,7 @@ func TestToggleAnimation(t *testing.T) {
 	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 
 	// 켜고 받기 결과가 오면 애니메이션이 시작된다. 게이지는 아직 0에서 출발한다.
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	var done tea.Msg
 	for _, msg := range runAll(cmd) {
 		if _, ok := msg.(spinner.TickMsg); !ok {
