@@ -52,7 +52,7 @@ type diffLayout struct {
 	scrollbar     bool // 한 화면에 다 들어가지 않으면 true
 }
 
-// diffLoadedMsg 는 리포 최신본과 비교한 결과다. 두 파일이 같으면 hunks가 비어 있다.
+// diffLoadedMsg 는 저장소 최신본과 비교한 결과다. 두 파일이 같으면 hunks가 비어 있다.
 type diffLoadedMsg struct {
 	name    string
 	hunks   []diff.Hunk
@@ -72,12 +72,12 @@ const tabWidth = 4
 // noNewlineText 는 파일 끝에 줄바꿈이 없는 줄 아래에 붙이는 안내다. git diff와 같은 문구를 쓴다.
 const noNewlineText = `\ No newline at end of file`
 
-// startCompare 는 i번째 항목의 로컬 사본과 비교할 리포 최신본을 백그라운드로 받는다.
+// startCompare 는 i번째 항목의 로컬 사본과 비교할 저장소 최신본을 백그라운드로 받는다.
 // 업데이트 표시에 쓰는 해시만으로는 내용을 알 수 없어서 비교할 때마다 새로 받는다.
 func (m Model) startCompare(i int) (Model, tea.Cmd) {
 	it := m.items[i]
 	m.comparing = it.entry.Name
-	m.status = it.entry.Name + " 리포 최신본과 비교하는 중이에요..."
+	m.status = it.entry.Name + " 저장소 최신본과 비교하는 중이에요..."
 	entry, copyPath, client := it.entry, it.copyPath, m.client
 	load := func() tea.Msg {
 		return compareWithRepo(context.Background(), client, entry, copyPath)
@@ -85,7 +85,7 @@ func (m Model) startCompare(i int) (Model, tea.Cmd) {
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 
-// startTargetCompare 는 충돌 질문에서 target 자리에 있는 지금 파일과 리포 파일을 비교한다. 질문은 그대로 둔다.
+// startTargetCompare 는 충돌 질문에서 target 자리에 있는 지금 파일과 저장소 파일을 비교한다. 질문은 그대로 둔다.
 // 그룹 파일과 하위 파일이 함께 걸렸으면 질문을 띄운 항목을 보고, 그 항목이 충돌이 아니면 처음 걸린 항목을 본다.
 func (m Model) startTargetCompare() (Model, tea.Cmd) {
 	i := m.conflictedIndex()
@@ -94,7 +94,7 @@ func (m Model) startTargetCompare() (Model, tea.Cmd) {
 	}
 	it := m.items[i]
 	m.comparing = it.entry.Name
-	m.confirmNote = it.entry.Name + " 리포 파일과 비교하는 중이에요..."
+	m.confirmNote = it.entry.Name + " 저장소 파일과 비교하는 중이에요..."
 	entry, client := it.entry, m.client
 	load := func() tea.Msg {
 		msg := compareWithRepo(context.Background(), client, entry, entry.Target)
@@ -117,7 +117,7 @@ func (m Model) conflictedIndex() int {
 	return -1
 }
 
-// compareWithRepo 는 리포 최신본을 받아 path의 파일과 비교한다. 디스크는 바꾸지 않는다.
+// compareWithRepo 는 저장소 최신본을 받아 path의 파일과 비교한다. 디스크는 바꾸지 않는다.
 func compareWithRepo(ctx context.Context, client *github.Client, e manifest.Entry, path string) diffLoadedMsg {
 	msg := diffLoadedMsg{name: e.Name}
 	remote, err := client.Fetch(ctx, e.Source)
@@ -143,9 +143,9 @@ func (m Model) applyDiff(msg diffLoadedMsg) Model {
 	}
 	m.comparing = ""
 
-	same := msg.name + " 사본과 리포 최신본이 같아요"
+	same := msg.name + " 사본과 저장소 최신본이 같아요"
 	if msg.current {
-		same = msg.name + " 지금 파일과 리포 파일이 같아요"
+		same = msg.name + " 지금 파일과 저장소 파일이 같아요"
 	}
 	var note string
 	switch {
@@ -267,7 +267,7 @@ func (m Model) diffLayout(st styles) diffLayout {
 	return layout
 }
 
-// diffPrefixWidth 는 내용 앞에 붙는 칸의 폭이다. 사본 번호와 리포 번호, 두 칸 띈 +/- 표시, 다시 두 칸이다.
+// diffPrefixWidth 는 내용 앞에 붙는 칸의 폭이다. 사본 번호와 저장소 번호, 두 칸 띈 +/- 표시, 다시 두 칸이다.
 func diffPrefixWidth(numberWidth int) int {
 	return diffHunkIndent(numberWidth) + 1 + 2
 }

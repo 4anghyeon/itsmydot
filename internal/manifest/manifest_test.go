@@ -120,7 +120,7 @@ func TestExpandHome(t *testing.T) {
 	}
 }
 
-// 리포에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 한다.
+// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 한다.
 func TestRepoManifest(t *testing.T) {
 	if _, err := Load("../../manifest.yaml"); err != nil {
 		t.Fatalf("repo manifest.yaml is invalid: %v", err)

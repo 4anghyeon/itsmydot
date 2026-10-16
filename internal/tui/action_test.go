@@ -191,7 +191,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 }
 
 func TestToggleFetchError(t *testing.T) {
-	m, target := toggleFixture(t, map[string]string{}) // 리포에 파일이 없어서 404가 난다
+	m, target := toggleFixture(t, map[string]string{}) // 저장소에 파일이 없어서 404가 난다
 
 	m, cmd := press(t, m, "space")
 	m = runCmd(t, m, cmd)
@@ -436,7 +436,7 @@ func TestMenuCancelAndSyncing(t *testing.T) {
 	}
 }
 
-// 연결된 항목 중 로컬 사본이 리포 파일과 다른 것만 업데이트 있음으로 본다.
+// 연결된 항목 중 로컬 사본이 저장소 파일과 다른 것만 업데이트 있음으로 본다.
 func TestLoadEntriesMarksOutdated(t *testing.T) {
 	home := t.TempDir()
 	copies := localcopy.New(t.TempDir())
@@ -474,7 +474,7 @@ func TestLoadEntriesMarksOutdated(t *testing.T) {
 	}
 }
 
-// 리포 파일 해시를 못 받아도 목록은 그대로 뜨고 업데이트 표시만 빠진다.
+// 저장소 파일 해시를 못 받아도 목록은 그대로 뜨고 업데이트 표시만 빠진다.
 func TestLoadEntriesWithoutHashes(t *testing.T) {
 	home := t.TempDir()
 	copies := localcopy.New(t.TempDir())

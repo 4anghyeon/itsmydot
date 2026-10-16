@@ -381,8 +381,8 @@ func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes ma
 	return it
 }
 
-// differsFromRepo 는 로컬 사본이 리포의 source 파일과 다른지 알려 준다.
-// 리포 해시가 없거나 사본을 읽지 못하면 비교할 수 없으므로 다르지 않다고 본다.
+// differsFromRepo 는 로컬 사본이 저장소의 source 파일과 다른지 알려 준다.
+// 저장소 해시가 없거나 사본을 읽지 못하면 비교할 수 없으므로 다르지 않다고 본다.
 func differsFromRepo(copyPath, source string, hashes map[string]string) bool {
 	remote, ok := hashes[path.Clean(source)]
 	if !ok {

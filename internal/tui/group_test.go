@@ -11,7 +11,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
-// groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 Model을 만든다. 가짜 리포에는 세 파일이 모두 있다.
+// groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 Model을 만든다. 가짜 저장소에는 세 파일이 모두 있다.
 func groupFixture(t *testing.T) (m Model, home string) {
 	t.Helper()
 	home = t.TempDir()

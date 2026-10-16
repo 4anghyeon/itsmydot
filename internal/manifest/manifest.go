@@ -126,8 +126,8 @@ func entryLabel(e Entry, fallback string) string {
 	return fallback
 }
 
-// isSafeRelPath 는 p가 리포 안을 가리키는 상대 경로인지 확인한다.
-// 절대 경로나 리포 루트 자체, 루트 밖으로 나가는 경로는 거부한다.
+// isSafeRelPath 는 p가 저장소 안을 가리키는 상대 경로인지 확인한다.
+// 절대 경로나 저장소 루트 자체, 루트 밖으로 나가는 경로는 거부한다.
 func isSafeRelPath(p string) bool {
 	if path.IsAbs(p) || filepath.IsAbs(p) {
 		return false

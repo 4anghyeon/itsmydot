@@ -13,7 +13,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/diff"
 )
 
-// compareFixture 는 사본 내용이 local인 연결된 항목을 만들고 리포 내용을 remote로 바꾼 뒤 메뉴에서 비교 보기를 고른다.
+// compareFixture 는 사본 내용이 local인 연결된 항목을 만들고 저장소 내용을 remote로 바꾼 뒤 메뉴에서 비교 보기를 고른다.
 func compareFixture(t *testing.T, local, remote string) (Model, tea.Cmd, string) {
 	t.Helper()
 	files := map[string]string{"files/git/.gitconfig": local}
@@ -30,11 +30,11 @@ func compareFixture(t *testing.T, local, remote string) (Model, tea.Cmd, string)
 	return m, cmd, target
 }
 
-// 메뉴에서 비교 보기를 고르면 리포 최신본을 받는 동안 상태 줄에 스피너가 돌고, 다 받으면 diff 화면이 열린다.
+// 메뉴에서 비교 보기를 고르면 저장소 최신본을 받는 동안 상태 줄에 스피너가 돌고, 다 받으면 diff 화면이 열린다.
 // esc로 닫으면 목록으로 돌아가고 사본은 바뀌지 않는다.
 func TestMenuCompareOpensDiff(t *testing.T) {
 	m, cmd, target := compareFixture(t, "[user]\n\tname = me\n", "[user]\n\tname = you\n")
-	if m.comparing != "gitconfig" || !strings.Contains(viewText(m), "] gitconfig 리포 최신본과 비교하는 중이에요...") {
+	if m.comparing != "gitconfig" || !strings.Contains(viewText(m), "] gitconfig 저장소 최신본과 비교하는 중이에요...") {
 		t.Fatalf("comparing = %q view:\n%s", m.comparing, viewText(m))
 	}
 
@@ -74,7 +74,7 @@ func TestMenuCompareWithoutDiff(t *testing.T) {
 	tests := []struct {
 		name, remote, status string
 	}{
-		{"same", "same\n", "gitconfig 사본과 리포 최신본이 같아요"},
+		{"same", "same\n", "gitconfig 사본과 저장소 최신본이 같아요"},
 		{"binary", "PNG\x00", "gitconfig 파일은 텍스트가 아니라서 비교할 수 없어요"},
 		{"too large", strings.Repeat("a", 1<<20+1), "gitconfig 파일이 1MB보다 커서 비교할 수 없어요"},
 	}
@@ -282,7 +282,7 @@ func conflictFixture(t *testing.T, mine, remote string) (Model, string) {
 	return m, target
 }
 
-// 충돌 질문에서 차이 보기를 고르면 질문을 닫지 않고 target 자리의 지금 파일과 리포 파일을 비교한다.
+// 충돌 질문에서 차이 보기를 고르면 질문을 닫지 않고 target 자리의 지금 파일과 저장소 파일을 비교한다.
 // esc로 diff 화면을 닫으면 같은 질문으로 돌아오고, 거기서 백업 후 연결을 고를 수 있다.
 func TestConflictPromptCompare(t *testing.T) {
 	m, target := conflictFixture(t, "mine\n", "from repo\n")
@@ -291,7 +291,7 @@ func TestConflictPromptCompare(t *testing.T) {
 	if m.confirming != "gitconfig" || m.comparing != "gitconfig" {
 		t.Fatalf("prompt should stay while comparing: confirming = %q comparing = %q", m.confirming, m.comparing)
 	}
-	if v := viewText(m); !strings.Contains(v, "] gitconfig 리포 파일과 비교하는 중이에요...") || !strings.Contains(v, "2. 차이 보기") {
+	if v := viewText(m); !strings.Contains(v, "] gitconfig 저장소 파일과 비교하는 중이에요...") || !strings.Contains(v, "2. 차이 보기") {
 		t.Errorf("progress should show under the prompt:\n%s", v)
 	}
 
@@ -321,7 +321,7 @@ func TestConflictPromptCompareSame(t *testing.T) {
 	m, _ := conflictFixture(t, "same\n", "same\n")
 	m, cmd := press(t, m, "2")
 	m = runCmd(t, m, cmd)
-	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "gitconfig 지금 파일과 리포 파일이 같아요") {
+	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "gitconfig 지금 파일과 저장소 파일이 같아요") {
 		t.Fatalf("note should show under the prompt:\n%s", v)
 	}
 

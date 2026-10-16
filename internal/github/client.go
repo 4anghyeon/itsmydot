@@ -1,5 +1,5 @@
-// Package github 는 GitHub Contents API로 리포의 파일 내용을 받아 온다.
-// public 리포만 다루므로 git 바이너리나 인증 토큰 없이 GET 요청만 보낸다.
+// Package github 는 GitHub Contents API로 저장소의 파일 내용을 받아 온다.
+// public 저장소만 다루므로 git 바이너리나 인증 토큰 없이 GET 요청만 보낸다.
 package github
 
 import (
@@ -20,7 +20,7 @@ import (
 // DefaultBaseURL 은 GitHub REST API 주소다. 테스트에서는 가짜 서버 주소로 바꿔 끼운다.
 const DefaultBaseURL = "https://api.github.com"
 
-// ErrNotFound 는 요청한 경로가 리포에 없을 때 [Client.Fetch] 가 돌려준다.
+// ErrNotFound 는 요청한 경로가 저장소에 없을 때 [Client.Fetch] 가 돌려준다.
 var ErrNotFound = errors.New("not found")
 
 // RateLimitError 는 인증 없이 쓸 수 있는 요청 한도인 시간당 60회를 다 썼을 때 돌려주는 에러다.
@@ -35,7 +35,7 @@ func (e *RateLimitError) Error() string {
 	return fmt.Sprintf("github API rate limit exceeded (resets at %s)", e.Reset.Local().Format("15:04"))
 }
 
-// Client 는 Owner의 Repo 리포에서 파일을 받아 온다.
+// Client 는 Owner의 Repo 저장소에서 파일을 받아 온다.
 type Client struct {
 	Owner      string
 	Repo       string
@@ -60,7 +60,7 @@ type contentResponse struct {
 	Content  string `json:"content"`
 }
 
-// Fetch 는 files/zsh/.zshrc 처럼 리포 루트 기준 경로에 있는 파일 내용을 받아 온다.
+// Fetch 는 files/zsh/.zshrc 처럼 저장소 루트 기준 경로에 있는 파일 내용을 받아 온다.
 // 파일이 없으면 [ErrNotFound] 를, 요청 한도를 넘었으면 [*RateLimitError] 를 감싼 에러를 돌려준다.
 func (c *Client) Fetch(ctx context.Context, path string) ([]byte, error) {
 	resp, err := c.get(ctx, "contents/"+escapePath(path))
@@ -96,7 +96,7 @@ type treeResponse struct {
 	} `json:"tree"`
 }
 
-// FileHashes 는 기본 브랜치에 있는 모든 파일의 git blob 해시를 리포 경로별로 돌려준다.
+// FileHashes 는 기본 브랜치에 있는 모든 파일의 git blob 해시를 저장소 경로별로 돌려준다.
 // 파일마다 Contents API를 부르지 않고 Git Trees API를 한 번만 불러서 요청 한도를 아낀다.
 func (c *Client) FileHashes(ctx context.Context) (map[string]string, error) {
 	resp, err := c.get(ctx, "git/trees/HEAD?recursive=1")
@@ -127,7 +127,7 @@ func BlobHash(data []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// get 은 리포 아래 path로 GET 요청을 보내고, 200이 아니면 상태 코드에 맞는 에러를 돌려준다.
+// get 은 저장소 아래 path로 GET 요청을 보내고, 200이 아니면 상태 코드에 맞는 에러를 돌려준다.
 // 성공하면 호출한 쪽이 응답 본문을 닫아야 한다.
 func (c *Client) get(ctx context.Context, path string) (*http.Response, error) {
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/%s",

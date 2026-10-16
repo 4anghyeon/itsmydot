@@ -125,7 +125,7 @@ func TestEscapePath(t *testing.T) {
 	}
 }
 
-// BlobHash 는 git hash-object 와 같은 값을 내야 리포의 해시와 비교할 수 있다.
+// BlobHash 는 git hash-object 와 같은 값을 내야 저장소의 해시와 비교할 수 있다.
 func TestBlobHash(t *testing.T) {
 	tests := map[string]string{
 		"hello\n": "ce013625030ba8dba906f756967f9e9ca394464a",
