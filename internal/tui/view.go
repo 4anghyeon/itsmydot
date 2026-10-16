@@ -15,7 +15,7 @@ import (
 // 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
-	if m.diff.name != "" {
+	if m.diffScreen.name != "" {
 		return m.diffView(st)
 	}
 

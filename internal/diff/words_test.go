@@ -57,7 +57,7 @@ func TestWords(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		removed, added := Words(tt.before, tt.after)
+		removed, added := words(tt.before, tt.after)
 		if got := slicesOf(tt.before, removed); !reflect.DeepEqual(got, tt.removed) {
 			t.Errorf("%s: removed = %q, want %q", tt.name, got, tt.removed)
 		}

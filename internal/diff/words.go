@@ -12,10 +12,9 @@ type Range struct {
 	Start, End int
 }
 
-// Words 는 지운 줄과 추가한 줄을 짝지었을 때 각 줄에서 바뀐 단어의 위치를 돌려준다.
+// words 는 지운 줄과 추가한 줄을 짝지었을 때 각 줄에서 바뀐 단어의 위치를 돌려준다.
 // 글자 단위로 비교하면 label과 fieldLabel처럼 겹치는 글자가 군데군데 남아서 단어 단위로 비교한다.
-// 같은 부분이 절반도 안 되면 줄 전체를 바꾼 것이라 단어를 집어 보여 줘도 읽기만 어려워서 nil을 돌려준다.
-func Words(before, after string) (removed, added []Range) {
+func words(before, after string) (removed, added []Range) {
 	if before == after {
 		return nil, nil
 	}

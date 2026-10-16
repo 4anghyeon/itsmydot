@@ -2,12 +2,14 @@ package tui
 
 import (
 	"fmt"
-	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/diff"
 )
 
 // compareFixture 는 사본 내용이 local인 연결된 항목을 만들고 리포 내용을 remote로 바꾼 뒤 메뉴에서 비교 보기를 고른다.
@@ -36,8 +38,8 @@ func TestMenuCompareOpensDiff(t *testing.T) {
 	}
 
 	m = runCmd(t, m, cmd)
-	if m.diff.name != "gitconfig" || m.comparing != "" {
-		t.Fatalf("diff = %q comparing = %q status = %q", m.diff.name, m.comparing, m.status)
+	if m.diffScreen.name != "gitconfig" || m.comparing != "" {
+		t.Fatalf("diff = %q comparing = %q status = %q", m.diffScreen.name, m.comparing, m.status)
 	}
 	v := viewText(m)
 	for _, want := range []string{
@@ -60,7 +62,7 @@ func TestMenuCompareOpensDiff(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "esc")
-	if m.diff.name != "" || !strings.Contains(viewText(m), "> [+] gitconfig") {
+	if m.diffScreen.name != "" || !strings.Contains(viewText(m), "> [+] gitconfig") {
 		t.Fatalf("esc should go back to the list:\n%s", viewText(m))
 	}
 	assertContent(t, target, "[user]\n\tname = me\n")
@@ -78,8 +80,8 @@ func TestMenuCompareWithoutDiff(t *testing.T) {
 	for _, tt := range tests {
 		m, cmd, _ := compareFixture(t, "same\n", tt.remote)
 		m = runCmd(t, m, cmd)
-		if m.diff.name != "" || m.comparing != "" || m.status != tt.status {
-			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diff.name, m.comparing, m.status)
+		if m.diffScreen.name != "" || m.comparing != "" || m.status != tt.status {
+			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diffScreen.name, m.comparing, m.status)
 		}
 	}
 }
@@ -94,8 +96,8 @@ func TestMenuCompareFetchError(t *testing.T) {
 	m, _ = press(t, m, "enter")
 	m, cmd = press(t, m, "2")
 	m = runCmd(t, m, cmd)
-	if m.diff.name != "" || !strings.HasPrefix(m.status, "gitconfig 비교하지 못했어요 (") {
-		t.Fatalf("diff = %q status = %q", m.diff.name, m.status)
+	if m.diffScreen.name != "" || !strings.HasPrefix(m.status, "gitconfig 비교하지 못했어요 (") {
+		t.Fatalf("diff = %q status = %q", m.diffScreen.name, m.status)
 	}
 }
 
@@ -103,10 +105,10 @@ func TestMenuCompareFetchError(t *testing.T) {
 func TestCompareIgnoresStaleResult(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
 	m.comparing = "zshrc"
-	next, _ := m.Update(diffLoadedMsg{name: "gitconfig", text: "@@ -1 +1 @@\n-a\n+b\n"})
+	next, _ := m.Update(diffLoaded(t, "gitconfig", "a\n", "b\n"))
 	m = next.(Model)
-	if m.diff.name != "" || m.comparing != "zshrc" {
-		t.Fatalf("diff = %q comparing = %q", m.diff.name, m.comparing)
+	if m.diffScreen.name != "" || m.comparing != "zshrc" {
+		t.Fatalf("diff = %q comparing = %q", m.diffScreen.name, m.comparing)
 	}
 }
 
@@ -126,13 +128,13 @@ func TestSpinnerTicksWhileComparing(t *testing.T) {
 // 터미널 높이에 맞춰 본문을 자르고 방향키와 pgdn, end로 스크롤한다. 맨 위에서 더 올라가지는 않는다.
 func TestDiffScroll(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	// 빈 파일에 30줄을 추가하면 머리줄까지 31줄이다.
 	var text strings.Builder
-	text.WriteString("@@ -1,30 +1,30 @@\n")
 	for i := 1; i <= 30; i++ {
-		fmt.Fprintf(&text, " line %d\n", i)
+		fmt.Fprintf(&text, "line %d\n", i)
 	}
 	m.comparing = "zshrc"
-	next, _ := m.Update(diffLoadedMsg{name: "zshrc", text: text.String()})
+	next, _ := m.Update(diffLoaded(t, "zshrc", "", text.String()))
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
 	m = next.(Model)
 
@@ -147,27 +149,37 @@ func TestDiffScroll(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "up")
-	if m.diff.yOffset != 0 {
-		t.Errorf("yOffset = %d, want 0 at the top", m.diff.yOffset)
+	if m.diffScreen.yOffset != 0 {
+		t.Errorf("yOffset = %d, want 0 at the top", m.diffScreen.yOffset)
 	}
 	m, _ = press(t, m, "down")
-	if m.diff.yOffset != 1 {
-		t.Errorf("yOffset = %d, want 1", m.diff.yOffset)
+	if m.diffScreen.yOffset != 1 {
+		t.Errorf("yOffset = %d, want 1", m.diffScreen.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
 	m = next.(Model)
-	if m.diff.yOffset != 11 {
-		t.Errorf("yOffset = %d, want 11 after pgdn", m.diff.yOffset)
+	if m.diffScreen.yOffset != 11 {
+		t.Errorf("yOffset = %d, want 11 after pgdn", m.diffScreen.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	m = next.(Model)
 	v = viewText(m)
-	if m.diff.yOffset != 21 || !strings.Contains(v, "31/31줄") || !strings.Contains(v, "line 30") {
-		t.Errorf("yOffset = %d after end:\n%s", m.diff.yOffset, v)
+	if m.diffScreen.yOffset != 21 || !strings.Contains(v, "31/31줄") || !strings.Contains(v, "line 30") {
+		t.Errorf("yOffset = %d after end:\n%s", m.diffScreen.yOffset, v)
 	}
 	if bar := scrollbarColumn(v); bar != "░░░░░░░███" {
 		t.Errorf("scrollbar = %q at the bottom", bar)
 	}
+}
+
+// diffLoaded 는 before와 after를 실제로 비교한 결과 메시지를 만든다.
+func diffLoaded(t *testing.T, name, before, after string) diffLoadedMsg {
+	t.Helper()
+	hunks, err := diff.Compare([]byte(before), []byte(after))
+	if err != nil {
+		t.Fatalf("Compare: %v", err)
+	}
+	return diffLoadedMsg{name: name, hunks: hunks}
 }
 
 // scrollbarColumn 은 화면에서 스크롤 막대 글자만 위에서부터 이어 붙인다.
@@ -183,38 +195,12 @@ func scrollbarColumn(view string) string {
 	return bar.String()
 }
 
-// hunk 머리줄에서 시작 번호를 읽고, 지운 줄은 사본 번호만 추가한 줄은 리포 번호만 센다.
-func TestDiffLines(t *testing.T) {
-	text := "--- 사본\n+++ 리포\n@@ -1,2 +1,3 @@\n a\n-b\n+c\n+d\n\n@@ -7 +9 @@\n-x\n\\ No newline at end of file\n+\ty\n"
-	want := []diffLine{
-		{kind: '@', text: "@@ -1,2 +1,3 @@"},
-		{kind: ' ', beforeNumber: 1, afterNumber: 1, text: "a"},
-		{kind: '-', beforeNumber: 2, text: "b"},
-		{kind: '+', afterNumber: 2, text: "c"},
-		{kind: '+', afterNumber: 3, text: "d"},
-		{kind: ' ', beforeNumber: 3, afterNumber: 4, text: ""},
-		{kind: '@', text: "@@ -7 +9 @@"},
-		{kind: '-', beforeNumber: 7, text: "x"},
-		{kind: '\\', text: "\\ No newline at end of file"},
-		{kind: '+', afterNumber: 9, text: "    y"},
-	}
-	got := diffLines(text)
-	if len(got) != len(want) {
-		t.Fatalf("got %d lines, want %d: %+v", len(got), len(want), got)
-	}
-	for i := range want {
-		if !reflect.DeepEqual(got[i], want[i]) {
-			t.Errorf("line %d = %+v, want %+v", i, got[i], want[i])
-		}
-	}
-}
-
 // 좌우 방향키로 긴 줄을 밀면 내용만 밀리고 줄 번호는 그 자리에 남는다. 끝을 넘어서 밀리지는 않는다.
 func TestDiffHorizontalScroll(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
 	m.comparing = "zshrc"
 	long := "export PATH=" + strings.Repeat("/usr/local/bin:", 4) + "END"
-	next, _ := m.Update(diffLoadedMsg{name: "zshrc", text: "@@ -1 +1 @@\n-short\n+" + long + "\n"})
+	next, _ := m.Update(diffLoaded(t, "zshrc", "short\n", long+"\n"))
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 40, Height: 30})
 	m = next.(Model)
 
@@ -222,50 +208,14 @@ func TestDiffHorizontalScroll(t *testing.T) {
 		t.Fatalf("first view:\n%s", v)
 	}
 	m, _ = press(t, m, "right")
-	if v := viewText(m); m.diff.xOffset != 8 || !strings.Contains(v, "  1  +  ATH=/usr") {
-		t.Errorf("xOffset = %d after right:\n%s", m.diff.xOffset, v)
+	if v := viewText(m); m.diffScreen.xOffset != 8 || !strings.Contains(v, "  1  +  ATH=/usr") {
+		t.Errorf("xOffset = %d after right:\n%s", m.diffScreen.xOffset, v)
 	}
 	for range 10 {
 		m, _ = press(t, m, "right")
 	}
 	if v := viewText(m); !strings.Contains(v, "END") || !strings.Contains(v, "1    -  ") {
-		t.Errorf("xOffset = %d at the end:\n%s", m.diff.xOffset, v)
-	}
-}
-
-// 연달아 지운 줄과 바로 뒤에 추가한 줄을 순서대로 짝지어 바뀐 단어를 표시한다.
-// 사이에 낀 No newline 줄은 건너뛰고 짝이 없는 줄에는 표시하지 않는다.
-func TestMarkWordChanges(t *testing.T) {
-	text := "@@ -1,3 +1,4 @@\n" +
-		"-<SearchField className=\"w-42\" label={label ?? name} isActive={isActive}>\n" +
-		"-placeholder={placeholder}\n" +
-		"\\ No newline at end of file\n" +
-		"+<SearchField className=\"w-42\" label={fieldLabel} isActive={isActive}>\n" +
-		"+placeholder={placeholder ?? fieldLabel}\n" +
-		"+extra\n"
-	lines := diffLines(text)
-
-	changed := func(line diffLine) []string {
-		var parts []string
-		for _, c := range line.changes {
-			parts = append(parts, line.text[c.Start:c.End])
-		}
-		return parts
-	}
-	tests := []struct {
-		index int
-		want  []string
-	}{
-		{1, []string{"label ?? name"}},
-		{2, nil},
-		{4, []string{"fieldLabel"}},
-		{5, []string{" ?? fieldLabel"}},
-		{6, nil},
-	}
-	for _, tt := range tests {
-		if got := changed(lines[tt.index]); !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("line %d %q: changes = %q, want %q", tt.index, lines[tt.index].text, got, tt.want)
-		}
+		t.Errorf("xOffset = %d at the end:\n%s", m.diffScreen.xOffset, v)
 	}
 }
 
@@ -273,7 +223,7 @@ func TestMarkWordChanges(t *testing.T) {
 func TestDiffRowColors(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
 	m.comparing = "zshrc"
-	next, _ := m.Update(diffLoadedMsg{name: "zshrc", text: "@@ -1,2 +1,2 @@\n same\n-export EDITOR=vim\n+export EDITOR=nvim\n"})
+	next, _ := m.Update(diffLoaded(t, "zshrc", "same\nexport EDITOR=vim\n", "same\nexport EDITOR=nvim\n"))
 	m = next.(Model)
 
 	background := func(hex string) string {
@@ -300,5 +250,19 @@ func TestDiffRowColors(t *testing.T) {
 	text := viewText(m)
 	if !strings.Contains(text, "│ 2    -  export EDITOR=vim  │") || !strings.Contains(text, "│   2  +  export EDITOR=nvim │") {
 		t.Errorf("tinted rows should fill the box:\n%s", text)
+	}
+}
+
+// 파일 끝 줄바꿈이 없는 줄 바로 아래에 git과 같은 안내 줄을 붙인다.
+func TestDiffNoNewlineRow(t *testing.T) {
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m.comparing = "zshrc"
+	next, _ := m.Update(diffLoaded(t, "zshrc", "a\nlast", "a\nlast\n"))
+	v := viewText(next.(Model))
+	lines := strings.Split(v, "\n")
+	i := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "2    -  last") })
+	if i < 0 || i+2 >= len(lines) ||
+		!strings.Contains(lines[i+1], "\\ No newline at end of file") || !strings.Contains(lines[i+2], "  2  +  last") {
+		t.Errorf("no newline row should follow the removed line:\n%s", v)
 	}
 }

@@ -80,8 +80,8 @@ type Model struct {
 	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
 	pending     []string // confirmLink에서 백업 후 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
 
-	comparing string     // 비교할 리포 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
-	diff      diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
+	comparing  string     // 비교할 리포 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
+	diffScreen diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
 
 	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
@@ -159,7 +159,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
-		if m.diff.name != "" {
+		if m.diffScreen.name != "" {
 			return m.scrollDiff(key)
 		}
 		if m.confirming != "" {
