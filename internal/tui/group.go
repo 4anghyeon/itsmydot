@@ -36,6 +36,18 @@ func (m Model) syncedChildren(i int) []int {
 	return indexes
 }
 
+// outdatedChildren 은 i번째 그룹에서 업데이트가 있는 하위 항목 수를 센다.
+// 그룹을 접으면 하위 항목 줄이 안 보이니 그룹 줄에 이 수를 대신 보여 준다.
+func (m Model) outdatedChildren(i int) int {
+	count := 0
+	for _, j := range m.syncedChildren(i) {
+		if m.items[j].outdated {
+			count++
+		}
+	}
+	return count
+}
+
 // visible 은 i번째 항목이 목록에 보이는지 알려 준다. 접힌 그룹의 하위 항목만 숨는다.
 func (m Model) visible(i int) bool {
 	return m.items[i].parent == "" || !m.collapsed[m.items[i].parent]

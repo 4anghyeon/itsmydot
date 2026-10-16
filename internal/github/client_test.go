@@ -124,3 +124,49 @@ func TestEscapePath(t *testing.T) {
 		}
 	}
 }
+
+// BlobHash 는 git hash-object 와 같은 값을 내야 리포의 해시와 비교할 수 있다.
+func TestBlobHash(t *testing.T) {
+	tests := map[string]string{
+		"hello\n": "ce013625030ba8dba906f756967f9e9ca394464a",
+		"":        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+	}
+	for data, want := range tests {
+		if got := BlobHash([]byte(data)); got != want {
+			t.Errorf("BlobHash(%q) = %s, want %s", data, got, want)
+		}
+	}
+}
+
+// FileHashes 는 트리 전체에서 파일(blob)만 경로별로 모은다.
+func TestFileHashes(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/owner/repo/git/trees/HEAD" || r.URL.Query().Get("recursive") != "1" {
+			t.Errorf("url = %q", r.URL.String())
+		}
+		writeJSON(w, `{"tree":[
+			{"path":"files","type":"tree","sha":"d1"},
+			{"path":"files/zsh/.zshrc","type":"blob","sha":"aa"},
+			{"path":"manifest.yaml","type":"blob","sha":"bb"}
+		]}`)
+	})
+
+	got, err := c.FileHashes(context.Background())
+	if err != nil {
+		t.Fatalf("FileHashes: %v", err)
+	}
+	if len(got) != 2 || got["files/zsh/.zshrc"] != "aa" || got["manifest.yaml"] != "bb" {
+		t.Errorf("hashes = %v", got)
+	}
+}
+
+func TestFileHashesRateLimited(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		w.WriteHeader(http.StatusForbidden)
+	})
+	var rateErr *RateLimitError
+	if _, err := c.FileHashes(context.Background()); !errors.As(err, &rateErr) {
+		t.Errorf("err = %v, want *RateLimitError", err)
+	}
+}

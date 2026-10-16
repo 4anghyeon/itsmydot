@@ -50,6 +50,7 @@ type item struct {
 	state    itemState
 	err      error  // state가 errored일 때의 원인
 	parent   string // 하위 항목이면 그룹 이름. 하위 항목은 items에서 그룹 바로 뒤에 이어 붙는다
+	outdated bool   // 연결된 항목의 로컬 사본이 시작할 때 본 리포 파일과 다르면 true
 
 	flash, flashVelocity float64 // 상태가 바뀐 직후 남아 있는 강조색의 정도와 그 속도. 1에서 0으로 줄어든다
 }

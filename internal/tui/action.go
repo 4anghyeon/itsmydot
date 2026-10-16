@@ -3,6 +3,8 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -296,10 +298,10 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 		it.state, it.err = errored, msg.err
 		result = it.entry.Name + ": 연결 실패"
 	case msg.copyUpdated:
-		it.state, it.err = synced, nil
+		it.state, it.err, it.outdated = synced, nil, false
 		result = it.entry.Name + " 사본을 최신으로 바꿨어요"
 	default:
-		it.state, it.err = synced, nil
+		it.state, it.err, it.outdated = synced, nil, false
 		result = it.entry.Name + ": 연결됨"
 		if msg.backup != "" {
 			result += " · 기존 파일 백업: " + tildify(msg.backup, m.home)
@@ -331,12 +333,14 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 		return entriesLoadedMsg{err: err}
 	}
 
+	hashes, _ := client.FileHashes(ctx)
+
 	// 하위 항목은 그룹 바로 뒤에 이어 붙여서 목록 순서가 화면 순서와 같게 한다.
 	var items []item
 	for _, e := range m.Entries {
-		items = append(items, checkItem(e, "", copies))
+		items = append(items, checkItem(e, "", copies, hashes))
 		for _, child := range e.Children {
-			items = append(items, checkItem(child, e.Name, copies))
+			items = append(items, checkItem(child, e.Name, copies, hashes))
 		}
 	}
 	return entriesLoadedMsg{items: items}
@@ -344,7 +348,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 
 // checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.
 // 확인에 실패해도 나머지 항목은 보여 주도록 그 항목만 errored로 표시한다.
-func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir) item {
+func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes map[string]string) item {
 	e.Children = nil
 	it := item{entry: e, parent: parent}
 	var err error
@@ -357,7 +361,24 @@ func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir) item {
 	if err != nil {
 		it.state, it.err = errored, err
 	}
+	if it.state == synced {
+		it.outdated = differsFromRepo(it.copyPath, e.Source, hashes)
+	}
 	return it
+}
+
+// differsFromRepo 는 로컬 사본이 리포의 source 파일과 다른지 알려 준다.
+// 리포 해시가 없거나 사본을 읽지 못하면 비교할 수 없으므로 다르지 않다고 본다.
+func differsFromRepo(copyPath, source string, hashes map[string]string) bool {
+	remote, ok := hashes[path.Clean(source)]
+	if !ok {
+		return false
+	}
+	data, err := os.ReadFile(copyPath)
+	if err != nil {
+		return false
+	}
+	return github.BlobHash(data) != remote
 }
 
 // syncEntry 는 항목 하나를 GitHub에서 최신본으로 받아 로컬 사본에 저장하고 target에 연결한다.
