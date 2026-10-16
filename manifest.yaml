@@ -36,3 +36,20 @@ entries:
     source: files/git/.gitconfig
     target: ~/.gitconfig
     description: git 전역 설정
+  - name: claude
+    source: files/claude/CLAUDE.md
+    target: ~/.claude/CLAUDE.md
+    description: Claude Code 전역 지침
+    children:
+      - name: rules-typescript
+        source: files/claude/rules/typescript.md
+        target: ~/.claude/rules/typescript.md
+        description: JS와 TS 파일을 다룰 때 불러오는 규칙
+      - name: rules-react
+        source: files/claude/rules/react.md
+        target: ~/.claude/rules/react.md
+        description: JSX와 TSX 파일을 다룰 때 불러오는 React 규칙
+      - name: rules-go
+        source: files/claude/rules/go.md
+        target: ~/.claude/rules/go.md
+        description: Go 파일을 다룰 때 불러오는 규칙
