@@ -77,17 +77,59 @@ func TestBackgroundSelectsPalette(t *testing.T) {
 	}
 }
 
-// 업데이트 표시는 받는 중 스피너와 같은 청록색 글자로 그린다. 배경 밝기에 따라 색도 바뀐다.
+// 업데이트 표시는 주황색 글자로 그린다. 배경 밝기에 따라 색도 바뀐다.
 func TestUpdateMarkColors(t *testing.T) {
 	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: synced, outdated: true})
-	darkCyan := "38;2;34;211;238"  // #22D3EE
-	lightCyan := "38;2;14;116;144" // #0E7490
+	darkOrange := "38;2;251;146;60" // #FB923C
+	lightOrange := "38;2;194;65;12" // #C2410C
 
-	if v := m.View().Content; !strings.Contains(v, darkCyan) {
-		t.Errorf("dark background: want the mark color %s", darkCyan)
+	if v := m.View().Content; !strings.Contains(v, darkOrange) {
+		t.Errorf("dark background: want the mark color %s", darkOrange)
 	}
 	next, _ := m.Update(tea.BackgroundColorMsg{Color: lipgloss.Color("#FFFFFF")})
-	if v := next.(Model).View().Content; !strings.Contains(v, lightCyan) {
-		t.Errorf("white background: want the mark color %s", lightCyan)
+	if v := next.(Model).View().Content; !strings.Contains(v, lightOrange) {
+		t.Errorf("white background: want the mark color %s", lightOrange)
+	}
+}
+
+// 메뉴 제목 줄은 그룹 이름을 파랑, 파일 이름을 분홍으로 칠한다. 하위 파일은 그룹 줄 아래에 트리 가지로 매단다.
+func TestMenuTitle(t *testing.T) {
+	blue, pink := "38;2;96;165;250", "38;2;244;114;182" // #60A5FA, #F472B6
+	m := loadedModel(
+		item{entry: entry("gitconfig", "/home/me/.gitconfig")},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced},
+		item{entry: entry("git", "/home/me/.config/zsh/git.zsh"), parent: "zshrc"},
+	)
+
+	tests := []struct {
+		cursor      int
+		text        string
+		colors      []string
+		notExpected string
+	}{
+		{0, "gitconfig  ~/.gitconfig", []string{pink}, blue},
+		{1, "zshrc  ~/.zshrc", []string{blue}, pink},
+		{2, "zshrc  ~/.zshrc\n└─ env  ~/.config/zsh/env.zsh", []string{blue, pink}, ""},
+	}
+	for _, tt := range tests {
+		mm := m
+		mm.cursor = tt.cursor
+		mm, _ = press(t, mm, "enter")
+		title := mm.menuTitle(newStyles(true))
+		if got := ansi.Strip(title); got != tt.text {
+			t.Errorf("cursor %d: title = %q, want %q", tt.cursor, got, tt.text)
+		}
+		for _, c := range tt.colors {
+			if !strings.Contains(title, c) {
+				t.Errorf("cursor %d: title should contain color %s: %q", tt.cursor, c, title)
+			}
+		}
+		if tt.notExpected != "" && strings.Contains(title, tt.notExpected) {
+			t.Errorf("cursor %d: title should not contain color %s: %q", tt.cursor, tt.notExpected, title)
+		}
+		if v := viewText(mm); !strings.Contains(v, strings.Split(tt.text, "\n")[0]) {
+			t.Errorf("cursor %d: view missing %q:\n%s", tt.cursor, tt.text, v)
+		}
 	}
 }

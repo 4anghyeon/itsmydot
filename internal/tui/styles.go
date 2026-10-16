@@ -16,6 +16,8 @@ import (
 type palette struct {
 	synced, conflict, errored, syncing color.Color
 	muted, accent                      color.Color
+	update                             color.Color // 업데이트 있음 표시. 충돌의 노란색과 헷갈리지 않게 주황 쪽으로 둔다
+	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름. 다른 상태 색과 겹치지 않는 파랑과 분홍
 }
 
 var (
@@ -26,6 +28,9 @@ var (
 		syncing:  lipgloss.Color("#22D3EE"),
 		muted:    lipgloss.Color("#8A8A8A"),
 		accent:   lipgloss.Color("#C084FC"),
+		update:   lipgloss.Color("#FB923C"),
+		group:    lipgloss.Color("#60A5FA"),
+		file:     lipgloss.Color("#F472B6"),
 	}
 	lightPalette = palette{
 		synced:   lipgloss.Color("#15803D"),
@@ -34,6 +39,9 @@ var (
 		syncing:  lipgloss.Color("#0E7490"),
 		muted:    lipgloss.Color("#6B7280"),
 		accent:   lipgloss.Color("#9333EA"),
+		update:   lipgloss.Color("#C2410C"),
+		group:    lipgloss.Color("#2563EB"),
+		file:     lipgloss.Color("#DB2777"),
 	}
 )
 
@@ -41,7 +49,7 @@ var (
 type styles struct {
 	palette
 	frame, title, muted, cursor, selected, question, key lipgloss.Style
-	update                                               lipgloss.Style
+	update, groupName, fileName                          lipgloss.Style
 }
 
 // newStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
@@ -51,15 +59,17 @@ func newStyles(dark bool) styles {
 		p = darkPalette
 	}
 	return styles{
-		palette:  p,
-		frame:    lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
-		title:    lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		muted:    lipgloss.NewStyle().Foreground(p.muted),
-		cursor:   lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		selected: lipgloss.NewStyle().Bold(true),
-		question: lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
-		key:      lipgloss.NewStyle().Bold(true),
-		update:   lipgloss.NewStyle().Bold(true).Foreground(p.syncing),
+		palette:   p,
+		frame:     lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
+		title:     lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		muted:     lipgloss.NewStyle().Foreground(p.muted),
+		cursor:    lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		selected:  lipgloss.NewStyle().Bold(true),
+		question:  lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
+		key:       lipgloss.NewStyle().Bold(true),
+		update:    lipgloss.NewStyle().Bold(true).Foreground(p.update),
+		groupName: lipgloss.NewStyle().Bold(true).Foreground(p.group),
+		fileName:  lipgloss.NewStyle().Bold(true).Foreground(p.file),
 	}
 }
 

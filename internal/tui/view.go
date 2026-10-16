@@ -35,7 +35,11 @@ func (m Model) View() tea.View {
 	footer := st.help("방향키", move, "space", "토글", "enter", "메뉴", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
-		body = append(body, "", st.question.Render(question), "")
+		title := st.question.Render(question)
+		if m.confirmKind == confirmAction {
+			title = m.menuTitle(st)
+		}
+		body = append(body, "", title, "")
 		numbers := make([]string, len(options))
 		for i, opt := range options {
 			numbers[i] = strconv.Itoa(i + 1)
@@ -76,19 +80,19 @@ func (m Model) View() tea.View {
 	return tea.NewView(box + "\n " + footer + "\n")
 }
 
-// itemLines 는 항목 목록을 한 줄씩 만든다. 하위 항목은 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
+// itemLines 는 항목 목록을 한 줄씩 만든다. 하위 항목은 트리 가지를 붙여 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
 // 그룹 줄의 체크박스는 그룹 파일의 상태이고 하위 항목이 몇 개 켜졌는지는 줄 끝에 따로 적는다.
 //
 //	  [+] gitconfig  ~/.gitconfig
 //	> [+] zshrc      ~/.zshrc  1/2
-//	      [+] env    ~/.config/zsh/00-env.zsh
-//	      [!] git    ~/.config/zsh/20-git.zsh   (다른 파일이 있음)
+//	   ├─ [+] env    ~/.config/zsh/env.zsh
+//	   └─ [!] git    ~/.config/zsh/git.zsh   (다른 파일이 있음)
 func (m Model) itemLines(st styles) []string {
-	// 들여 쓴 하위 항목도 경로 칸이 맞도록 들여쓰기를 이름 폭에 넣어 센다.
+	// 들여 쓴 하위 항목도 경로 칸이 맞도록 가지 폭을 이름 폭에 넣어 센다.
 	width := 0
 	for i, it := range m.items {
 		if m.visible(i) {
-			width = max(width, len(indent(it))+lipgloss.Width(it.entry.Name))
+			width = max(width, lipgloss.Width(m.branch(i))+lipgloss.Width(it.entry.Name))
 		}
 	}
 
@@ -97,12 +101,12 @@ func (m Model) itemLines(st styles) []string {
 		if !m.visible(i) {
 			continue
 		}
-		pad := indent(it)
-		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-len(pad)-lipgloss.Width(it.entry.Name))
+		branch := m.branch(i)
+		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
 		if i == m.cursor {
 			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
 		}
-		line := cursor + " " + pad + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+		line := cursor + " " + st.muted.Render(branch) + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
 
 		if children := m.children(i); len(children) > 0 {
 			count := fmt.Sprintf("  %d/%d", len(m.syncedChildren(i)), len(children))
@@ -132,12 +136,17 @@ func (m Model) itemLines(st styles) []string {
 	return lines
 }
 
-// indent 는 하위 항목 앞에 넣는 들여쓰기다.
-func indent(it item) string {
-	if it.parent == "" {
+// branch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
+// 가지는 그룹 체크박스의 가운데 글자 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
+func (m Model) branch(i int) string {
+	parent := m.items[i].parent
+	if parent == "" {
 		return ""
 	}
-	return "    "
+	if i+1 < len(m.items) && m.items[i+1].parent == parent {
+		return " ├─ "
+	}
+	return " └─ "
 }
 
 // marker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
@@ -189,6 +198,33 @@ func (m Model) confirmPrompt() (question string, options []string) {
 		}
 		return question, []string{"백업 후 연결", "취소"}
 	}
+}
+
+// zshrc  ~/.zshrc
+// └─ env  ~/.config/zsh/env.zsh
+//
+// gitconfig  ~/.gitconfig
+func (m Model) menuTitle(st styles) string {
+	i := m.indexOf(m.confirming)
+	if i < 0 {
+		return ""
+	}
+	it := m.items[i]
+	target := tildify(it.entry.Target, m.home)
+
+	if len(m.children(i)) > 0 {
+		return m.groupTitle(st, i)
+	}
+	line := st.fileName.Render(it.entry.Name) + "  " + target
+	if it.parent != "" {
+		return m.groupTitle(st, m.indexOf(it.parent)) + "\n" + st.muted.Render("└─ ") + line
+	}
+	return line
+}
+
+// groupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
+func (m Model) groupTitle(st styles, i int) string {
+	return st.groupName.Render(m.items[i].entry.Name) + "  " + tildify(m.items[i].entry.Target, m.home)
 }
 
 // tildify 는 홈 디렉토리 아래 경로를 ~로 줄인다. /Users/me/.zshrc 는 ~/.zshrc 가 된다.
