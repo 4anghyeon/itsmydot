@@ -79,6 +79,7 @@ type Model struct {
 	confirmKind confirmKind
 	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
 	pending     []string // confirmLink에서 백업 후 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
+	confirmNote string   // 확인 질문 아래 한 줄. 질문에서 고른 차이 보기의 진행 상황이나 결과를 알린다
 
 	comparing  string     // 비교할 리포 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
 	diffScreen diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다

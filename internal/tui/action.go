@@ -179,8 +179,17 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// 차이 보기는 답이 아니라 답을 고르려고 보는 것이라 질문을 닫지 않는다.
+	if m.confirmKind == confirmLink && n == 2 {
+		return m.startTargetCompare()
+	}
+
 	name, pending := m.confirming, m.pending
-	m.confirming, m.pending = "", nil
+	m.confirming, m.pending, m.confirmNote = "", nil, ""
+	if m.confirmKind == confirmLink {
+		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
+		m.comparing = ""
+	}
 	if key == cancel {
 		// 메뉴는 아무것도 하지 않고 닫는 것이라 취소를 알릴 필요가 없다.
 		if m.confirmKind != confirmAction {
@@ -196,7 +205,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	m.items = slices.Clone(m.items)
 
 	switch m.confirmKind {
-	case confirmLink: // 1. 백업 후 연결
+	case confirmLink: // 1. 백업 후 연결. 2. 차이 보기는 위에서 처리했다
 		indexes := make([]int, 0, len(pending))
 		for _, p := range pending {
 			if j := m.indexOf(p); j >= 0 {

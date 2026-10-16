@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -131,7 +132,7 @@ func TestDiffScroll(t *testing.T) {
 	// 빈 파일에 30줄을 추가하면 머리줄까지 31줄이다.
 	var text strings.Builder
 	for i := 1; i <= 30; i++ {
-		fmt.Fprintf(&text, "line %d\n", i)
+		_, _ = fmt.Fprintf(&text, "line %d\n", i)
 	}
 	m.comparing = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "", text.String()))
@@ -264,5 +265,98 @@ func TestDiffNoNewlineRow(t *testing.T) {
 	if i < 0 || i+2 >= len(lines) ||
 		!strings.Contains(lines[i+1], "\\ No newline at end of file") || !strings.Contains(lines[i+2], "  2  +  last") {
 		t.Errorf("no newline row should follow the removed line:\n%s", v)
+	}
+}
+
+// conflictFixture 는 target 자리에 mine이라는 다른 파일이 있는 항목을 켜서 충돌 질문을 띄운다.
+func conflictFixture(t *testing.T, mine, remote string) (Model, string) {
+	t.Helper()
+	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": remote})
+	if err := os.WriteFile(target, []byte(mine), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ = press(t, m, "space")
+	if m.confirmKind != confirmLink || m.confirming != "gitconfig" {
+		t.Fatalf("setup: kind = %d confirming = %q", m.confirmKind, m.confirming)
+	}
+	return m, target
+}
+
+// 충돌 질문에서 차이 보기를 고르면 질문을 닫지 않고 target 자리의 지금 파일과 리포 파일을 비교한다.
+// esc로 diff 화면을 닫으면 같은 질문으로 돌아오고, 거기서 백업 후 연결을 고를 수 있다.
+func TestConflictPromptCompare(t *testing.T) {
+	m, target := conflictFixture(t, "mine\n", "from repo\n")
+
+	m, cmd := press(t, m, "2")
+	if m.confirming != "gitconfig" || m.comparing != "gitconfig" {
+		t.Fatalf("prompt should stay while comparing: confirming = %q comparing = %q", m.confirming, m.comparing)
+	}
+	if v := viewText(m); !strings.Contains(v, "] gitconfig 리포 파일과 비교하는 중이에요...") || !strings.Contains(v, "2. 차이 보기") {
+		t.Errorf("progress should show under the prompt:\n%s", v)
+	}
+
+	m = runCmd(t, m, cmd)
+	v := viewText(m)
+	if m.diffScreen.name != "gitconfig" || !strings.Contains(v, "1    -  mine") || !strings.Contains(v, "  1  +  from repo") {
+		t.Fatalf("diff screen should compare the current file:\n%s", v)
+	}
+
+	m, _ = press(t, m, "esc")
+	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "1. 백업 후 연결") {
+		t.Fatalf("esc should go back to the prompt:\n%s", v)
+	}
+	assertContent(t, target, "mine\n")
+
+	m, cmd = press(t, m, "1")
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced {
+		t.Fatalf("state = %d, want synced after backup and link", m.items[0].state)
+	}
+	assertContent(t, target, "from repo\n")
+	assertContent(t, target+".itsmydot.bak", "mine\n")
+}
+
+// 차이가 없으면 화면을 열지 않고 질문 아래에 알린다. 질문에 답하면 그 안내도 사라진다.
+func TestConflictPromptCompareSame(t *testing.T) {
+	m, _ := conflictFixture(t, "same\n", "same\n")
+	m, cmd := press(t, m, "2")
+	m = runCmd(t, m, cmd)
+	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "gitconfig 지금 파일과 리포 파일이 같아요") {
+		t.Fatalf("note should show under the prompt:\n%s", v)
+	}
+
+	m, _ = press(t, m, "esc")
+	if m.confirmNote != "" || strings.Contains(viewText(m), "같아요") {
+		t.Errorf("note should be cleared with the prompt:\n%s", viewText(m))
+	}
+}
+
+// 비교 결과가 오기 전에 질문에 답했으면 결과를 버린다.
+func TestConflictPromptCompareAfterAnswer(t *testing.T) {
+	m, _ := conflictFixture(t, "mine\n", "from repo\n")
+	m, cmd := press(t, m, "2")
+	m, _ = press(t, m, "esc")
+	if m.comparing != "" {
+		t.Fatalf("comparing = %q, want cleared with the prompt", m.comparing)
+	}
+	m = runCmd(t, m, cmd)
+	if m.diffScreen.name != "" || m.confirmNote != "" {
+		t.Fatalf("late result should be dropped: diff = %q note = %q", m.diffScreen.name, m.confirmNote)
+	}
+}
+
+// 하위 항목을 켜다가 그룹 파일만 걸렸으면 그룹 파일을 비교한다.
+func TestConflictedIndexPrefersPromptItem(t *testing.T) {
+	m := loadedModel(
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: conflict},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc"},
+	)
+	m.confirming, m.pending = "env", []string{"zshrc", "env"}
+	if i := m.conflictedIndex(); i != 0 {
+		t.Errorf("conflictedIndex = %d, want the group file", i)
+	}
+	m.items[1].state = conflict
+	if i := m.conflictedIndex(); i != 1 {
+		t.Errorf("conflictedIndex = %d, want the prompt item", i)
 	}
 }

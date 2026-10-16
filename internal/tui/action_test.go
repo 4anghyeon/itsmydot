@@ -131,7 +131,7 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 }
 
 func TestConfirmCancel(t *testing.T) {
-	for _, key := range []string{"2", "esc"} {
+	for _, key := range []string{"3", "esc"} {
 		t.Run(key, func(t *testing.T) {
 			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 			if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
@@ -175,7 +175,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	assertContent(t, target, "mine")
 
 	v := viewText(m)
-	for _, want := range []string{"이미 파일이 있습니다", "> 1. 백업 후 연결", "  2. 취소", "1/2 바로 선택"} {
+	for _, want := range []string{"이미 파일이 있습니다", "> 1. 백업 후 연결", "  2. 차이 보기", "  3. 취소", "1/2/3 바로 선택"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -265,16 +265,16 @@ func TestUnlinkWithoutBackupCancel(t *testing.T) {
 	}
 }
 
-// 연결 확인 질문은 선택지가 2개라서 3은 무시한다.
+// 연결 확인 질문은 선택지가 3개라서 4는 무시한다.
 func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	m, _ = press(t, m, "space")
-	m, cmd := press(t, m, "3")
+	m, cmd := press(t, m, "4")
 	if cmd != nil || m.confirming == "" {
-		t.Fatal("3 should be ignored for a 2-option prompt")
+		t.Fatal("4 should be ignored for a 3-option prompt")
 	}
 }
 
@@ -314,10 +314,11 @@ func TestConfirmSpaceSelects(t *testing.T) {
 		t.Fatal(err)
 	}
 	m, _ = press(t, m, "space")
-	m, _ = press(t, m, "down") // 2. 취소
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "down") // 3. 취소
 	m, cmd := press(t, m, "space")
 	if cmd != nil || m.confirming != "" || !strings.Contains(m.status, "취소") {
-		t.Fatalf("space on 2 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
 	}
 	assertContent(t, target, "mine")
 

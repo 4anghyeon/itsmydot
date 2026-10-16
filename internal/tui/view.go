@@ -52,6 +52,12 @@ func (m Model) View() tea.View {
 			}
 			body = append(body, cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
 		}
+		switch {
+		case m.comparing != "":
+			body = append(body, "", "["+m.spinner.View()+"] "+m.confirmNote)
+		case m.confirmNote != "":
+			body = append(body, "", m.confirmNote)
+		}
 		footer = st.help("방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
 	} else if m.comparing != "" {
 		body = append(body, "", "["+m.spinner.View()+"] "+m.status)
@@ -201,7 +207,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 		if it.parent != "" && slices.Contains(m.pending, it.parent) {
 			question = fmt.Sprintf("%s 는 %s 가 불러오는 파일이라 %s 도 함께 켭니다. ", it.entry.Name, it.parent, it.parent) + question
 		}
-		return question, []string{"백업 후 연결", "취소"}
+		return question, []string{"백업 후 연결", "차이 보기", "취소"}
 	}
 }
 

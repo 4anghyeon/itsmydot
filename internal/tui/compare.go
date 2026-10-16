@@ -52,11 +52,12 @@ type diffLayout struct {
 	scrollbar     bool // 한 화면에 다 들어가지 않으면 true
 }
 
-// diffLoadedMsg 는 로컬 사본과 리포 최신본을 비교한 결과다. 두 파일이 같으면 hunks가 비어 있다.
+// diffLoadedMsg 는 리포 최신본과 비교한 결과다. 두 파일이 같으면 hunks가 비어 있다.
 type diffLoadedMsg struct {
-	name  string
-	hunks []diff.Hunk
-	err   error
+	name    string
+	hunks   []diff.Hunk
+	err     error
+	current bool // 로컬 사본 대신 target 자리의 지금 파일과 비교했으면 true. 충돌 질문에서 연 비교다
 }
 
 // diffHorizontalStep 은 좌우 방향키 한 번에 옆으로 미는 칸 수다.
@@ -79,20 +80,52 @@ func (m Model) startCompare(i int) (Model, tea.Cmd) {
 	m.status = it.entry.Name + " 리포 최신본과 비교하는 중이에요..."
 	entry, copyPath, client := it.entry, it.copyPath, m.client
 	load := func() tea.Msg {
-		return compareCopy(context.Background(), client, copyPath, entry)
+		return compareWithRepo(context.Background(), client, entry, copyPath)
 	}
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 
-// compareCopy 는 리포 최신본을 받아 로컬 사본과 비교한다. 디스크는 바꾸지 않는다.
-func compareCopy(ctx context.Context, client *github.Client, copyPath string, e manifest.Entry) diffLoadedMsg {
+// startTargetCompare 는 충돌 질문에서 target 자리에 있는 지금 파일과 리포 파일을 비교한다. 질문은 그대로 둔다.
+// 그룹 파일과 하위 파일이 함께 걸렸으면 질문을 띄운 항목을 보고, 그 항목이 충돌이 아니면 처음 걸린 항목을 본다.
+func (m Model) startTargetCompare() (Model, tea.Cmd) {
+	i := m.conflictedIndex()
+	if i < 0 {
+		return m, nil
+	}
+	it := m.items[i]
+	m.comparing = it.entry.Name
+	m.confirmNote = it.entry.Name + " 리포 파일과 비교하는 중이에요..."
+	entry, client := it.entry, m.client
+	load := func() tea.Msg {
+		msg := compareWithRepo(context.Background(), client, entry, entry.Target)
+		msg.current = true
+		return msg
+	}
+	return m, tea.Batch(load, m.spinner.Tick)
+}
+
+// conflictedIndex 는 충돌 질문에서 비교할 항목의 위치다. 걸린 항목이 없으면 -1이다.
+func (m Model) conflictedIndex() int {
+	if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == conflict {
+		return i
+	}
+	for _, name := range m.pending {
+		if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
+			return j
+		}
+	}
+	return -1
+}
+
+// compareWithRepo 는 리포 최신본을 받아 path의 파일과 비교한다. 디스크는 바꾸지 않는다.
+func compareWithRepo(ctx context.Context, client *github.Client, e manifest.Entry, path string) diffLoadedMsg {
 	msg := diffLoadedMsg{name: e.Name}
 	remote, err := client.Fetch(ctx, e.Source)
 	if err != nil {
 		msg.err = err
 		return msg
 	}
-	local, err := os.ReadFile(copyPath)
+	local, err := os.ReadFile(path)
 	if err != nil {
 		msg.err = err
 		return msg
@@ -101,25 +134,37 @@ func compareCopy(ctx context.Context, client *github.Client, copyPath string, e 
 	return msg
 }
 
-// applyDiff 는 비교 결과로 비교 보기 화면을 연다. 차이가 없거나 비교할 수 없으면 화면 대신 상태 메시지로 알린다.
-// 받는 사이에 다른 항목의 비교를 시작했으면 늦게 온 결과는 버린다.
+// applyDiff 는 비교 결과로 비교 보기 화면을 연다. 차이가 없거나 비교할 수 없으면 화면 대신 한 줄로 알린다.
+// 메뉴에서 연 비교는 상태 메시지로, 충돌 질문에서 연 비교는 질문 아래에 알린다.
+// 받는 사이에 다른 비교를 시작했거나 질문이 닫혔으면 늦게 온 결과는 버린다.
 func (m Model) applyDiff(msg diffLoadedMsg) Model {
 	if msg.name != m.comparing {
 		return m
 	}
 	m.comparing = ""
+
+	same := msg.name + " 사본과 리포 최신본이 같아요"
+	if msg.current {
+		same = msg.name + " 지금 파일과 리포 파일이 같아요"
+	}
+	var note string
 	switch {
 	case errors.Is(msg.err, diff.ErrBinary):
-		m.status = msg.name + " 파일은 텍스트가 아니라서 비교할 수 없어요"
+		note = msg.name + " 파일은 텍스트가 아니라서 비교할 수 없어요"
 	case errors.Is(msg.err, diff.ErrTooLarge):
-		m.status = fmt.Sprintf("%s 파일이 %dMB보다 커서 비교할 수 없어요", msg.name, diff.MaxSize>>20)
+		note = fmt.Sprintf("%s 파일이 %dMB보다 커서 비교할 수 없어요", msg.name, diff.MaxSize>>20)
 	case msg.err != nil:
-		m.status = msg.name + " 비교하지 못했어요 (" + msg.err.Error() + ")"
+		note = msg.name + " 비교하지 못했어요 (" + msg.err.Error() + ")"
 	case len(msg.hunks) == 0:
-		m.status = msg.name + " 사본과 리포 최신본이 같아요"
+		note = same
 	default:
-		m.status = ""
 		m.diffScreen = diffScreen{name: msg.name, rows: diffRows(msg.hunks)}
+	}
+
+	if msg.current {
+		m.confirmNote = note
+	} else {
+		m.status = note
 	}
 	return m
 }
