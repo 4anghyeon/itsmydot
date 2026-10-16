@@ -61,6 +61,7 @@ type Model struct {
 	copies *localcopy.Dir
 	home   string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
 	width  int    // 터미널 폭. 모르면 0이고 이때는 상자 폭을 제한하지 않는다
+	height int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
 	light  bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
 
 	items   []item
@@ -79,7 +80,10 @@ type Model struct {
 	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
 	pending     []string // confirmLink에서 백업 후 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
 
-	spinner     spinner.Model // 받는 중인 항목이 있을 때만 돈다
+	comparing string     // 비교할 리포 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
+	diff      diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
+
+	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
 
 	gauge, gaugeVelocity float64 // 게이지가 지금 그리는 연결 비율과 그 속도. syncedRatio 쪽으로 움직인다
@@ -117,7 +121,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-// 확인 질문이 떠 있는 동안에는 키 입력을 모두 answerConfirm으로 넘긴다.
+// 비교 보기 화면이 열려 있으면 키 입력을 모두 scrollDiff로, 확인 질문이 떠 있으면 answerConfirm으로 넘긴다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
@@ -130,11 +134,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case entrySyncedMsg:
 		return m.applySynced(msg).startAnimation()
 
+	case diffLoadedMsg:
+		return m.applyDiff(msg), nil
+
 	case animationTickMsg:
 		return m.stepAnimation()
 
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
+		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
 	case tea.BackgroundColorMsg:
@@ -143,7 +150,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
-		if !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+		if m.comparing == "" && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -152,6 +159,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
+		if m.diff.name != "" {
+			return m.scrollDiff(key)
+		}
 		if m.confirming != "" {
 			return m.answerConfirm(key)
 		}

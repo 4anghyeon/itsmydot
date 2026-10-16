@@ -338,7 +338,7 @@ func TestMenuUpdateCopy(t *testing.T) {
 	files["files/git/.gitconfig"] = "v2"
 	m, _ = press(t, m, "enter")
 	v := viewText(m)
-	for _, want := range []string{"> 1. 최신으로 받기", "  2. 끄기", "  3. 닫기"} {
+	for _, want := range []string{"> 1. 최신으로 받기", "  2. 비교 보기", "  3. 끄기", "  4. 닫기"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -413,7 +413,7 @@ func TestMenuTurnOn(t *testing.T) {
 func TestMenuTurnOffAsksLikeSpace(t *testing.T) {
 	m, _ := linkedFixture(t)
 	m, _ = press(t, m, "enter")
-	m, _ = press(t, m, "2")
+	m, _ = press(t, m, "3")
 	if m.confirmKind != confirmUnlink || m.confirming != "gitconfig" {
 		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirming)
 	}

@@ -214,8 +214,13 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		return m.unlink(i).startAnimation()
 	case confirmAction:
 		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
-		if n == 1 && m.items[i].state == synced { // 1. 최신으로 받기
-			return m.updateCopy(i)
+		if m.items[i].state == synced {
+			switch n {
+			case 1: // 최신으로 받기
+				return m.updateCopy(i)
+			case 2: // 비교 보기
+				return m.startCompare(i)
+			}
 		}
 		return m.toggle() // 켜기 또는 끄기
 	}
