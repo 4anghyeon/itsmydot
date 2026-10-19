@@ -9,12 +9,16 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
-// View 는 상자 안에 제목과 진행 게이지, 항목 목록, 상태 메시지나 확인 질문을 그리고
+// View 는 상자 안에 제목과 진행 게이지, 항목 목록, 커서가 있는 항목의 설명, 상태 메시지나 확인 질문을 그리고
 // 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
+	if m.helpOpen {
+		return m.helpView(st)
+	}
 	if m.diffScreen.name != "" {
 		return m.diffView(st)
 	}
@@ -28,14 +32,12 @@ func (m Model) View() tea.View {
 	case len(m.items) == 0:
 		body = append(body, st.muted.Render("항목이 없습니다."))
 	default:
+		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 상자 높이가 출렁이지 않게 한다.
 		body = append(body, m.itemLines(st)...)
+		body = append(body, "", m.descriptionBlock(st, m.items[m.cursor].entry.Description))
 	}
 
-	move := "이동"
-	if slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }) {
-		move = "이동/접기"
-	}
-	footer := st.help("방향키", move, "space", "토글", "enter", "메뉴", "esc", "종료")
+	footer := st.help("방향키", "이동", "space", "토글", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
 		title := st.question.Render(question)
@@ -145,6 +147,26 @@ func (m Model) itemLines(st styles) []string {
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// descriptionBlock 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다.
+func (m Model) descriptionBlock(st styles, text string) string {
+	if text == "" {
+		return ""
+	}
+	const indent = 2
+	if m.width > 0 {
+		text = ansi.Wrap(text, max(m.width-frameExtra-indent, 1), " ")
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		prefix := strings.Repeat(" ", indent)
+		if i == 0 {
+			prefix = st.descriptionBar.Render("┃") + " "
+		}
+		lines[i] = prefix + st.description.Render(line)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // branch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.

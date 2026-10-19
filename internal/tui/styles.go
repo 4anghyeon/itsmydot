@@ -68,6 +68,8 @@ type styles struct {
 	palette
 	frame, title, muted, cursor, selected, question, key lipgloss.Style
 	update, groupName, fileName                          lipgloss.Style
+	description, descriptionBar                          lipgloss.Style
+	heading                                              lipgloss.Style // 도움말 화면의 소제목
 	diffRemoved, diffAdded                               diffStyles
 	diffHunk                                             lipgloss.Style
 }
@@ -95,20 +97,23 @@ func newStyles(dark bool) styles {
 		p = darkPalette
 	}
 	return styles{
-		palette:     p,
-		frame:       lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
-		title:       lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		muted:       lipgloss.NewStyle().Foreground(p.muted),
-		cursor:      lipgloss.NewStyle().Bold(true).Foreground(p.accent),
-		selected:    lipgloss.NewStyle().Bold(true),
-		question:    lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
-		key:         lipgloss.NewStyle().Bold(true),
-		update:      lipgloss.NewStyle().Bold(true).Foreground(p.update),
-		groupName:   lipgloss.NewStyle().Bold(true).Foreground(p.group),
-		fileName:    lipgloss.NewStyle().Bold(true).Foreground(p.file),
-		diffRemoved: newDiffStyles(p.diffRemoved, p.errored, p.muted),
-		diffAdded:   newDiffStyles(p.diffAdded, p.synced, p.muted),
-		diffHunk:    lipgloss.NewStyle().Background(p.diffHunk).Foreground(p.muted),
+		palette:        p,
+		frame:          lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.muted).Padding(0, 1),
+		title:          lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		muted:          lipgloss.NewStyle().Foreground(p.muted),
+		cursor:         lipgloss.NewStyle().Bold(true).Foreground(p.accent),
+		selected:       lipgloss.NewStyle().Bold(true),
+		question:       lipgloss.NewStyle().Bold(true).Foreground(p.conflict),
+		key:            lipgloss.NewStyle().Bold(true),
+		update:         lipgloss.NewStyle().Bold(true).Foreground(p.update),
+		groupName:      lipgloss.NewStyle().Bold(true).Foreground(p.group),
+		fileName:       lipgloss.NewStyle().Bold(true).Foreground(p.file),
+		description:    lipgloss.NewStyle().Italic(true).Foreground(p.muted),
+		descriptionBar: lipgloss.NewStyle().Foreground(p.accent),
+		heading:        lipgloss.NewStyle().Bold(true),
+		diffRemoved:    newDiffStyles(p.diffRemoved, p.errored, p.muted),
+		diffAdded:      newDiffStyles(p.diffAdded, p.synced, p.muted),
+		diffHunk:       lipgloss.NewStyle().Background(p.diffHunk).Foreground(p.muted),
 	}
 }
 

@@ -80,7 +80,6 @@ func TestGroupView(t *testing.T) {
 		"   ├─ [+] env      ~/.config/zsh/00-env.zsh",
 		"   └─ [ ] android  ~/.config/zsh/40-android.zsh",
 		"연결됨 3/4",
-		"이동/접기",
 	} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
