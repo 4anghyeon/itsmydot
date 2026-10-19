@@ -117,11 +117,22 @@ func toggleFixture(t *testing.T, files map[string]string) (m Model, target strin
 	return next.(Model), target
 }
 
+// confirmToggle 은 space로 토글 확인 질문을 띄우고 1번으로 답한다.
+// 다른 질문이 확인을 겸하는 경우에는 쓰지 않는다.
+func confirmToggle(t *testing.T, m Model) (Model, tea.Cmd) {
+	t.Helper()
+	m, cmd := press(t, m, "space")
+	if cmd != nil || (m.confirmKind != confirmTurnOn && m.confirmKind != confirmTurnOff) {
+		t.Fatalf("want a toggle prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
+	}
+	return press(t, m, "1")
+}
+
 // linkedFixture 는 백업 없이 연결된 항목 하나로 Model을 만든다.
 func linkedFixture(t *testing.T) (Model, string) {
 	t.Helper()
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
 		t.Fatalf("setup: state = %d (err %v)", m.items[0].state, m.items[0].err)

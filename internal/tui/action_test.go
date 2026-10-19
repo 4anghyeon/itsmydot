@@ -67,8 +67,17 @@ func TestLoadEntries(t *testing.T) {
 func TestToggleOnAndOff(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "[user]\n"})
 
-	// 켜면 바로 syncing이 되고 작업이 끝나면 synced가 된다.
+	// 켜기 전에 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
+	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmTurnOn {
+		t.Fatalf("want turn on prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Fatalf("target should be untouched before answering, got err %v", err)
+	}
+
+	// 1번을 고르면 syncing이 되고 작업이 끝나면 synced가 된다.
+	m, cmd = press(t, m, "1")
 	if m.items[0].state != syncing {
 		t.Fatalf("state = %d, want syncing", m.items[0].state)
 	}
@@ -123,7 +132,13 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 		t.Errorf("status = %q, want backup notice", m.status)
 	}
 
+	// 백업이 있으면 끄기 전에 묻고, 답하면 원래 파일을 되돌린다.
 	m, _ = press(t, m, "space")
+	if v := viewText(m); !strings.Contains(v, "gitconfig  ~/.gitconfig 연결을 끊을까요?") || !strings.Contains(v, "> 1. 끄기") {
+		t.Errorf("view should ask before turning off:\n%s", v)
+	}
+	assertSymlink(t, target, true)
+	m, _ = press(t, m, "1")
 	if m.items[0].state != conflict {
 		t.Errorf("state = %d, want conflict (original file restored)", m.items[0].state)
 	}
@@ -153,6 +168,42 @@ func TestConfirmCancel(t *testing.T) {
 			if _, err := os.Lstat(target + ".itsmydot.bak"); !os.IsNotExist(err) {
 				t.Error("no backup should be made when cancelled")
 			}
+		})
+	}
+}
+
+// 토글 확인 질문에서 2번이나 esc를 누르면 켜지도 끄지도 않는다.
+func TestToggleConfirmCancel(t *testing.T) {
+	for _, key := range []string{"2", "esc"} {
+		t.Run("on/"+key, func(t *testing.T) {
+			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+			m, _ = press(t, m, "space")
+			m, cmd := press(t, m, key)
+			if cmd != nil || m.confirming != "" || m.items[0].state != notSynced || !strings.Contains(m.status, "취소") {
+				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirming, m.items[0].state, m.status)
+			}
+			if _, err := os.Lstat(target); !os.IsNotExist(err) {
+				t.Errorf("target should be untouched, got err %v", err)
+			}
+		})
+		t.Run("off/"+key, func(t *testing.T) {
+			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
+			if err := os.WriteFile(target, []byte("mine"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			m, _ = press(t, m, "space")
+			m, cmd := press(t, m, "1")
+			m = runCmd(t, m, cmd)
+
+			m, _ = press(t, m, "space")
+			if m.confirmKind != confirmTurnOff {
+				t.Fatalf("kind = %d, want confirmTurnOff", m.confirmKind)
+			}
+			m, _ = press(t, m, key)
+			if m.confirming != "" || m.items[0].state != synced || !strings.Contains(m.status, "취소") {
+				t.Fatalf("confirming=%q state=%d status=%q", m.confirming, m.items[0].state, m.status)
+			}
+			assertSymlink(t, target, true)
 		})
 	}
 }
@@ -193,7 +244,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 func TestToggleFetchError(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{}) // 저장소에 파일이 없어서 404가 난다
 
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != errored || m.items[0].err == nil {
 		t.Fatalf("state = %d err = %v, want errored", m.items[0].state, m.items[0].err)
@@ -209,7 +260,7 @@ func TestToggleFetchError(t *testing.T) {
 // Update가 돌려준 새 Model을 바꿔도, 이전 Model의 항목은 그대로여야 한다.
 func TestToggleDoesNotMutatePreviousModel(t *testing.T) {
 	before, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
-	_, _ = press(t, before, "space")
+	_, _ = confirmToggle(t, before)
 	if before.items[0].state != notSynced {
 		t.Errorf("previous model changed: state = %d", before.items[0].state)
 	}
@@ -333,7 +384,7 @@ func TestConfirmSpaceSelects(t *testing.T) {
 func TestMenuUpdateCopy(t *testing.T) {
 	files := map[string]string{"files/git/.gitconfig": "v1"}
 	m, target := toggleFixture(t, files)
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 
 	files["files/git/.gitconfig"] = "v2"
@@ -366,7 +417,7 @@ func TestMenuUpdateCopy(t *testing.T) {
 func TestMenuUpdateCopyFetchError(t *testing.T) {
 	files := map[string]string{"files/git/.gitconfig": "v1"}
 	m, target := toggleFixture(t, files)
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
 
 	delete(files, "files/git/.gitconfig")
@@ -392,7 +443,7 @@ func TestMenuUpdateCopyWhenNoLongerLinked(t *testing.T) {
 	}
 }
 
-// 연결되지 않은 항목의 메뉴에는 켜기만 있고, 고르면 space와 똑같이 켠다.
+// 연결되지 않은 항목의 메뉴에는 켜기만 있고, 고르면 space와 똑같이 한 번 더 묻는다.
 func TestMenuTurnOn(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	m, _ = press(t, m, "enter")
@@ -403,6 +454,10 @@ func TestMenuTurnOn(t *testing.T) {
 		}
 	}
 	m, cmd := press(t, m, "1")
+	if cmd != nil || m.confirmKind != confirmTurnOn {
+		t.Fatalf("want turn on prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
+	}
+	m, cmd = press(t, m, "1")
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
 		t.Fatalf("state = %d, want synced", m.items[0].state)
@@ -429,7 +484,7 @@ func TestMenuCancelAndSyncing(t *testing.T) {
 		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
 	}
 
-	m, _ = press(t, m, "space")
+	m, _ = confirmToggle(t, m)
 	m, _ = press(t, m, "enter")
 	if m.confirming != "" {
 		t.Error("menu should not open while syncing")

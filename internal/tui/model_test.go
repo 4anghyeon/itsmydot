@@ -45,7 +45,7 @@ func TestQuit(t *testing.T) {
 func TestSpinner(t *testing.T) {
 	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 
-	m, cmd := press(t, m, "space")
+	m, cmd := confirmToggle(t, m)
 	if v := viewText(m); !strings.Contains(v, "[.] gitconfig") {
 		t.Fatalf("syncing item should show the first spinner frame:\n%s", v)
 	}

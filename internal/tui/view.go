@@ -179,8 +179,12 @@ func (m Model) confirmPrompt() (question string, options []string) {
 
 	// 켜진 하위 항목이 있으면 그룹 파일을 끌 때 함께 꺼진다는 걸 미리 알린다.
 	childrenNote := ""
-	if n := len(m.syncedChildren(i)); n > 0 {
-		childrenNote = fmt.Sprintf("하위 항목 %d개도 함께 꺼집니다. ", n)
+	if children := m.syncedChildren(i); len(children) > 0 {
+		names := make([]string, len(children))
+		for k, j := range children {
+			names[k] = m.items[j].entry.Name
+		}
+		childrenNote = fmt.Sprintf("하위 항목 %d개(%s)도 함께 꺼집니다. ", len(children), strings.Join(names, ", "))
 	}
 
 	switch m.confirmKind {
@@ -196,6 +200,16 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	case confirmGroupUnlink:
 		return fmt.Sprintf("%s 를 끄면 %s계속할까요?", it.entry.Name, childrenNote),
 			[]string{"모두 끄기", "취소"}
+	case confirmTurnOff:
+		return fmt.Sprintf("%s  %s 연결을 끊을까요? 백업해 둔 원래 파일을 되돌려요.", it.entry.Name, target),
+			[]string{"끄기", "취소"}
+	case confirmTurnOn:
+		question := fmt.Sprintf("%s  %s 를 연결할까요?", it.entry.Name, target)
+		if it.parent != "" && slices.Contains(m.pending, it.parent) {
+			parent := m.items[m.indexOf(it.parent)]
+			question += fmt.Sprintf(" %s 가 불러오는 파일이라 %s  %s 도 함께 연결해요.", it.entry.Name, parent.entry.Name, tildify(parent.entry.Target, m.home))
+		}
+		return question, []string{"연결", "취소"}
 	default:
 		var conflicted []string
 		for _, name := range m.pending {
