@@ -69,6 +69,7 @@ type styles struct {
 	frame, title, muted, cursor, selected, question, key lipgloss.Style
 	update, groupName, fileName                          lipgloss.Style
 	description, descriptionBar                          lipgloss.Style
+	heading                                              lipgloss.Style // 도움말 화면의 소제목
 	diffRemoved, diffAdded                               diffStyles
 	diffHunk                                             lipgloss.Style
 }
@@ -109,6 +110,7 @@ func newStyles(dark bool) styles {
 		fileName:       lipgloss.NewStyle().Bold(true).Foreground(p.file),
 		description:    lipgloss.NewStyle().Italic(true).Foreground(p.muted),
 		descriptionBar: lipgloss.NewStyle().Foreground(p.accent),
+		heading:        lipgloss.NewStyle().Bold(true),
 		diffRemoved:    newDiffStyles(p.diffRemoved, p.errored, p.muted),
 		diffAdded:      newDiffStyles(p.diffAdded, p.synced, p.muted),
 		diffHunk:       lipgloss.NewStyle().Background(p.diffHunk).Foreground(p.muted),

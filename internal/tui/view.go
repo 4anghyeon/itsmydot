@@ -16,6 +16,9 @@ import (
 // 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
+	if m.helpOpen {
+		return m.helpView(st)
+	}
 	if m.diffScreen.name != "" {
 		return m.diffView(st)
 	}
@@ -34,11 +37,7 @@ func (m Model) View() tea.View {
 		body = append(body, "", m.descriptionBlock(st, m.items[m.cursor].entry.Description))
 	}
 
-	move := "이동"
-	if slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }) {
-		move = "이동/접기"
-	}
-	footer := st.help("방향키", move, "space", "토글", "enter", "메뉴", "esc", "종료")
+	footer := st.help("방향키", "이동", "space", "토글", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
 		title := st.question.Render(question)

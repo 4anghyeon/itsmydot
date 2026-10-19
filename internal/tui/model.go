@@ -83,6 +83,7 @@ type Model struct {
 
 	comparing  string     // 비교할 저장소 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
 	diffScreen diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
+	helpOpen   bool       // ?로 연 도움말 화면이 떠 있으면 true
 
 	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
@@ -124,7 +125,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-// 비교 보기 화면이 열려 있으면 키 입력을 모두 scrollDiff로, 확인 질문이 떠 있으면 answerConfirm으로 넘긴다.
+// 도움말 화면이 열려 있으면 키 입력을 모두 answerHelp로, 비교 보기 화면이 열려 있으면 scrollDiff로, 확인 질문이 떠 있으면 answerConfirm으로 넘긴다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
@@ -162,6 +163,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
+		if m.helpOpen {
+			return m.answerHelp(key)
+		}
 		if m.diffScreen.name != "" {
 			return m.scrollDiff(key)
 		}
@@ -183,6 +187,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.toggle()
 		case "enter":
 			return m.openMenu(), nil
+		case "?":
+			m.helpOpen = true
 		}
 	}
 	return m, nil
