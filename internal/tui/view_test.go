@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/4anghyeon/itsmydot/internal/github"
 )
 
 func TestView(t *testing.T) {
@@ -23,14 +25,14 @@ func TestView(t *testing.T) {
 	m := loadedModel(
 		item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced},
 		item{entry: entry("zshrc", "/home/me/.zshrc"), state: conflict},
-		item{entry: entry("vimrc", "/home/me/.vimrc"), state: errored, err: errors.New("not found")},
+		item{entry: entry("vimrc", "/home/me/.vimrc"), state: errored, err: github.ErrNotFound},
 		item{entry: entry("tmux", "/home/me/.tmux.conf"), state: syncing},
 	)
 	v := viewText(m)
 	for _, want := range []string{
 		"> [+] gitconfig  ~/.gitconfig",
 		"  [!] zshrc      ~/.zshrc   (다른 파일이 있음)",
-		"  [-] vimrc      ~/.vimrc   (not found)",
+		"  [-] vimrc      ~/.vimrc   (저장소에 파일이 없어요)",
 		"  [~] tmux       ~/.tmux.conf",
 	} {
 		if !strings.Contains(v, want) {

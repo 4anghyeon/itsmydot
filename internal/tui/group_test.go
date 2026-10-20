@@ -130,7 +130,7 @@ func TestChildTurnsOnGroup(t *testing.T) {
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "space")
 	v := viewText(m)
-	for _, want := range []string{"env  ~/.config/zsh/00-env.zsh 를 연결할까요?", "env 가 불러오는 파일이라 zshrc  ~/.zshrc 도 함께 연결해요.", "> 1. 연결", "  2. 취소"} {
+	for _, want := range []string{"env  ~/.config/zsh/00-env.zsh 파일을 연결할까요? 그룹 파일 zshrc  ~/.zshrc 도 함께 연결해요.", "> 1. 연결", "  2. 취소"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -178,7 +178,7 @@ func TestChildTurnOnAsksOnceForGroupConflict(t *testing.T) {
 		t.Fatalf("want a link prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
 	}
 	v := viewText(m)
-	for _, want := range []string{"env 는 zshrc 가 불러오는 파일이라 zshrc 도 함께 켭니다.", "~/.zshrc 에 이미 파일이 있습니다."} {
+	for _, want := range []string{"그룹 파일 zshrc 도 함께 연결해요. ~/.zshrc 에 이미 파일이 있어요."} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -190,7 +190,7 @@ func TestChildTurnOnAsksOnceForGroupConflict(t *testing.T) {
 		t.Fatalf("zshrc=%d env=%d, want both synced", m.items[0].state, m.items[1].state)
 	}
 	assertContent(t, zshrc+".itsmydot.bak", "mine")
-	if want := "zshrc: 연결됨 · 기존 파일 백업: ~/.zshrc.itsmydot.bak / env: 연결됨"; m.status != want {
+	if want := "zshrc 파일을 연결했어요. 기존 파일은 ~/.zshrc.itsmydot.bak 에 백업했어요 / env 파일을 연결했어요"; m.status != want {
 		t.Errorf("status = %q, want %q", m.status, want)
 	}
 }
@@ -205,7 +205,7 @@ func TestGroupUnlinkWithoutBackupTurnsOffChildren(t *testing.T) {
 	if m.confirmKind != confirmUnlink {
 		t.Fatalf("kind = %d, want confirmUnlink", m.confirmKind)
 	}
-	if v := viewText(m); !strings.Contains(v, "하위 항목 1개(env)도 함께 꺼집니다.") {
+	if v := viewText(m); !strings.Contains(v, "하위 항목 1개(env)도 함께 연결이 끊겨요.") {
 		t.Errorf("prompt should mention the children:\n%s", v)
 	}
 
@@ -213,7 +213,7 @@ func TestGroupUnlinkWithoutBackupTurnsOffChildren(t *testing.T) {
 	if m.items[0].state != notSynced || m.items[1].state != notSynced {
 		t.Fatalf("zshrc=%d env=%d, want both off", m.items[0].state, m.items[1].state)
 	}
-	if !strings.Contains(m.status, "하위 항목 1개도 끔") {
+	if !strings.Contains(m.status, "하위 항목 1개도 함께 연결을 끊었어요") {
 		t.Errorf("status = %q", m.status)
 	}
 	if _, err := os.Lstat(filepath.Join(home, ".config/zsh/00-env.zsh")); !os.IsNotExist(err) {
@@ -238,7 +238,7 @@ func TestGroupUnlinkWithBackupAsksFirst(t *testing.T) {
 	if cmd != nil || m.confirmKind != confirmGroupUnlink {
 		t.Fatalf("want a group unlink prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
 	}
-	if v := viewText(m); !strings.Contains(v, "zshrc 를 끄면 하위 항목 1개(env)도 함께 꺼집니다. 계속할까요?") {
+	if v := viewText(m); !strings.Contains(v, "zshrc 연결을 끊으면 하위 항목 1개(env)도 함께 연결이 끊겨요. 계속할까요?") {
 		t.Errorf("view:\n%s", v)
 	}
 

@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -76,24 +77,25 @@ func TestParseValidation(t *testing.T) {
 		yaml    string
 		wantErr []string
 	}{
-		{"empty", `entries: []`, []string{"no entries"}},
-		{"missing fields", `entries: [{name: a}]`, []string{"source is required", "target is required"}},
-		{"missing name", `entries: [{source: a, target: b}]`, []string{"entry #1: name is required"}},
-		{"duplicate", `entries: [{name: a, source: x, target: y}, {name: a, source: x, target: y}]`, []string{`"a": duplicate name`}},
-		{"escaping source", `entries: [{name: a, source: ../etc/passwd, target: y}]`, []string{"without '..'"}},
-		{"absolute source", `entries: [{name: a, source: /etc/passwd, target: y}]`, []string{"without '..'"}},
-		{"bad yaml", `entries: [`, []string{"parse manifest"}},
+		{"empty", `entries: []`, []string{"manifest에 항목이 없어요"}},
+		{"missing fields", `entries: [{name: a}]`, []string{"a 항목에 source가 없어요", "a 항목에 target이 없어요"}},
+		{"missing name", `entries: [{source: a, target: b}]`, []string{"1번째 항목에 name이 없어요"}},
+		{"duplicate", `entries: [{name: a, source: x, target: y}, {name: a, source: x, target: y}]`, []string{"a 이름을 쓰는 항목이 이미 있어요"}},
+		{"escaping source", `entries: [{name: a, source: ../etc/passwd, target: y}]`, []string{`a 항목의 source는 저장소 기준 경로여야 하고 ..를 쓸 수 없어요 (지금 값 "../etc/passwd")`}},
+		{"absolute source", `entries: [{name: a, source: /etc/passwd, target: y}]`, []string{"..를 쓸 수 없어요"}},
+		{"bad yaml", `entries: [`, []string{"YAML 문법을 확인해 주세요 (yaml:"}},
 		{"child missing fields", `entries: [{name: g, source: x, target: y, children: [{}]}]`, []string{
-			`entry "g" child #1: name is required`, "source is required", "target is required",
+			"g 항목의 1번째 하위 항목에 name이 없어요", "하위 항목에 source가 없어요", "하위 항목에 target이 없어요",
 		}},
-		{"duplicate across group", `entries: [{name: a, source: x, target: y}, {name: g, source: x, target: y, children: [{name: a, source: x, target: y}]}]`, []string{`"a": duplicate name`}},
-		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{`"c": children cannot have children`}},
+		{"duplicate across group", `entries: [{name: a, source: x, target: y}, {name: g, source: x, target: y, children: [{name: a, source: x, target: y}]}]`, []string{"a 이름을 쓰는 항목이 이미 있어요"}},
+		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{"c 항목은 하위 항목을 한 단계까지만 둘 수 있어요"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Parse([]byte(tt.yaml))
-			if err == nil {
-				t.Fatal("expected error, got nil")
+			var invalid *InvalidError
+			if !errors.As(err, &invalid) {
+				t.Fatalf("err = %v, want *InvalidError", err)
 			}
 			for _, w := range tt.wantErr {
 				if !strings.Contains(err.Error(), w) {
