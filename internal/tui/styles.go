@@ -175,11 +175,24 @@ func (st styles) gauge(ratio float64) string {
 		st.muted.Render(strings.Repeat("░", gaugeWidth-filled))
 }
 
-// help 는 키와 설명을 번갈아 받아 도움말 한 줄로 이어 붙인다.
-func (st styles) help(pairs ...string) string {
-	parts := make([]string, 0, len(pairs)/2)
+// help 는 키와 설명을 번갈아 받아 상자 아래에 붙일 도움말 줄로 이어 붙인다.
+// 터미널 폭 width를 넘으면 키와 설명 묶음 사이에서 줄을 나눈다. width가 0이면 나누지 않는다.
+// 화면은 도움말 앞에 한 칸을 띄우므로 나눈 줄에도 같은 한 칸을 붙인다.
+func (st styles) help(width int, pairs ...string) string {
+	const gap = "   "
+	var lines []string
+	line := ""
 	for i := 0; i+1 < len(pairs); i += 2 {
-		parts = append(parts, st.key.Render(pairs[i])+" "+st.muted.Render(pairs[i+1]))
+		part := st.key.Render(pairs[i]) + " " + st.muted.Render(pairs[i+1])
+		switch {
+		case line == "":
+			line = part
+		case width > 0 && 1+lipgloss.Width(line+gap+part) > width:
+			lines = append(lines, line)
+			line = part
+		default:
+			line += gap + part
+		}
 	}
-	return strings.Join(parts, "   ")
+	return strings.Join(append(lines, line), "\n ")
 }

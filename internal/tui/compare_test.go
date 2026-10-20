@@ -97,7 +97,7 @@ func TestMenuCompareFetchError(t *testing.T) {
 	m, _ = press(t, m, "enter")
 	m, cmd = press(t, m, "2")
 	m = runCmd(t, m, cmd)
-	if m.diffScreen.name != "" || !strings.HasPrefix(m.status, "gitconfig 비교하지 못했어요 (") {
+	if m.diffScreen.name != "" || !strings.HasPrefix(m.status, "gitconfig 파일을 비교하지 못했어요 (저장소에 파일이 없어요)") {
 		t.Fatalf("diff = %q status = %q", m.diffScreen.name, m.status)
 	}
 }

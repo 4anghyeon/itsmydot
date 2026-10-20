@@ -26,23 +26,30 @@ func (m Model) View() tea.View {
 	var body []string
 	switch {
 	case !m.ready:
-		body = append(body, st.muted.Render("manifest 불러오는 중..."))
+		body = append(body, st.muted.Render("manifest 불러오는 중이에요..."))
 	case m.loadErr != nil:
-		body = append(body, st.state(errored).Render("manifest를 불러오지 못했습니다: "+m.loadErr.Error()))
+		body = append(body, st.state(errored).Render("manifest를 불러오지 못했어요. "+errorReason(m.loadErr, m.home)))
+		for line := range strings.SplitSeq(m.loadErr.Error(), "\n") {
+			body = append(body, st.state(errored).Render(line))
+		}
 	case len(m.items) == 0:
-		body = append(body, st.muted.Render("항목이 없습니다."))
+		body = append(body, st.muted.Render("manifest에 항목이 없어요"))
 	default:
 		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 상자 높이가 출렁이지 않게 한다.
 		body = append(body, m.itemLines(st)...)
 		body = append(body, "", m.descriptionBlock(st, m.items[m.cursor].entry.Description))
 	}
 
-	footer := st.help("방향키", "이동", "space", "토글", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	footer := st.help(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	if m.confirming != "" {
 		question, options := m.confirmPrompt()
 		title := st.question.Render(question)
 		if m.confirmKind == confirmAction {
 			title = m.menuTitle(st)
+			// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
+			if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
+				title += "\n" + st.muted.Render(m.items[i].err.Error())
+			}
 		}
 		body = append(body, "", title, "")
 		numbers := make([]string, len(options))
@@ -60,7 +67,7 @@ func (m Model) View() tea.View {
 		case m.confirmNote != "":
 			body = append(body, "", m.confirmNote)
 		}
-		footer = st.help("방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
+		footer = st.help(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
 	} else if m.comparing != "" {
 		body = append(body, "", "["+m.spinner.View()+"] "+m.status)
 	} else if m.status != "" {
@@ -140,7 +147,7 @@ func (m Model) itemLines(st styles) []string {
 		case conflict:
 			line += st.state(it.state).Render("   (다른 파일이 있음)")
 		case errored:
-			line += st.state(it.state).Render(fmt.Sprintf("   (%v)", it.err))
+			line += st.state(it.state).Render("   (" + errorReason(it.err, m.home) + ")")
 		case notSynced, synced, syncing:
 			// 체크박스만으로 충분해서 덧붙일 설명이 없다.
 		}
@@ -206,30 +213,30 @@ func (m Model) confirmPrompt() (question string, options []string) {
 		for k, j := range children {
 			names[k] = m.items[j].entry.Name
 		}
-		childrenNote = fmt.Sprintf("하위 항목 %d개(%s)도 함께 꺼집니다. ", len(children), strings.Join(names, ", "))
+		childrenNote = fmt.Sprintf("하위 항목 %d개(%s)도 함께 연결이 끊겨요. ", len(children), strings.Join(names, ", "))
 	}
 
 	switch m.confirmKind {
 	case confirmUnlink:
-		return fmt.Sprintf("%s 의 원래 파일(백업)을 찾을 수 없습니다. %s연결을 어떻게 끊을까요?", target, childrenNote),
+		return fmt.Sprintf("%s 백업이 없어서 되돌릴 원본 파일이 없어요. %s연결을 어떻게 끊을까요?", target, childrenNote),
 			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
 	case confirmAction:
 		question := it.entry.Name + "  " + target
 		if it.state == synced {
-			return question, []string{"최신으로 받기", "비교 보기", "끄기", "닫기"}
+			return question, []string{"최신으로 받기", "차이 보기", "연결 끊기", "닫기"}
 		}
-		return question, []string{"켜기", "닫기"}
+		return question, []string{"연결", "닫기"}
 	case confirmGroupUnlink:
-		return fmt.Sprintf("%s 를 끄면 %s계속할까요?", it.entry.Name, childrenNote),
-			[]string{"모두 끄기", "취소"}
+		return fmt.Sprintf("%s 연결을 끊으면 %s계속할까요?", it.entry.Name, childrenNote),
+			[]string{"모두 연결 끊기", "취소"}
 	case confirmTurnOff:
-		return fmt.Sprintf("%s  %s 연결을 끊을까요? 백업해 둔 원래 파일을 되돌려요.", it.entry.Name, target),
-			[]string{"끄기", "취소"}
+		return fmt.Sprintf("%s  %s 연결을 끊을까요? 백업해 둔 원본 파일을 되돌려요.", it.entry.Name, target),
+			[]string{"연결 끊기", "취소"}
 	case confirmTurnOn:
-		question := fmt.Sprintf("%s  %s 를 연결할까요?", it.entry.Name, target)
+		question := fmt.Sprintf("%s  %s 파일을 연결할까요?", it.entry.Name, target)
 		if it.parent != "" && slices.Contains(m.pending, it.parent) {
 			parent := m.items[m.indexOf(it.parent)]
-			question += fmt.Sprintf(" %s 가 불러오는 파일이라 %s  %s 도 함께 연결해요.", it.entry.Name, parent.entry.Name, tildify(parent.entry.Target, m.home))
+			question += fmt.Sprintf(" 그룹 파일 %s  %s 도 함께 연결해요.", parent.entry.Name, tildify(parent.entry.Target, m.home))
 		}
 		return question, []string{"연결", "취소"}
 	default:
@@ -239,9 +246,9 @@ func (m Model) confirmPrompt() (question string, options []string) {
 				conflicted = append(conflicted, tildify(m.items[j].entry.Target, m.home))
 			}
 		}
-		question := fmt.Sprintf("%s 에 이미 파일이 있습니다. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
+		question := fmt.Sprintf("%s 에 이미 파일이 있어요. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
 		if it.parent != "" && slices.Contains(m.pending, it.parent) {
-			question = fmt.Sprintf("%s 는 %s 가 불러오는 파일이라 %s 도 함께 켭니다. ", it.entry.Name, it.parent, it.parent) + question
+			question = fmt.Sprintf("그룹 파일 %s 도 함께 연결해요. ", it.parent) + question
 		}
 		return question, []string{"백업 후 연결", "차이 보기", "취소"}
 	}

@@ -154,7 +154,7 @@ func (m Model) applyDiff(msg diffLoadedMsg) Model {
 	case errors.Is(msg.err, diff.ErrTooLarge):
 		note = fmt.Sprintf("%s 파일이 %dMB보다 커서 비교할 수 없어요", msg.name, diff.MaxSize>>20)
 	case msg.err != nil:
-		note = msg.name + " 비교하지 못했어요 (" + msg.err.Error() + ")"
+		note = msg.name + " 파일을 비교하지 못했어요 (" + errorReason(msg.err, m.home) + ")"
 	case len(msg.hunks) == 0:
 		note = same
 	default:
@@ -308,7 +308,7 @@ func (m Model) diffView(st styles) tea.View {
 	header := title + strings.Repeat(" ", max(layout.width-lipgloss.Width(title)-lipgloss.Width(right), 1)) + right
 	content := header + "\n\n" + m.diffTitle(st) + "\n\n" + strings.Join(body, "\n")
 	box := st.frame.Width(layout.width + frameExtra).Render(content)
-	footer := st.help("방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
+	footer := st.help(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
 	return tea.NewView(box + "\n " + footer + "\n")
 }
 

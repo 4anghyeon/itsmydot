@@ -39,17 +39,17 @@ func (m Model) helpView(st styles) tea.View {
 
 	body := []string{st.heading.Render("키")}
 	body = append(body, rows([][2]string{
-		{st.key.Render("방향키"), "항목을 이동하고 그룹을 접거나 펼칩니다"},
-		{st.key.Render("space"), "항목을 선택합니다"},
-		{st.key.Render("enter"), "항목 메뉴를 엽니다"},
-		{st.key.Render("esc"), "닫거나 종료합니다"},
+		{st.key.Render("방향키"), "항목을 옮기고 그룹을 접거나 펼쳐요"},
+		{st.key.Render("space"), "항목을 연결하거나 연결을 끊어요"},
+		{st.key.Render("enter"), "항목 메뉴를 열어요"},
+		{st.key.Render("esc"), "화면을 닫거나 프로그램을 끝내요"},
 	})...)
 
 	markers := [][2]string{
 		{st.state(synced).Render(synced.marker()), "연결됨"},
 		{st.state(conflict).Render(conflict.marker()), "다른 파일이 있음"},
 		{st.state(notSynced).Render(notSynced.marker()), "연결 안 됨"},
-		{st.state(errored).Render(errored.marker()), "확인하거나 받다가 실패"},
+		{st.state(errored).Render(errored.marker()), "확인하거나 받지 못함"},
 		{st.state(syncing).Render("[o]"), "받는 중"},
 		{st.update.Render("^  "), "저장소에 업데이트 있음"},
 	}
@@ -82,6 +82,6 @@ func (m Model) helpView(st styles) tea.View {
 	}
 	content := st.title.Render("itsmydot 도움말") + "\n\n" + strings.Join(body, "\n")
 	box := st.frame.Width(inner + frameExtra).Render(content)
-	footer := st.help("?/esc", "닫기")
+	footer := st.help(m.width, "?/esc", "닫기")
 	return tea.NewView(box + "\n " + footer + "\n")
 }

@@ -94,7 +94,7 @@ func TestToggleOnAndOff(t *testing.T) {
 		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
-	if !strings.Contains(m.status, "남아 있음") {
+	if !strings.Contains(m.status, "에 남아 있어요") {
 		t.Errorf("status = %q, want where the content remains", m.status)
 	}
 	if m.items[0].state != notSynced {
@@ -134,7 +134,7 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 
 	// 백업이 있으면 끄기 전에 묻고, 답하면 원래 파일을 되돌린다.
 	m, _ = press(t, m, "space")
-	if v := viewText(m); !strings.Contains(v, "gitconfig  ~/.gitconfig 연결을 끊을까요?") || !strings.Contains(v, "> 1. 끄기") {
+	if v := viewText(m); !strings.Contains(v, "gitconfig  ~/.gitconfig 연결을 끊을까요?") || !strings.Contains(v, "> 1. 연결 끊기") {
 		t.Errorf("view should ask before turning off:\n%s", v)
 	}
 	assertSymlink(t, target, true)
@@ -226,7 +226,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	assertContent(t, target, "mine")
 
 	v := viewText(m)
-	for _, want := range []string{"이미 파일이 있습니다", "> 1. 백업 후 연결", "  2. 차이 보기", "  3. 취소", "1/2/3 바로 선택"} {
+	for _, want := range []string{"이미 파일이 있어요", "> 1. 백업 후 연결", "  2. 차이 보기", "  3. 취소", "1/2/3 바로 선택"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -252,7 +252,7 @@ func TestToggleFetchError(t *testing.T) {
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
 		t.Errorf("target should be untouched, got err %v", err)
 	}
-	if v := viewText(m); !strings.Contains(v, "not found") {
+	if v := viewText(m); !strings.Contains(v, "(저장소에 파일이 없어요)") {
 		t.Errorf("view should show the error:\n%s", v)
 	}
 }
@@ -273,7 +273,7 @@ func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 	m, _ = press(t, m, "space")
 	v := viewText(m)
 	for _, want := range []string{
-		"원래 파일(백업)을 찾을 수 없습니다",
+		"백업이 없어서 되돌릴 원본 파일이 없어요",
 		"1. 지금 설정은 남겨 두고 연결만 끊기 (추천)",
 		"2. 연결을 끊고 파일도 지우기",
 		"3. 취소",
@@ -390,7 +390,7 @@ func TestMenuUpdateCopy(t *testing.T) {
 	files["files/git/.gitconfig"] = "v2"
 	m, _ = press(t, m, "enter")
 	v := viewText(m)
-	for _, want := range []string{"> 1. 최신으로 받기", "  2. 비교 보기", "  3. 끄기", "  4. 닫기"} {
+	for _, want := range []string{"> 1. 최신으로 받기", "  2. 차이 보기", "  3. 연결 끊기", "  4. 닫기"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
@@ -400,7 +400,7 @@ func TestMenuUpdateCopy(t *testing.T) {
 	if m.items[0].state != syncing {
 		t.Fatalf("state = %d, want syncing", m.items[0].state)
 	}
-	if m.status != "gitconfig 받는 중이에요..." {
+	if m.status != "gitconfig 최신본을 받는 중이에요..." {
 		t.Errorf("status = %q", m.status)
 	}
 	m = runCmd(t, m, cmd)
@@ -448,7 +448,7 @@ func TestMenuTurnOn(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	m, _ = press(t, m, "enter")
 	v := viewText(m)
-	for _, want := range []string{"gitconfig  ~/.gitconfig", "> 1. 켜기", "  2. 닫기"} {
+	for _, want := range []string{"gitconfig  ~/.gitconfig", "> 1. 연결", "  2. 닫기"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("view missing %q:\n%s", want, v)
 		}
