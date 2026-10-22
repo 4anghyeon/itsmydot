@@ -139,7 +139,7 @@ func TestDiffScroll(t *testing.T) {
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
 	m = next.(Model)
 
-	// 높이 18에서 테두리와 제목, 도움말 8줄을 빼면 본문은 10줄이다.
+	// 높이 18에서 제목과 구분선, 도움말 8줄을 빼면 본문은 10줄이다.
 	// 아래에 더 있다는 걸 알 수 있게 오른쪽에 스크롤 막대가 붙고 맨 위에 있으니 막대 위쪽이 채워져 있다.
 	v := viewText(m)
 	if !strings.Contains(v, "10/31줄") || !strings.Contains(v, "line 9") || strings.Contains(v, "line 10") {
@@ -247,9 +247,9 @@ func TestDiffRowColors(t *testing.T) {
 		}
 	}
 
-	// 배경을 칠한 줄은 내용이 짧아도 상자 안쪽 끝까지 이어져야 한다.
+	// 배경을 칠한 줄은 내용이 짧아도 가장 긴 줄 끝까지 이어져야 한다.
 	text := viewText(m)
-	if !strings.Contains(text, "│ 2    -  export EDITOR=vim  │") || !strings.Contains(text, "│   2  +  export EDITOR=nvim │") {
+	if !strings.Contains(text, " 2    -  export EDITOR=vim \n") || !strings.Contains(text, "   2  +  export EDITOR=nvim\n") {
 		t.Errorf("tinted rows should fill the box:\n%s", text)
 	}
 }

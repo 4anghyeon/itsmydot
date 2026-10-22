@@ -12,8 +12,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// View 는 상자 안에 제목과 진행 게이지, 항목 목록, 커서가 있는 항목의 설명, 상태 메시지나 확인 질문을 그리고
-// 상자 아래에 도움말을 붙인다. 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
+// View 는 맨 위에 제목 배지와 진행 게이지를 놓고 구분선 아래에 항목 목록을 그린다.
+// 목록 아래 구분선 밑에는 커서가 있는 항목의 설명이나 확인 질문을, 맨 아래에는 상태 줄과 도움말을 붙인다.
+// 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
 	if m.helpOpen {
@@ -23,58 +24,6 @@ func (m Model) View() tea.View {
 		return m.diffView(st)
 	}
 
-	var body []string
-	switch {
-	case !m.ready:
-		body = append(body, st.muted.Render("manifest 불러오는 중이에요..."))
-	case m.loadErr != nil:
-		body = append(body, st.state(errored).Render("manifest를 불러오지 못했어요. "+errorReason(m.loadErr, m.home)))
-		for line := range strings.SplitSeq(m.loadErr.Error(), "\n") {
-			body = append(body, st.state(errored).Render(line))
-		}
-	case len(m.items) == 0:
-		body = append(body, st.muted.Render("manifest에 항목이 없어요"))
-	default:
-		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 상자 높이가 출렁이지 않게 한다.
-		body = append(body, m.itemLines(st)...)
-		body = append(body, "", m.descriptionBlock(st, m.items[m.cursor].entry.Description))
-	}
-
-	footer := st.help(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
-	if m.confirming != "" {
-		question, options := m.confirmPrompt()
-		title := st.question.Render(question)
-		if m.confirmKind == confirmAction {
-			title = m.menuTitle(st)
-			// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
-			if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
-				title += "\n" + st.muted.Render(m.items[i].err.Error())
-			}
-		}
-		body = append(body, "", title, "")
-		numbers := make([]string, len(options))
-		for i, opt := range options {
-			numbers[i] = strconv.Itoa(i + 1)
-			cursor, label := " ", opt
-			if i == m.choice {
-				cursor, label = st.cursor.Render(">"), st.selected.Render(opt)
-			}
-			body = append(body, cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
-		}
-		switch {
-		case m.comparing != "":
-			body = append(body, "", "["+m.spinner.View()+"] "+m.confirmNote)
-		case m.confirmNote != "":
-			body = append(body, "", m.confirmNote)
-		}
-		footer = st.help(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
-	} else if m.comparing != "" {
-		body = append(body, "", "["+m.spinner.View()+"] "+m.status)
-	} else if m.status != "" {
-		body = append(body, "", m.status)
-	}
-
-	title := st.title.Render("itsmydot")
 	right := ""
 	if m.ready && m.loadErr == nil && len(m.items) > 0 {
 		done := 0
@@ -85,29 +34,106 @@ func (m Model) View() tea.View {
 		}
 		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(m.gauge)
 	}
-	// 상자 안쪽 폭은 가장 긴 줄에 맞춘다. 터미널보다 넓어지면 터미널 폭에 맞추고 긴 줄은 상자 안에서 줄바꿈한다.
-	inner := lipgloss.Width(title) + 4 + lipgloss.Width(right)
-	for _, line := range body {
-		inner = max(inner, lipgloss.Width(line))
-	}
-	if m.width > 0 && inner+frameExtra > m.width {
-		inner = max(m.width-frameExtra, 1)
+
+	var list, lower []string
+	selected := -1
+	switch {
+	case !m.ready:
+		list = append(list, " "+st.muted.Render("manifest 불러오는 중이에요..."))
+	case m.loadErr != nil:
+		list = append(list, " "+st.state(errored).Render("manifest를 불러오지 못했어요. "+errorReason(m.loadErr, m.home)))
+		for line := range strings.SplitSeq(m.loadErr.Error(), "\n") {
+			list = append(list, " "+st.state(errored).Render(line))
+		}
+	case len(m.items) == 0:
+		list = append(list, " "+st.muted.Render("manifest에 항목이 없어요"))
+	default:
+		list, selected = m.itemLines(st)
+		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 화면 높이가 출렁이지 않게 한다.
+		lower = append(lower, " "+m.descriptionBlock(st, m.items[m.cursor].entry.Description))
 	}
 
-	header := title + strings.Repeat(" ", max(inner-lipgloss.Width(title)-lipgloss.Width(right), 1)) + right
-	content := header + "\n\n" + strings.Join(body, "\n")
-	box := st.frame.Width(inner + frameExtra).Render(content)
-	return tea.NewView(box + "\n " + footer + "\n")
+	footer := st.help(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	status := m.status
+	if m.confirming != "" {
+		var numbers []string
+		lower, numbers = m.confirmLines(st)
+		footer = st.help(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
+		// 질문이 떠 있는 동안 상태 줄에 남은 이전 결과는 질문과 상관없어서 비워 둔다.
+		status = ""
+	}
+
+	marker, tone := "", notSynced
+	if status != "" {
+		switch m.statusTone {
+		case statusDone:
+			marker, tone = synced.marker(), synced
+		case statusUnlinked:
+			marker, tone = notSynced.marker(), notSynced
+		case statusFailed:
+			marker, tone = errored.marker(), errored
+		case statusBusy:
+			marker, tone = m.marker(syncing), syncing
+		case statusInfo:
+			// 결과가 아니라 알림이라 표시 없이 글만 보여 준다.
+		}
+	}
+
+	width := st.pageWidth(m.width, right, append(slices.Concat(list, lower), " "+marker+" "+status)...)
+	if selected >= 0 {
+		// 선택한 줄은 배경을 화면 끝까지 칠한다.
+		list[selected] += lipgloss.NewStyle().Background(st.selection).Render(strings.Repeat(" ", max(width-lipgloss.Width(list[selected]), 0)))
+	}
+	// 설명이나 질문은 구분선 바로 아래에 붙여서 목록과 멀어지지 않게 한다.
+	lines := append(append(list, "", st.rule(width)), lower...)
+	lines = append(lines, "", st.statusLine(width, marker, st.stateColor(tone), status))
+	return tea.NewView(st.page(width, right, lines, footer))
 }
 
-// itemLines 는 항목 목록을 한 줄씩 만든다. 하위 항목은 트리 가지를 붙여 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
+// confirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
+// 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
+func (m Model) confirmLines(st styles) (lines, numbers []string) {
+	question, options := m.confirmPrompt()
+	title := st.question.Render(question)
+	if m.confirmKind == confirmAction {
+		title = m.menuTitle(st)
+		// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
+		if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
+			title += "\n" + st.muted.Render(m.items[i].err.Error())
+		}
+	}
+	for line := range strings.SplitSeq(title, "\n") {
+		lines = append(lines, " "+line)
+	}
+	lines = append(lines, "")
+	numbers = make([]string, len(options))
+	for i, opt := range options {
+		numbers[i] = strconv.Itoa(i + 1)
+		cursor, label := " ", opt
+		if i == m.choice {
+			cursor, label = st.cursor.Render(">"), st.selected.Render(opt)
+		}
+		lines = append(lines, " "+cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
+	}
+	switch {
+	case m.comparing != "":
+		lines = append(lines, "", " "+st.state(syncing).Render(m.marker(syncing))+" "+m.confirmNote)
+	case m.confirmNote != "":
+		lines = append(lines, "", " "+m.confirmNote)
+	}
+	return lines, numbers
+}
+
+// itemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다.
+// 하위 항목은 트리 가지를 붙여 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
 // 그룹 줄의 체크박스는 그룹 파일의 상태이고 하위 항목이 몇 개 켜졌는지는 줄 끝에 따로 적는다.
+// 커서가 있는 줄은 맨 앞에 강조색 막대를 세우고 배경을 칠한다.
 //
 //	  [+] gitconfig  ~/.gitconfig
-//	> [+] zshrc      ~/.zshrc  1/2
-//	   ├─ [+] env    ~/.config/zsh/env.zsh
-//	   └─ [!] git    ~/.config/zsh/git.zsh   (다른 파일이 있음)
-func (m Model) itemLines(st styles) []string {
+//	▌> [+] zshrc      ~/.zshrc  1/2
+//	    ├─ [+] env    ~/.config/zsh/env.zsh
+//	    └─ [!] git    ~/.config/zsh/git.zsh   (다른 파일이 있음)
+func (m Model) itemLines(st styles) (lines []string, selected int) {
 	// 들여 쓴 하위 항목도 경로 칸이 맞도록 가지 폭을 이름 폭에 넣어 센다.
 	width := 0
 	for i, it := range m.items {
@@ -116,44 +142,58 @@ func (m Model) itemLines(st styles) []string {
 		}
 	}
 
-	lines := make([]string, 0, len(m.items))
+	lines = make([]string, 0, len(m.items))
 	for i, it := range m.items {
 		if !m.visible(i) {
 			continue
 		}
-		branch := m.branch(i)
-		cursor, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
-		if i == m.cursor {
-			cursor, name = st.cursor.Render(">"), st.selected.Render(name)
+		current := i == m.cursor
+		// 선택한 줄은 조각마다 배경을 칠해야 조각 사이의 색 초기화에 배경이 끊기지 않는다.
+		paint := func(s lipgloss.Style) lipgloss.Style {
+			if current {
+				return s.Background(st.selection)
+			}
+			return s
 		}
-		line := cursor + " " + st.muted.Render(branch) + st.flashing(it.state, it.flash).Render(m.marker(it.state)) + " " + name + "  " + st.muted.Render(tildify(it.entry.Target, m.home))
+		plain := paint(lipgloss.NewStyle())
+
+		branch := m.branch(i)
+		bar, cursor, name := " ", plain.Render(" "), it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
+		if current {
+			bar, cursor, name = st.cursor.Render("▌"), paint(st.cursor).Render(">"), paint(st.selected).Render(name)
+			selected = len(lines)
+		} else {
+			name = plain.Render(name)
+		}
+		line := bar + cursor + plain.Render(" ") + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.marker(it.state)) +
+			plain.Render(" ") + name + plain.Render("  ") + paint(st.muted).Render(tildify(it.entry.Target, m.home))
 
 		if children := m.children(i); len(children) > 0 {
 			count := fmt.Sprintf("  %d/%d", len(m.syncedChildren(i)), len(children))
 			if m.collapsed[it.entry.Name] {
 				count += " 접힘"
 			}
-			line += st.muted.Render(count)
+			line += paint(st.muted).Render(count)
 		}
 		if it.state == synced && it.outdated {
-			line += "  " + st.update.Render("^ 업데이트 있음")
+			line += plain.Render("  ") + paint(st.update).Render("^ 업데이트 있음")
 		}
 		// 접힌 그룹은 하위 항목 줄이 안 보이므로 하위 항목의 업데이트를 그룹 줄에 모아 보여 준다.
 		if n := m.outdatedChildren(i); n > 0 && m.collapsed[it.entry.Name] {
-			line += "  " + st.update.Render(fmt.Sprintf("^ 하위 %d개 업데이트 있음", n))
+			line += plain.Render("  ") + paint(st.update).Render(fmt.Sprintf("^ 하위 %d개 업데이트 있음", n))
 		}
 
 		switch it.state {
 		case conflict:
-			line += st.state(it.state).Render("   (다른 파일이 있음)")
+			line += paint(st.state(it.state)).Render("   (다른 파일이 있음)")
 		case errored:
-			line += st.state(it.state).Render("   (" + errorReason(it.err, m.home) + ")")
+			line += paint(st.state(it.state)).Render("   (" + errorReason(it.err, m.home) + ")")
 		case notSynced, synced, syncing:
 			// 체크박스만으로 충분해서 덧붙일 설명이 없다.
 		}
 		lines = append(lines, line)
 	}
-	return lines
+	return lines, selected
 }
 
 // descriptionBlock 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다.
@@ -163,7 +203,8 @@ func (m Model) descriptionBlock(st styles, text string) string {
 	}
 	const indent = 2
 	if m.width > 0 {
-		text = ansi.Wrap(text, max(m.width-frameExtra-indent, 1), " ")
+		// 설명 앞에는 화면 왼쪽 여백 한 칸이 더 붙는다.
+		text = ansi.Wrap(text, max(m.width-1-indent, 1), " ")
 	}
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
