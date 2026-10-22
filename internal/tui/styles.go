@@ -20,6 +20,7 @@ type palette struct {
 	muted, accent                      color.Color
 	update                             color.Color // 업데이트 있음 표시. 충돌의 노란색과 헷갈리지 않게 주황 쪽으로 둔다
 	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름. 다른 상태 색과 겹치지 않는 파랑과 분홍
+	count                              color.Color // 그룹 줄 끝의 하위 항목 수. 회색 경로와 구분되되 눈에 띄지 않게 채도를 낮춘 파랑
 	selection, statusBar               color.Color // 선택한 줄과 맨 아래 상태 줄의 배경. diff 배경처럼 256색표에 있는 회색만 쓴다
 
 	diffRemoved, diffAdded diffTones   // 비교 보기에서 지운 줄과 추가한 줄의 배경
@@ -44,6 +45,7 @@ var (
 		update:   lipgloss.Color("#FB923C"),
 		group:    lipgloss.Color("#60A5FA"),
 		file:     lipgloss.Color("#F472B6"),
+		count:    lipgloss.Color("#5F87AF"),
 
 		selection: lipgloss.Color("#3A3A3A"),
 		statusBar: lipgloss.Color("#303030"),
@@ -62,6 +64,7 @@ var (
 		update:   lipgloss.Color("#C2410C"),
 		group:    lipgloss.Color("#2563EB"),
 		file:     lipgloss.Color("#DB2777"),
+		count:    lipgloss.Color("#5F87AF"),
 
 		selection: lipgloss.Color("#E4E4E4"),
 		statusBar: lipgloss.Color("#EEEEEE"),
@@ -76,7 +79,7 @@ var (
 type styles struct {
 	palette
 	title, muted, cursor, selected, question, key lipgloss.Style
-	update, groupName, fileName                   lipgloss.Style
+	update, groupName, fileName, count            lipgloss.Style
 	description, descriptionBar                   lipgloss.Style
 	heading                                       lipgloss.Style // 도움말 화면의 소제목
 	mascotFace, mascotMouth                       lipgloss.Style // 맨 위 캐릭터의 눈과 코, 입
@@ -116,6 +119,7 @@ func newStyles(dark bool) styles {
 		key:            lipgloss.NewStyle().Bold(true),
 		update:         lipgloss.NewStyle().Bold(true).Foreground(p.update),
 		groupName:      lipgloss.NewStyle().Bold(true).Foreground(p.group),
+		count:          lipgloss.NewStyle().Foreground(p.count),
 		fileName:       lipgloss.NewStyle().Bold(true).Foreground(p.file),
 		description:    lipgloss.NewStyle().Italic(true).Foreground(p.muted),
 		descriptionBar: lipgloss.NewStyle().Foreground(p.muted),

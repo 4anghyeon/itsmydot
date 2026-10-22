@@ -31,7 +31,7 @@ func TestView(t *testing.T) {
 	)
 	v := viewText(m)
 	for _, want := range []string{
-		"> [+] gitconfig  ~/.gitconfig",
+		"▌ [+] gitconfig  ~/.gitconfig",
 		"  [!] zshrc      ~/.zshrc   (다른 파일이 있음)",
 		"  [-] vimrc      ~/.vimrc   (저장소에 파일이 없어요)",
 		"  [~] tmux       ~/.tmux.conf",
@@ -117,7 +117,7 @@ func TestViewSelectedRowFillsWidth(t *testing.T) {
 	m = next.(Model)
 
 	for line := range strings.SplitSeq(viewText(m), "\n") {
-		if strings.HasPrefix(line, "▌> [ ] gitconfig") {
+		if strings.HasPrefix(line, "▌ [ ] gitconfig") {
 			if w := ansi.StringWidth(line); w != 60 {
 				t.Errorf("selected row is %d cells wide, want 60: %q", w, line)
 			}

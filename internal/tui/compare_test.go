@@ -63,7 +63,7 @@ func TestMenuCompareOpensDiff(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "esc")
-	if m.diffScreen.name != "" || !strings.Contains(viewText(m), "> [+] gitconfig") {
+	if m.diffScreen.name != "" || !strings.Contains(viewText(m), "▌ [+] gitconfig") {
 		t.Fatalf("esc should go back to the list:\n%s", viewText(m))
 	}
 	assertContent(t, target, "[user]\n\tname = me\n")

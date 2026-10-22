@@ -52,6 +52,8 @@ func (m Model) helpView(st styles) tea.View {
 		{st.state(errored).Render(errored.marker()), "확인하거나 받지 못함"},
 		{st.state(syncing).Render("[o]"), "받는 중"},
 		{st.update.Render("^  "), "저장소에 업데이트 있음"},
+		{st.key.Render("v  "), "펼친 그룹"},
+		{st.key.Render(">  "), "접힌 그룹"},
 	}
 	cells := make([]string, len(markers))
 	for i, p := range markers {

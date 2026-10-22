@@ -127,18 +127,20 @@ func (m Model) confirmLines(st styles) (lines, numbers []string) {
 // itemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다.
 // 하위 항목은 트리 가지를 붙여 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
 // 그룹 줄의 체크박스는 그룹 파일의 상태이고 하위 항목이 몇 개 켜졌는지는 줄 끝에 따로 적는다.
+// 그룹 줄의 체크박스 앞에는 펼쳤으면 v, 접었으면 >를 붙이고 하위 항목의 트리 가지는 그 표시 바로 아래에서 내린다.
 // 커서가 있는 줄은 맨 앞에 강조색 막대를 세우고 배경을 칠한다.
 //
-//	  [+] gitconfig  ~/.gitconfig
-//	▌> [+] zshrc      ~/.zshrc  1/2
-//	    ├─ [+] env    ~/.config/zsh/env.zsh
-//	    └─ [!] git    ~/.config/zsh/git.zsh   (다른 파일이 있음)
+//	    [+] gitconfig  ~/.gitconfig
+//	▌ v [+] zshrc      ~/.zshrc  1/2
+//	  ├── [+] env      ~/.config/zsh/env.zsh
+//	  └── [!] git      ~/.config/zsh/git.zsh   (다른 파일이 있음)
+//	  > [ ] claude     ~/.claude/CLAUDE.md  0/3
 func (m Model) itemLines(st styles) (lines []string, selected int) {
-	// 들여 쓴 하위 항목도 경로 칸이 맞도록 가지 폭을 이름 폭에 넣어 센다.
+	// 경로 칸이 맞도록 접기 표시와 가지의 폭을 이름 폭에 넣어 센다.
 	width := 0
 	for i, it := range m.items {
 		if m.visible(i) {
-			width = max(width, lipgloss.Width(m.branch(i))+lipgloss.Width(it.entry.Name))
+			width = max(width, lipgloss.Width(m.fold(i))+lipgloss.Width(m.branch(i))+lipgloss.Width(it.entry.Name))
 		}
 	}
 
@@ -157,23 +159,19 @@ func (m Model) itemLines(st styles) (lines []string, selected int) {
 		}
 		plain := paint(lipgloss.NewStyle())
 
-		branch := m.branch(i)
-		bar, cursor, name := " ", plain.Render(" "), it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
+		branch, fold := m.branch(i), m.fold(i)
+		bar, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(fold)-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
 		if current {
-			bar, cursor, name = st.cursor.Render("▌"), paint(st.cursor).Render(">"), paint(st.selected).Render(name)
+			bar, name = st.cursor.Render("▌"), paint(st.selected).Render(name)
 			selected = len(lines)
 		} else {
 			name = plain.Render(name)
 		}
-		line := bar + cursor + plain.Render(" ") + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.marker(it.state)) +
+		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.marker(it.state)) +
 			plain.Render(" ") + name + plain.Render("  ") + paint(st.muted).Render(tildify(it.entry.Target, m.home))
 
 		if children := m.children(i); len(children) > 0 {
-			count := fmt.Sprintf("  %d/%d", len(m.syncedChildren(i)), len(children))
-			if m.collapsed[it.entry.Name] {
-				count += " 접힘"
-			}
-			line += paint(st.muted).Render(count)
+			line += plain.Render("  ") + paint(st.count).Render(fmt.Sprintf("%d/%d", len(m.syncedChildren(i)), len(children)))
 		}
 		if it.state == synced && it.outdated {
 			line += plain.Render("  ") + paint(st.update).Render("^ 업데이트 있음")
@@ -217,17 +215,33 @@ func (m Model) descriptionBlock(st styles, text string) string {
 	return strings.Join(lines, "\n")
 }
 
+// fold 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >다.
+// 그룹이 아닌 맨 위 항목은 체크박스 칸을 맞추려고 같은 폭의 공백을 붙인다. 하위 항목과 그룹이 없는 목록에는 붙이지 않는다.
+// 체크박스 안의 +와 헷갈리지 않게 +와 -는 쓰지 않는다.
+func (m Model) fold(i int) string {
+	switch {
+	case m.items[i].parent != "" || !slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }):
+		return ""
+	case len(m.children(i)) == 0:
+		return "  "
+	case m.collapsed[m.items[i].entry.Name]:
+		return "> "
+	default:
+		return "v "
+	}
+}
+
 // branch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
-// 가지는 그룹 체크박스의 가운데 글자 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
+// 가지는 그룹 줄의 접기 표시 바로 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
 func (m Model) branch(i int) string {
 	parent := m.items[i].parent
 	if parent == "" {
 		return ""
 	}
 	if i+1 < len(m.items) && m.items[i+1].parent == parent {
-		return " ├─ "
+		return "├── "
 	}
-	return " └─ "
+	return "└── "
 }
 
 // marker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
