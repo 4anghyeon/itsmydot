@@ -226,7 +226,7 @@ func (m Model) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
 // diffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
 func (m Model) diffLayout(st styles) diffLayout {
 	rows := m.diffScreen.rows
-	title := m.diffTitle(st)
+	title := m.renderDiffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
 	if m.height > 0 {
 		// 맨 위 캐릭터 세 줄과 구분선, 빈 줄, 제목과 빈 줄, 도움말과 그 위 빈 줄, 마지막 줄바꿈 뒤의 빈 줄로 10줄이다.
@@ -283,9 +283,9 @@ func expandTabs(text string) string {
 	return strings.ReplaceAll(text, "\t", strings.Repeat(" ", tabWidth))
 }
 
-// diffTitle 은 비교 보기 화면에서 어떤 항목을 비교하는지 보여 주는 제목이다.
-func (m Model) diffTitle(st styles) string {
-	return m.itemTitle(st, m.indexOf(m.diffScreen.name))
+// renderDiffTitle 은 비교 보기 화면에서 어떤 항목을 비교하는지 보여 주는 제목이다.
+func (m Model) renderDiffTitle(st styles) string {
+	return m.renderItemTitle(st, m.indexOf(m.diffScreen.name))
 }
 
 // diffView 는 목록 대신 비교 보기 화면을 그린다.
@@ -299,22 +299,22 @@ func (m Model) diffView(st styles) tea.View {
 		line := st.renderDiffRow(row, layout, x)
 		if layout.scrollbar {
 			padding := max(layout.width-2-lipgloss.Width(line), 0)
-			line += strings.Repeat(" ", padding) + " " + st.scrollbarCell(i, layout.height, y, len(rows))
+			line += strings.Repeat(" ", padding) + " " + st.renderScrollbarCell(i, layout.height, y, len(rows))
 		}
 		body = append(body, line)
 	}
 
 	right := st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(rows)))
 	lines := make([]string, 0, len(body)+3)
-	for line := range strings.SplitSeq(m.diffTitle(st), "\n") {
+	for line := range strings.SplitSeq(m.renderDiffTitle(st), "\n") {
 		lines = append(lines, " "+line)
 	}
 	lines = append(lines, "")
 	for _, line := range body {
 		lines = append(lines, " "+line)
 	}
-	footer := st.help(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
-	return tea.NewView(st.page(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
+	footer := st.renderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
+	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
 }
 
 // renderDiffRow 는 화면 한 줄을 줄 번호와 함께 그린다. 가로로 밀 때는 내용만 밀고 줄 번호는 그 자리에 둔다.
@@ -355,13 +355,13 @@ func (st styles) renderDiffLine(line diff.Line, layout diffLayout, x int) string
 		return st.muted.Render(numbers) + "     " + ansi.Cut(expandTabs(line.Text), x, x+layout.contentWidth)
 	}
 	rendered := side.number.Render(numbers+" ") + side.line.Render(" ") + side.marker.Render(marker) + side.line.Render("  ") +
-		side.content(line, x, layout.contentWidth)
+		side.renderContent(line, x, layout.contentWidth)
 	return rendered + side.line.Render(strings.Repeat(" ", max(layout.rowWidth-lipgloss.Width(rendered), 0)))
 }
 
-// content 는 내용 칸에 보이는 부분만 잘라 그린다. 바뀐 단어는 word 배경으로, 나머지는 line 배경으로 칠한다.
+// renderContent 는 내용 칸에 보이는 부분만 잘라 그린다. 바뀐 단어는 word 배경으로, 나머지는 line 배경으로 칠한다.
 // 탭은 펼친 칸마다 원래 탭과 같은 배경을 칠한다. 폭이 두 칸인 글자가 칸 경계에 걸치면 반쪽만 그릴 수 없어서 뺀다.
-func (side diffStyles) content(line diff.Line, x, width int) string {
+func (side diffStyles) renderContent(line diff.Line, x, width int) string {
 	var out, segment strings.Builder
 	highlighted := false
 	flush := func() {
@@ -399,8 +399,8 @@ func (side diffStyles) content(line diff.Line, x, width int) string {
 	return out.String()
 }
 
-// scrollbarCell 은 본문 오른쪽 스크롤 막대의 row번째 칸이다. 지금 보이는 범위는 █, 나머지는 ░로 그린다.
-func (st styles) scrollbarCell(row, height, offset, total int) string {
+// renderScrollbarCell 은 본문 오른쪽 스크롤 막대의 row번째 칸이다. 지금 보이는 범위는 █, 나머지는 ░로 그린다.
+func (st styles) renderScrollbarCell(row, height, offset, total int) string {
 	thumb := max(height*height/total, 1)
 	start := 0
 	if total > height {

@@ -174,9 +174,9 @@ func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(blend[i])
 }
 
-// gauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
+// renderGauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
 // 채운 칸은 목록의 연결 표시와 같은 초록이라 색만 봐도 연결된 비율인 걸 알 수 있다.
-func (st styles) gauge(ratio float64) string {
+func (st styles) renderGauge(ratio float64) string {
 	ratio = min(max(ratio, 0), 1)
 	filled := int(math.Round(ratio * gaugeWidth))
 	if ratio > animationSettle && filled == 0 {
@@ -207,12 +207,12 @@ const headerMaxWidth = 80
 // mascotWidth 는 캐릭터가 차지하는 폭이다. 왼쪽 여백 한 칸과 두 눈 사이를 합쳤다.
 const mascotWidth = 6
 
-// mascot 은 맨 위 왼쪽에 세 줄로 그리는 itsmydot 캐릭터다. 두 눈 아래에 비스듬한 코와 물결 모양 입이 있다.
+// renderMascot 는 맨 위 왼쪽에 세 줄로 그리는 itsmydot 캐릭터다. 두 눈 아래에 비스듬한 코와 물결 모양 입이 있다.
 //
 //	.   .
 //	  /
 //	  ~
-func (st styles) mascot() [3]string {
+func (st styles) renderMascot() [3]string {
 	return [3]string{
 		" " + st.mascotFace.Render(".   ."),
 		"   " + st.mascotFace.Render("/") + "  ",
@@ -220,10 +220,10 @@ func (st styles) mascot() [3]string {
 	}
 }
 
-// page 는 모든 화면이 같이 쓰는 틀이다. 캐릭터와 제목, right를 놓은 머리 아래에 구분선과 lines, footer를 차례로 붙인다.
+// renderPage 는 모든 화면이 같이 쓰는 틀이다. 캐릭터와 제목, right를 놓은 머리 아래에 구분선과 lines, footer를 차례로 붙인다.
 // 좁은 터미널에서는 right를 제목 아래 줄로 내리고 폭 width를 넘는 줄은 줄바꿈한다.
-func (st styles) page(width int, version, right string, lines []string, footer string) string {
-	face := st.mascot()
+func (st styles) renderPage(width int, version, right string, lines []string, footer string) string {
+	face := st.renderMascot()
 	title := st.title.Render("itsmydot")
 	header := []string{face[0], face[1] + "  " + title, face[2]}
 	if version != "" {
@@ -236,7 +236,7 @@ func (st styles) page(width int, version, right string, lines []string, footer s
 		header[2] += "  " + right
 	}
 
-	out := slices.Concat(header[:], []string{st.rule(width), ""}, lines)
+	out := slices.Concat(header[:], []string{st.renderRule(width), ""}, lines)
 	for i, line := range out {
 		if lipgloss.Width(line) > width {
 			out[i] = ansi.Wrap(line, width, " ")
@@ -245,14 +245,14 @@ func (st styles) page(width int, version, right string, lines []string, footer s
 	return strings.Join(out, "\n") + "\n\n " + footer + "\n"
 }
 
-// rule 은 화면 폭만큼 긋는 가로 구분선이다.
-func (st styles) rule(width int) string {
+// renderRule 은 화면 폭만큼 긋는 가로 구분선이다.
+func (st styles) renderRule(width int) string {
 	return st.muted.Render(strings.Repeat("─", width))
 }
 
-// statusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
+// renderStatusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
 // 글이 없어도 빈 줄로 자리를 지켜서 메시지가 생길 때 화면 높이가 바뀌지 않게 한다.
-func (st styles) statusLine(width int, marker string, color color.Color, text string) string {
+func (st styles) renderStatusLine(width int, marker string, color color.Color, text string) string {
 	if text == "" {
 		return ""
 	}
@@ -273,9 +273,9 @@ func (st styles) statusLine(width int, marker string, color color.Color, text st
 	return strings.Join(lines, "\n")
 }
 
-// help 는 키와 설명을 번갈아 받아 맨 아래 도움말 줄로 이어 붙인다.
+// renderHelp 는 키와 설명을 번갈아 받아 맨 아래 도움말 줄로 이어 붙인다.
 // 터미널 폭 width를 넘으면 키와 설명 묶음 사이에서 줄을 나눈다. width가 0이면 나누지 않는다.
-func (st styles) help(width int, pairs ...string) string {
+func (st styles) renderHelp(width int, pairs ...string) string {
 	const gap = "   "
 	var lines []string
 	line := ""

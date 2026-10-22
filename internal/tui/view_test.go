@@ -77,13 +77,13 @@ func TestViewShowsCursorDescription(t *testing.T) {
 	}
 }
 
-func TestDescriptionBlockWrapsUnderBar(t *testing.T) {
+func TestRenderDescriptionWrapsUnderBar(t *testing.T) {
 	m := Model{width: 13}
-	got := ansi.Strip(m.descriptionBlock(newStyles(true), "one two three"))
+	got := ansi.Strip(m.renderDescription(newStyles(true), "one two three"))
 	if want := "┃ one two\n  three"; got != want {
 		t.Errorf("descriptionBlock = %q, want %q", got, want)
 	}
-	if got := m.descriptionBlock(newStyles(true), ""); got != "" {
+	if got := m.renderDescription(newStyles(true), ""); got != "" {
 		t.Errorf("empty description = %q", got)
 	}
 }
@@ -186,7 +186,7 @@ func TestCloseClearsStatus(t *testing.T) {
 // 알림이 없으면 상태 줄 자리를 빈 줄로 남기고 배경은 칠하지 않는다.
 func TestEmptyStatusLineHasNoBackground(t *testing.T) {
 	st := newStyles(true)
-	if got := st.statusLine(40, "", st.muted.GetForeground(), ""); got != "" {
+	if got := st.renderStatusLine(40, "", st.muted.GetForeground(), ""); got != "" {
 		t.Errorf("empty status line = %q, want no painted cells", got)
 	}
 }

@@ -31,7 +31,7 @@ func (m Model) View() tea.View {
 				done++
 			}
 		}
-		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.gauge(m.gauge)
+		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.renderGauge(m.gauge)
 	}
 
 	var list, lower []string
@@ -47,17 +47,17 @@ func (m Model) View() tea.View {
 	case len(m.items) == 0:
 		list = append(list, " "+st.muted.Render("manifest에 항목이 없어요"))
 	default:
-		list, selected = m.itemLines(st)
+		list, selected = m.renderItemLines(st)
 		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 화면 높이가 출렁이지 않게 한다.
-		lower = append(lower, " "+m.descriptionBlock(st, m.items[m.cursor].entry.Description))
+		lower = append(lower, " "+m.renderDescription(st, m.items[m.cursor].entry.Description))
 	}
 
-	footer := st.help(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	status := m.status
 	if m.confirming != "" {
 		var numbers []string
-		lower, numbers = m.confirmLines(st)
-		footer = st.help(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
+		lower, numbers = m.renderConfirmLines(st)
+		footer = st.renderHelp(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
 		// 질문이 떠 있는 동안 상태 줄에 남은 이전 결과는 질문과 상관없어서 비워 둔다.
 		status = ""
 	}
@@ -72,7 +72,7 @@ func (m Model) View() tea.View {
 		case statusFailed:
 			marker, tone = errored.marker(), errored
 		case statusBusy:
-			marker, tone = m.marker(syncing), syncing
+			marker, tone = m.renderMarker(syncing), syncing
 		case statusInfo:
 			// 결과가 아니라 알림이라 표시 없이 글만 보여 준다.
 		}
@@ -84,18 +84,18 @@ func (m Model) View() tea.View {
 		list[selected] += lipgloss.NewStyle().Background(st.selection).Render(strings.Repeat(" ", max(width-lipgloss.Width(list[selected]), 0)))
 	}
 	// 설명이나 질문은 구분선 바로 아래에 붙여서 목록과 멀어지지 않게 한다.
-	lines := append(append(list, "", st.rule(width)), lower...)
-	lines = append(lines, "", st.statusLine(width, marker, st.stateColor(tone), status))
-	return tea.NewView(st.page(width, m.version, right, lines, footer))
+	lines := append(append(list, "", st.renderRule(width)), lower...)
+	lines = append(lines, "", st.renderStatusLine(width, marker, st.stateColor(tone), status))
+	return tea.NewView(st.renderPage(width, m.version, right, lines, footer))
 }
 
-// confirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
+// renderConfirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
 // 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
-func (m Model) confirmLines(st styles) (lines, numbers []string) {
+func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
 	question, options := m.confirmPrompt()
 	title := st.question.Render(question)
 	if m.confirmKind == confirmAction {
-		title = m.menuTitle(st)
+		title = m.renderMenuTitle(st)
 		// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
 		if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
 			title += "\n" + st.muted.Render(m.items[i].err.Error())
@@ -116,14 +116,14 @@ func (m Model) confirmLines(st styles) (lines, numbers []string) {
 	}
 	switch {
 	case m.comparing != "":
-		lines = append(lines, "", " "+st.state(syncing).Render(m.marker(syncing))+" "+m.confirmNote)
+		lines = append(lines, "", " "+st.state(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
 	case m.confirmNote != "":
 		lines = append(lines, "", " "+m.confirmNote)
 	}
 	return lines, numbers
 }
 
-// itemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다. 접힌 그룹의 하위 항목은 뺀다.
+// renderItemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다. 접힌 그룹의 하위 항목은 뺀다.
 // 그룹 줄의 체크박스는 그룹 파일의 상태이고 켜진 하위 항목 수는 줄 끝에 따로 적는다.
 //
 //	    [+] gitconfig  ~/.gitconfig
@@ -131,7 +131,7 @@ func (m Model) confirmLines(st styles) (lines, numbers []string) {
 //	  ├── [+] env      ~/.config/zsh/env.zsh
 //	  └── [!] git      ~/.config/zsh/git.zsh   (다른 파일이 있음)
 //	  > [ ] claude     ~/.claude/CLAUDE.md  0/3
-func (m Model) itemLines(st styles) (lines []string, selected int) {
+func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 	// 경로 칸이 맞도록 접기 표시와 가지의 폭을 이름 폭에 넣어 센다.
 	width := 0
 	for i, it := range m.items {
@@ -163,7 +163,7 @@ func (m Model) itemLines(st styles) (lines []string, selected int) {
 		} else {
 			name = plain.Render(name)
 		}
-		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.marker(it.state)) +
+		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.renderMarker(it.state)) +
 			plain.Render(" ") + name + plain.Render("  ") + paint(st.muted).Render(tildify(it.entry.Target, m.home))
 
 		if children := m.children(i); len(children) > 0 {
@@ -190,8 +190,8 @@ func (m Model) itemLines(st styles) (lines []string, selected int) {
 	return lines, selected
 }
 
-// descriptionBlock 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다.
-func (m Model) descriptionBlock(st styles, text string) string {
+// renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다.
+func (m Model) renderDescription(st styles, text string) string {
 	if text == "" {
 		return ""
 	}
@@ -239,8 +239,8 @@ func (m Model) branch(i int) string {
 	return "└── "
 }
 
-// marker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
-func (m Model) marker(s itemState) string {
+// renderMarker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
+func (m Model) renderMarker(s itemState) string {
 	if s == syncing && len(m.spinner.Spinner.Frames) > 0 {
 		return "[" + m.spinner.View() + "]"
 	}
@@ -304,16 +304,16 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	}
 }
 
-// menuTitle 은 항목 메뉴의 제목이다.
-func (m Model) menuTitle(st styles) string {
-	return m.itemTitle(st, m.indexOf(m.confirming))
+// renderMenuTitle 은 항목 메뉴의 제목이다.
+func (m Model) renderMenuTitle(st styles) string {
+	return m.renderItemTitle(st, m.indexOf(m.confirming))
 }
 
-// itemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓰고 하위 항목은 그룹 줄 아래에 매단다.
+// renderItemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓰고 하위 항목은 그룹 줄 아래에 매단다.
 //
 //	zshrc  ~/.zshrc
 //	└─ env  ~/.config/zsh/env.zsh
-func (m Model) itemTitle(st styles, i int) string {
+func (m Model) renderItemTitle(st styles, i int) string {
 	if i < 0 {
 		return ""
 	}
@@ -321,17 +321,17 @@ func (m Model) itemTitle(st styles, i int) string {
 	target := tildify(it.entry.Target, m.home)
 
 	if len(m.children(i)) > 0 {
-		return m.groupTitle(st, i)
+		return m.renderGroupTitle(st, i)
 	}
 	line := st.fileName.Render(it.entry.Name) + "  " + target
 	if it.parent != "" {
-		return m.groupTitle(st, m.indexOf(it.parent)) + "\n" + st.muted.Render("└─ ") + line
+		return m.renderGroupTitle(st, m.indexOf(it.parent)) + "\n" + st.muted.Render("└─ ") + line
 	}
 	return line
 }
 
-// groupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
-func (m Model) groupTitle(st styles, i int) string {
+// renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
+func (m Model) renderGroupTitle(st styles, i int) string {
 	return st.groupName.Render(m.items[i].entry.Name) + "  " + tildify(m.items[i].entry.Target, m.home)
 }
 

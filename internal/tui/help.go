@@ -76,6 +76,6 @@ func (m Model) helpView(st styles) tea.View {
 	body = append(body, "  "+st.key.Render("사본 저장 경로:")+" ~/"+localcopy.DirName)
 
 	right := st.muted.Render("도움말")
-	footer := st.help(m.width, "?/esc", "닫기")
-	return tea.NewView(st.page(st.pageWidth(m.width, right, body...), m.version, right, body, footer))
+	footer := st.renderHelp(m.width, "?/esc", "닫기")
+	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, body...), m.version, right, body, footer))
 }

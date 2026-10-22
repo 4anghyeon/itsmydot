@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestGauge(t *testing.T) {
+func TestRenderGauge(t *testing.T) {
 	tests := []struct {
 		ratio  float64
 		filled int
@@ -25,7 +25,7 @@ func TestGauge(t *testing.T) {
 		{-0.1, 0},
 	}
 	for _, tt := range tests {
-		g := ansi.Strip(newStyles(true).gauge(tt.ratio))
+		g := ansi.Strip(newStyles(true).renderGauge(tt.ratio))
 		if got := strings.Count(g, "█"); got != tt.filled {
 			t.Errorf("gauge(%v) filled = %d, want %d", tt.ratio, got, tt.filled)
 		}
@@ -95,7 +95,7 @@ func TestUpdateMarkColors(t *testing.T) {
 }
 
 // 메뉴 제목 줄은 그룹 이름을 파랑, 파일 이름을 분홍으로 칠한다. 하위 파일은 그룹 줄 아래에 트리 가지로 매단다.
-func TestMenuTitle(t *testing.T) {
+func TestRenderMenuTitle(t *testing.T) {
 	blue, pink := "38;2;96;165;250", "38;2;244;114;182" // #60A5FA, #F472B6
 	m := loadedModel(
 		item{entry: entry("gitconfig", "/home/me/.gitconfig")},
@@ -118,7 +118,7 @@ func TestMenuTitle(t *testing.T) {
 		mm := m
 		mm.cursor = tt.cursor
 		mm, _ = press(t, mm, "enter")
-		title := mm.menuTitle(newStyles(true))
+		title := mm.renderMenuTitle(newStyles(true))
 		if got := ansi.Strip(title); got != tt.text {
 			t.Errorf("cursor %d: title = %q, want %q", tt.cursor, got, tt.text)
 		}
