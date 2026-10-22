@@ -22,8 +22,8 @@ var (
 	flashSpring = harmonica.NewSpring(harmonica.FPS(animationFPS), 6, 1)
 )
 
-// animationSettle 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
-const animationSettle = 0.005
+// animationSettleThreshold 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
+const animationSettleThreshold = 0.005
 
 // animationTickMsg 는 애니메이션 한 프레임을 진행하라는 메시지다.
 type animationTickMsg struct{}
@@ -89,5 +89,5 @@ func (m Model) stepAnimation() (Model, tea.Cmd) {
 }
 
 func settled(position, velocity, target float64) bool {
-	return math.Abs(position-target) < animationSettle && math.Abs(velocity) < animationSettle
+	return math.Abs(position-target) < animationSettleThreshold && math.Abs(velocity) < animationSettleThreshold
 }

@@ -76,7 +76,7 @@ const noNewlineText = `\ No newline at end of file`
 // 업데이트 표시에 쓰는 해시만으로는 내용을 알 수 없어서 비교할 때마다 새로 받는다.
 func (m Model) startCompare(i int) (Model, tea.Cmd) {
 	it := m.items[i]
-	m.comparing = it.entry.Name
+	m.comparingName = it.entry.Name
 	m = m.notify(statusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
 	entry, copyPath, client := it.entry, it.copyPath, m.client
 	load := func() tea.Msg {
@@ -93,7 +93,7 @@ func (m Model) startTargetCompare() (Model, tea.Cmd) {
 		return m, nil
 	}
 	it := m.items[i]
-	m.comparing = it.entry.Name
+	m.comparingName = it.entry.Name
 	m.confirmNote = it.entry.Name + " 저장소 파일과 비교하는 중이에요..."
 	entry, client := it.entry, m.client
 	load := func() tea.Msg {
@@ -106,10 +106,10 @@ func (m Model) startTargetCompare() (Model, tea.Cmd) {
 
 // conflictedIndex 는 충돌 질문에서 비교할 항목의 위치다. 걸린 항목이 없으면 -1이다.
 func (m Model) conflictedIndex() int {
-	if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == conflict {
+	if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == conflict {
 		return i
 	}
-	for _, name := range m.pending {
+	for _, name := range m.pendingNames {
 		if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
 			return j
 		}
@@ -138,10 +138,10 @@ func compareWithRepo(ctx context.Context, client *github.Client, e manifest.Entr
 // 메뉴에서 연 비교는 상태 메시지로, 충돌 질문에서 연 비교는 질문 아래에 알린다.
 // 받는 사이에 다른 비교를 시작했거나 질문이 닫혔으면 늦게 온 결과는 버린다.
 func (m Model) applyDiff(msg diffLoadedMsg) Model {
-	if msg.name != m.comparing {
+	if msg.name != m.comparingName {
 		return m
 	}
-	m.comparing = ""
+	m.comparingName = ""
 
 	same := msg.name + " 사본과 저장소 최신본이 같아요"
 	if msg.current {
@@ -187,7 +187,7 @@ func diffRows(hunks []diff.Hunk) []diffRow {
 
 // handleDiffKey 는 비교 보기 화면의 키 입력을 처리한다. esc나 q로 닫으면 화면을 열기 전으로 돌아간다.
 func (m Model) handleDiffKey(key string) (Model, tea.Cmd) {
-	layout := m.diffLayout(newStyles(!m.light))
+	layout := m.computeDiffLayout(newStyles(!m.light))
 	y, x := m.diffScreen.yOffset, m.diffScreen.xOffset
 	switch key {
 	case "ctrl+c":
@@ -223,48 +223,48 @@ func (m Model) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
 	return y, x
 }
 
-// diffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
-func (m Model) diffLayout(st styles) diffLayout {
+// computeDiffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
+func (m Model) computeDiffLayout(st styles) diffLayout {
 	rows := m.diffScreen.rows
 	title := m.renderDiffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
 	if m.height > 0 {
 		// 맨 위 캐릭터 세 줄과 구분선, 빈 줄, 제목과 빈 줄, 도움말과 그 위 빈 줄, 마지막 줄바꿈 뒤의 빈 줄로 10줄이다.
 		// 하위 항목은 제목이 그룹 줄까지 두 줄이다.
-		chrome := 10 + strings.Count(title, "\n")
-		layout.height = min(len(rows), max(m.height-chrome, 3))
+		reservedLines := 10 + strings.Count(title, "\n")
+		layout.height = min(len(rows), max(m.height-reservedLines, 3))
 	}
 	layout.scrollbar = len(rows) > layout.height
 
 	// @@ 줄은 +/- 표시 자리부터 그리므로 내용 폭과 따로 센다.
-	largest, longest, hunk := 1, 0, 0
+	largestLineNumber, longestContent, widestHunkHeader := 1, 0, 0
 	for _, row := range rows {
 		switch row.kind {
 		case hunkRow:
-			hunk = max(hunk, lipgloss.Width(row.header))
+			widestHunkHeader = max(widestHunkHeader, lipgloss.Width(row.header))
 		case lineRow:
-			largest = max(largest, row.line.BeforeNumber, row.line.AfterNumber)
-			longest = max(longest, lipgloss.Width(expandTabs(row.line.Text)))
+			largestLineNumber = max(largestLineNumber, row.line.BeforeNumber, row.line.AfterNumber)
+			longestContent = max(longestContent, lipgloss.Width(expandTabs(row.line.Text)))
 		case noNewlineRow:
-			longest = max(longest, lipgloss.Width(noNewlineText))
+			longestContent = max(longestContent, lipgloss.Width(noNewlineText))
 		}
 	}
-	layout.numberWidth = len(strconv.Itoa(largest))
+	layout.numberWidth = len(strconv.Itoa(largestLineNumber))
 
 	scrollbarWidth := 0
 	if layout.scrollbar {
 		scrollbarWidth = 2
 	}
 	prefix := diffPrefixWidth(layout.numberWidth)
-	hunk += diffHunkIndent(layout.numberWidth)
-	layout.width = max(lipgloss.Width(title), prefix+longest+scrollbarWidth, hunk+scrollbarWidth)
+	widestHunkHeader += diffHunkIndent(layout.numberWidth)
+	layout.width = max(lipgloss.Width(title), prefix+longestContent+scrollbarWidth, widestHunkHeader+scrollbarWidth)
 	if m.width > 0 {
 		// 본문 앞에 화면 왼쪽 여백 한 칸을 둔다.
 		layout.width = max(m.width-1, 1)
 	}
 	layout.rowWidth = layout.width - scrollbarWidth
 	layout.contentWidth = max(layout.rowWidth-prefix, 1)
-	layout.maxXOffset = max(longest-layout.contentWidth, 0)
+	layout.maxXOffset = max(longestContent-layout.contentWidth, 0)
 	return layout
 }
 
@@ -291,7 +291,7 @@ func (m Model) renderDiffTitle(st styles) string {
 // diffView 는 목록 대신 비교 보기 화면을 그린다.
 func (m Model) diffView(st styles) tea.View {
 	rows := m.diffScreen.rows
-	layout := m.diffLayout(st)
+	layout := m.computeDiffLayout(st)
 	y, x := m.clampDiffOffsets(layout, m.diffScreen.yOffset, m.diffScreen.xOffset)
 
 	body := make([]string, 0, layout.height)
@@ -382,17 +382,17 @@ func (side diffStyles) renderContent(line diff.Line, x, width int) string {
 		if r == '\t' {
 			cell, cells = " ", tabWidth
 		}
-		w := ansi.StringWidth(cell)
+		cellWidth := ansi.StringWidth(cell)
 		changed := slices.ContainsFunc(line.Changes, func(c diff.Range) bool { return i >= c.Start && i < c.End })
 		for range cells {
-			if column >= x && column+w <= x+width {
+			if column >= x && column+cellWidth <= x+width {
 				if changed != highlighted {
 					flush()
 					highlighted = changed
 				}
 				segment.WriteString(cell)
 			}
-			column += w
+			column += cellWidth
 		}
 	}
 	flush()

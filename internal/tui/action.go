@@ -49,14 +49,14 @@ func (m Model) toggle() (Model, tea.Cmd) {
 			return m, nil
 		}
 		if !hasBackup {
-			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmUnlinkWithoutBackup, 0
+			m.confirmingName, m.confirmKind, m.choice = it.entry.Name, confirmUnlinkWithoutBackup, 0
 			return m, nil
 		}
 		if len(m.syncedChildren(m.cursor)) > 0 {
-			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmGroupUnlink, 0
+			m.confirmingName, m.confirmKind, m.choice = it.entry.Name, confirmGroupUnlink, 0
 			return m, nil
 		}
-		m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmTurnOff, 0
+		m.confirmingName, m.confirmKind, m.choice = it.entry.Name, confirmTurnOff, 0
 		return m, nil
 	}
 
@@ -68,8 +68,8 @@ func (m Model) toggle() (Model, tea.Cmd) {
 func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 	indexes, states := []int{i}, []link.State{state}
 	if parent := m.items[i].parent; parent != "" {
-		p := m.indexOf(parent)
-		group := &m.items[p]
+		groupIndex := m.indexOf(parent)
+		group := &m.items[groupIndex]
 		if group.state != syncing {
 			groupState, err := link.Check(group.entry.Target, group.copyPath)
 			if err != nil {
@@ -78,7 +78,7 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 				return m, nil
 			}
 			if groupState != link.Synced {
-				indexes, states = []int{p, i}, []link.State{groupState, state}
+				indexes, states = []int{groupIndex, i}, []link.State{groupState, state}
 			}
 		}
 	}
@@ -92,11 +92,11 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 			conflicted = true
 		}
 	}
-	m.pending = make([]string, len(indexes))
+	m.pendingNames = make([]string, len(indexes))
 	for k, j := range indexes {
-		m.pending[k] = m.items[j].entry.Name
+		m.pendingNames[k] = m.items[j].entry.Name
 	}
-	m.confirming, m.confirmKind, m.choice = m.items[i].entry.Name, confirmTurnOn, 0
+	m.confirmingName, m.confirmKind, m.choice = m.items[i].entry.Name, confirmTurnOn, 0
 	if conflicted {
 		m.confirmKind = confirmBackupLink
 	}
@@ -181,11 +181,11 @@ func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
 		return m.startTargetCompare()
 	}
 
-	name, pending := m.confirming, m.pending
-	m.confirming, m.pending, m.confirmNote = "", nil, ""
+	name, pending := m.confirmingName, m.pendingNames
+	m.confirmingName, m.pendingNames, m.confirmNote = "", nil, ""
 	if m.confirmKind == confirmBackupLink {
 		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
-		m.comparing = ""
+		m.comparingName = ""
 	}
 	if key == cancel {
 		// 질문 전에 떠 있던 알림은 지금과 상관없어서 함께 지운다.
@@ -236,7 +236,7 @@ func (m Model) openMenu() Model {
 	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == syncing {
 		return m
 	}
-	m.confirming, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
+	m.confirmingName, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
 	return m
 }
 

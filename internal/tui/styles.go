@@ -142,8 +142,8 @@ var syncSpinner = spinner.Spinner{
 // gaugeWidth 는 진행 게이지의 칸 수다.
 const gaugeWidth = 16
 
-// state 는 상태별 체크박스 색이다.
-func (st styles) state(s itemState) lipgloss.Style {
+// stateStyle 는 상태별 체크박스 색이다.
+func (st styles) stateStyle(s itemState) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(st.stateColor(s))
 }
 
@@ -163,10 +163,10 @@ func (st styles) stateColor(s itemState) color.Color {
 	}
 }
 
-// flashing 은 상태 색에 강조색을 flash만큼 섞은 스타일이다. flash가 1이면 강조색이고 0이면 상태 색 그대로다.
-func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
+// flashStyle 는 상태 색에 강조색을 flash만큼 섞은 스타일이다. flash가 1이면 강조색이고 0이면 상태 색 그대로다.
+func (st styles) flashStyle(s itemState, flash float64) lipgloss.Style {
 	if flash <= 0 {
-		return st.state(s)
+		return st.stateStyle(s)
 	}
 	const steps = 101
 	blend := lipgloss.Blend1D(steps, st.stateColor(s), st.palette.accent)
@@ -179,11 +179,11 @@ func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
 func (st styles) renderGauge(ratio float64) string {
 	ratio = min(max(ratio, 0), 1)
 	filled := int(math.Round(ratio * gaugeWidth))
-	if ratio > animationSettle && filled == 0 {
+	if ratio > animationSettleThreshold && filled == 0 {
 		filled = 1 // 하나라도 연결돼 있으면 빈 막대로 보이지 않게 한다
 	}
 
-	return st.state(synced).Render(strings.Repeat("█", filled)) +
+	return st.stateStyle(synced).Render(strings.Repeat("█", filled)) +
 		st.muted.Render(strings.Repeat("░", gaugeWidth-filled))
 }
 

@@ -34,13 +34,13 @@ func compareFixture(t *testing.T, local, remote string) (Model, tea.Cmd, string)
 // esc로 닫으면 목록으로 돌아가고 사본은 바뀌지 않는다.
 func TestMenuCompareOpensDiff(t *testing.T) {
 	m, cmd, target := compareFixture(t, "[user]\n\tname = me\n", "[user]\n\tname = you\n")
-	if m.comparing != "gitconfig" || !strings.Contains(viewText(m), "] gitconfig 저장소 최신본과 비교하는 중이에요...") {
-		t.Fatalf("comparing = %q view:\n%s", m.comparing, viewText(m))
+	if m.comparingName != "gitconfig" || !strings.Contains(viewText(m), "] gitconfig 저장소 최신본과 비교하는 중이에요...") {
+		t.Fatalf("comparing = %q view:\n%s", m.comparingName, viewText(m))
 	}
 
 	m = runCmd(t, m, cmd)
-	if m.diffScreen.name != "gitconfig" || m.comparing != "" {
-		t.Fatalf("diff = %q comparing = %q status = %q", m.diffScreen.name, m.comparing, m.status)
+	if m.diffScreen.name != "gitconfig" || m.comparingName != "" {
+		t.Fatalf("diff = %q comparing = %q status = %q", m.diffScreen.name, m.comparingName, m.status)
 	}
 	v := viewText(m)
 	for _, want := range []string{
@@ -81,8 +81,8 @@ func TestMenuCompareWithoutDiff(t *testing.T) {
 	for _, tt := range tests {
 		m, cmd, _ := compareFixture(t, "same\n", tt.remote)
 		m = runCmd(t, m, cmd)
-		if m.diffScreen.name != "" || m.comparing != "" || m.status != tt.status {
-			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diffScreen.name, m.comparing, m.status)
+		if m.diffScreen.name != "" || m.comparingName != "" || m.status != tt.status {
+			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diffScreen.name, m.comparingName, m.status)
 		}
 	}
 }
@@ -105,11 +105,11 @@ func TestMenuCompareFetchError(t *testing.T) {
 // 받는 사이에 다른 항목의 비교를 시작했으면 먼저 시작한 쪽의 결과는 버린다.
 func TestCompareIgnoresStaleResult(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "gitconfig", "a\n", "b\n"))
 	m = next.(Model)
-	if m.diffScreen.name != "" || m.comparing != "zshrc" {
-		t.Fatalf("diff = %q comparing = %q", m.diffScreen.name, m.comparing)
+	if m.diffScreen.name != "" || m.comparingName != "zshrc" {
+		t.Fatalf("diff = %q comparing = %q", m.diffScreen.name, m.comparingName)
 	}
 }
 
@@ -120,7 +120,7 @@ func TestSpinnerTicksWhileComparing(t *testing.T) {
 	if _, cmd := m.Update(spinner.TickMsg{}); cmd != nil {
 		t.Fatal("spinner should stop when nothing is loading")
 	}
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	if _, cmd := m.Update(spinner.TickMsg{}); cmd == nil {
 		t.Fatal("spinner should keep ticking while comparing")
 	}
@@ -134,7 +134,7 @@ func TestDiffScroll(t *testing.T) {
 	for i := 1; i <= 30; i++ {
 		_, _ = fmt.Fprintf(&text, "line %d\n", i)
 	}
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "", text.String()))
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
 	m = next.(Model)
@@ -199,7 +199,7 @@ func scrollbarColumn(view string) string {
 // 좌우 방향키로 긴 줄을 밀면 내용만 밀리고 줄 번호는 그 자리에 남는다. 끝을 넘어서 밀리지는 않는다.
 func TestDiffHorizontalScroll(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	long := "export PATH=" + strings.Repeat("/usr/local/bin:", 4) + "END"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "short\n", long+"\n"))
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 40, Height: 30})
@@ -223,7 +223,7 @@ func TestDiffHorizontalScroll(t *testing.T) {
 // 지운 줄과 추가한 줄은 줄 끝까지 배경을 칠하고, 줄 번호 칸과 바뀐 단어는 더 진하게 칠한다. @@ 줄은 회색 띠로 그린다.
 func TestDiffRowColors(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "same\nexport EDITOR=vim\n", "same\nexport EDITOR=nvim\n"))
 	m = next.(Model)
 
@@ -257,7 +257,7 @@ func TestDiffRowColors(t *testing.T) {
 // 파일 끝 줄바꿈이 없는 줄 바로 아래에 git과 같은 안내 줄을 붙인다.
 func TestDiffNoNewlineRow(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
-	m.comparing = "zshrc"
+	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "a\nlast", "a\nlast\n"))
 	v := viewText(next.(Model))
 	lines := strings.Split(v, "\n")
@@ -276,8 +276,8 @@ func conflictFixture(t *testing.T, mine, remote string) (Model, string) {
 		t.Fatal(err)
 	}
 	m, _ = press(t, m, "space")
-	if m.confirmKind != confirmBackupLink || m.confirming != "gitconfig" {
-		t.Fatalf("setup: kind = %d confirming = %q", m.confirmKind, m.confirming)
+	if m.confirmKind != confirmBackupLink || m.confirmingName != "gitconfig" {
+		t.Fatalf("setup: kind = %d confirming = %q", m.confirmKind, m.confirmingName)
 	}
 	return m, target
 }
@@ -288,8 +288,8 @@ func TestConflictPromptCompare(t *testing.T) {
 	m, target := conflictFixture(t, "mine\n", "from repo\n")
 
 	m, cmd := press(t, m, "2")
-	if m.confirming != "gitconfig" || m.comparing != "gitconfig" {
-		t.Fatalf("prompt should stay while comparing: confirming = %q comparing = %q", m.confirming, m.comparing)
+	if m.confirmingName != "gitconfig" || m.comparingName != "gitconfig" {
+		t.Fatalf("prompt should stay while comparing: confirmingName = %q comparingName = %q", m.confirmingName, m.comparingName)
 	}
 	if v := viewText(m); !strings.Contains(v, "] gitconfig 저장소 파일과 비교하는 중이에요...") || !strings.Contains(v, "2. 차이 보기") {
 		t.Errorf("progress should show under the prompt:\n%s", v)
@@ -302,7 +302,7 @@ func TestConflictPromptCompare(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "esc")
-	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "1. 백업 후 연결") {
+	if v := viewText(m); m.diffScreen.name != "" || m.confirmingName != "gitconfig" || !strings.Contains(v, "1. 백업 후 연결") {
 		t.Fatalf("esc should go back to the prompt:\n%s", v)
 	}
 	assertContent(t, target, "mine\n")
@@ -321,7 +321,7 @@ func TestConflictPromptCompareSame(t *testing.T) {
 	m, _ := conflictFixture(t, "same\n", "same\n")
 	m, cmd := press(t, m, "2")
 	m = runCmd(t, m, cmd)
-	if v := viewText(m); m.diffScreen.name != "" || m.confirming != "gitconfig" || !strings.Contains(v, "gitconfig 지금 파일과 저장소 파일이 같아요") {
+	if v := viewText(m); m.diffScreen.name != "" || m.confirmingName != "gitconfig" || !strings.Contains(v, "gitconfig 지금 파일과 저장소 파일이 같아요") {
 		t.Fatalf("note should show under the prompt:\n%s", v)
 	}
 
@@ -336,8 +336,8 @@ func TestConflictPromptCompareAfterAnswer(t *testing.T) {
 	m, _ := conflictFixture(t, "mine\n", "from repo\n")
 	m, cmd := press(t, m, "2")
 	m, _ = press(t, m, "esc")
-	if m.comparing != "" {
-		t.Fatalf("comparing = %q, want cleared with the prompt", m.comparing)
+	if m.comparingName != "" {
+		t.Fatalf("comparing = %q, want cleared with the prompt", m.comparingName)
 	}
 	m = runCmd(t, m, cmd)
 	if m.diffScreen.name != "" || m.confirmNote != "" {
@@ -351,7 +351,7 @@ func TestConflictedIndexPrefersPromptItem(t *testing.T) {
 		item{entry: entry("zshrc", "/home/me/.zshrc"), state: conflict},
 		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc"},
 	)
-	m.confirming, m.pending = "env", []string{"zshrc", "env"}
+	m.confirmingName, m.pendingNames = "env", []string{"zshrc", "env"}
 	if i := m.conflictedIndex(); i != 0 {
 		t.Errorf("conflictedIndex = %d, want the group file", i)
 	}

@@ -46,11 +46,11 @@ func (m Model) helpView(st styles) tea.View {
 	})...)
 
 	markers := [][2]string{
-		{st.state(synced).Render(synced.marker()), "연결됨"},
-		{st.state(conflict).Render(conflict.marker()), "다른 파일이 있음"},
-		{st.state(notSynced).Render(notSynced.marker()), "연결 안 됨"},
-		{st.state(errored).Render(errored.marker()), "확인하거나 받지 못함"},
-		{st.state(syncing).Render("[o]"), "받는 중"},
+		{st.stateStyle(synced).Render(synced.marker()), "연결됨"},
+		{st.stateStyle(conflict).Render(conflict.marker()), "다른 파일이 있음"},
+		{st.stateStyle(notSynced).Render(notSynced.marker()), "연결 안 됨"},
+		{st.stateStyle(errored).Render(errored.marker()), "확인하거나 받지 못함"},
+		{st.stateStyle(syncing).Render("[o]"), "받는 중"},
 		{st.update.Render("^  "), "저장소에 업데이트 있음"},
 		{st.key.Render("v  "), "펼친 그룹"},
 		{st.key.Render(">  "), "접힌 그룹"},

@@ -178,8 +178,8 @@ func TestCloseClearsStatus(t *testing.T) {
 	m = m.notify(statusDone, "끝났어요")
 	m, _ = press(t, m, "enter")
 	m, _ = press(t, m, "esc")
-	if m.confirming != "" || m.status != "" {
-		t.Errorf("confirming = %q status = %q", m.confirming, m.status)
+	if m.confirmingName != "" || m.status != "" {
+		t.Errorf("confirming = %q status = %q", m.confirmingName, m.status)
 	}
 }
 

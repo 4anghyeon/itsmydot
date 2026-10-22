@@ -69,8 +69,8 @@ func TestToggleOnAndOff(t *testing.T) {
 
 	// 켜기 전에 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmTurnOn {
-		t.Fatalf("want turn on prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	if cmd != nil || m.confirmingName != "gitconfig" || m.confirmKind != confirmTurnOn {
+		t.Fatalf("want turn on prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirmingName, m.confirmKind)
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
 		t.Fatalf("target should be untouched before answering, got err %v", err)
@@ -90,8 +90,8 @@ func TestToggleOnAndOff(t *testing.T) {
 
 	// 백업이 없어서 끌 때 먼저 묻는다. 2번 파일도 지우기를 고르면 target이 사라진다.
 	m, cmd = press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlinkWithoutBackup {
-		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	if cmd != nil || m.confirmingName != "gitconfig" || m.confirmKind != confirmUnlinkWithoutBackup {
+		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirmingName, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
 	if !strings.Contains(m.status, "에 남아 있어요") || m.statusTone != statusUnlinked {
@@ -113,14 +113,14 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 
 	// 다른 파일이 있으면 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" {
-		t.Fatalf("want confirm prompt, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+	if cmd != nil || m.confirmingName != "gitconfig" {
+		t.Fatalf("want confirm prompt, got cmd=%v confirming=%q", cmd != nil, m.confirmingName)
 	}
 	assertContent(t, target, "mine")
 
 	m, cmd = press(t, m, "1")
-	if m.confirming != "" || m.items[0].state != syncing {
-		t.Fatalf("after 1: confirming=%q state=%d", m.confirming, m.items[0].state)
+	if m.confirmingName != "" || m.items[0].state != syncing {
+		t.Fatalf("after 1: confirming=%q state=%d", m.confirmingName, m.items[0].state)
 	}
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
@@ -155,8 +155,8 @@ func TestConfirmCancel(t *testing.T) {
 
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirming != "" {
-				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+			if cmd != nil || m.confirmingName != "" {
+				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirmingName)
 			}
 			if m.items[0].state != conflict {
 				t.Errorf("state = %d, want conflict", m.items[0].state)
@@ -179,8 +179,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirming != "" || m.items[0].state != notSynced || m.status != "" {
-				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirming, m.items[0].state, m.status)
+			if cmd != nil || m.confirmingName != "" || m.items[0].state != notSynced || m.status != "" {
+				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirmingName, m.items[0].state, m.status)
 			}
 			if _, err := os.Lstat(target); !os.IsNotExist(err) {
 				t.Errorf("target should be untouched, got err %v", err)
@@ -200,8 +200,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 				t.Fatalf("kind = %d, want confirmTurnOff", m.confirmKind)
 			}
 			m, _ = press(t, m, key)
-			if m.confirming != "" || m.items[0].state != synced || m.status != "" {
-				t.Fatalf("confirming=%q state=%d status=%q", m.confirming, m.items[0].state, m.status)
+			if m.confirmingName != "" || m.items[0].state != synced || m.status != "" {
+				t.Fatalf("confirming=%q state=%d status=%q", m.confirmingName, m.items[0].state, m.status)
 			}
 			assertSymlink(t, target, true)
 		})
@@ -219,7 +219,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	for _, key := range []string{"q", "y", "n", "x"} {
 		var cmd tea.Cmd
 		m, cmd = press(t, m, key)
-		if cmd != nil || m.confirming != "gitconfig" {
+		if cmd != nil || m.confirmingName != "gitconfig" {
 			t.Fatalf("%s: should be ignored while confirming", key)
 		}
 	}
@@ -305,8 +305,8 @@ func TestUnlinkWithoutBackupCancel(t *testing.T) {
 			m, target := linkedFixture(t)
 			m, _ = press(t, m, "space")
 			m, _ = press(t, m, key)
-			if m.confirming != "" || m.status != "" {
-				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirming, m.status)
+			if m.confirmingName != "" || m.status != "" {
+				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirmingName, m.status)
 			}
 			info, err := os.Lstat(target)
 			if err != nil || info.Mode()&os.ModeSymlink == 0 {
@@ -324,7 +324,7 @@ func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
 	}
 	m, _ = press(t, m, "space")
 	m, cmd := press(t, m, "4")
-	if cmd != nil || m.confirming == "" {
+	if cmd != nil || m.confirmingName == "" {
 		t.Fatal("4 should be ignored for a 3-option prompt")
 	}
 }
@@ -350,7 +350,7 @@ func TestConfirmArrowSelection(t *testing.T) {
 
 	m, _ = press(t, m, "k") // 2번 파일도 지우기로 올라간다
 	m, _ = press(t, m, "enter")
-	if m.confirming != "" {
+	if m.confirmingName != "" {
 		t.Fatal("enter should answer the prompt")
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
@@ -368,8 +368,8 @@ func TestConfirmSpaceSelects(t *testing.T) {
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "down") // 3. 취소
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "" || m.status != "" {
-		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	if cmd != nil || m.confirmingName != "" || m.status != "" {
+		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
 	}
 	assertContent(t, target, "mine")
 
@@ -470,8 +470,8 @@ func TestMenuTurnOffAsksLikeSpace(t *testing.T) {
 	m, _ := linkedFixture(t)
 	m, _ = press(t, m, "enter")
 	m, _ = press(t, m, "3")
-	if m.confirmKind != confirmUnlinkWithoutBackup || m.confirming != "gitconfig" {
-		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirming)
+	if m.confirmKind != confirmUnlinkWithoutBackup || m.confirmingName != "gitconfig" {
+		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirmingName)
 	}
 }
 
@@ -480,13 +480,13 @@ func TestMenuCancelAndSyncing(t *testing.T) {
 	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 	m, _ = press(t, m, "enter")
 	m, cmd := press(t, m, "esc")
-	if cmd != nil || m.confirming != "" || m.status != "" {
-		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	if cmd != nil || m.confirmingName != "" || m.status != "" {
+		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
 	}
 
 	m, _ = confirmToggle(t, m)
 	m, _ = press(t, m, "enter")
-	if m.confirming != "" {
+	if m.confirmingName != "" {
 		t.Error("menu should not open while syncing")
 	}
 }

@@ -40,9 +40,9 @@ func (m Model) View() tea.View {
 	case !m.ready:
 		list = append(list, " "+st.muted.Render("manifest 불러오는 중이에요..."))
 	case m.loadErr != nil:
-		list = append(list, " "+st.state(errored).Render("manifest를 불러오지 못했어요. "+errorReason(m.loadErr, m.home)))
+		list = append(list, " "+st.stateStyle(errored).Render("manifest를 불러오지 못했어요. "+errorReason(m.loadErr, m.home)))
 		for line := range strings.SplitSeq(m.loadErr.Error(), "\n") {
-			list = append(list, " "+st.state(errored).Render(line))
+			list = append(list, " "+st.stateStyle(errored).Render(line))
 		}
 	case len(m.items) == 0:
 		list = append(list, " "+st.muted.Render("manifest에 항목이 없어요"))
@@ -54,7 +54,7 @@ func (m Model) View() tea.View {
 
 	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	status := m.status
-	if m.confirming != "" {
+	if m.confirmingName != "" {
 		var numbers []string
 		lower, numbers = m.renderConfirmLines(st)
 		footer = st.renderHelp(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "취소")
@@ -97,7 +97,7 @@ func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
 	if m.confirmKind == confirmAction {
 		title = m.renderMenuTitle(st)
 		// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
-		if i := m.indexOf(m.confirming); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
+		if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
 			title += "\n" + st.muted.Render(m.items[i].err.Error())
 		}
 	}
@@ -115,8 +115,8 @@ func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
 		lines = append(lines, " "+cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
 	}
 	switch {
-	case m.comparing != "":
-		lines = append(lines, "", " "+st.state(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
+	case m.comparingName != "":
+		lines = append(lines, "", " "+st.stateStyle(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
 	case m.confirmNote != "":
 		lines = append(lines, "", " "+m.confirmNote)
 	}
@@ -136,7 +136,7 @@ func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 	width := 0
 	for i, it := range m.items {
 		if m.visible(i) {
-			width = max(width, lipgloss.Width(m.fold(i))+lipgloss.Width(m.branch(i))+lipgloss.Width(it.entry.Name))
+			width = max(width, lipgloss.Width(m.foldMarker(i))+lipgloss.Width(m.treeBranch(i))+lipgloss.Width(it.entry.Name))
 		}
 	}
 
@@ -155,7 +155,7 @@ func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 		}
 		plain := paint(lipgloss.NewStyle())
 
-		branch, fold := m.branch(i), m.fold(i)
+		branch, fold := m.treeBranch(i), m.foldMarker(i)
 		bar, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(fold)-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
 		if current {
 			bar, name = st.cursor.Render("▌"), paint(st.selected).Render(name)
@@ -163,7 +163,7 @@ func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 		} else {
 			name = plain.Render(name)
 		}
-		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashing(it.state, it.flash)).Render(m.renderMarker(it.state)) +
+		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashStyle(it.state, it.flash)).Render(m.renderMarker(it.state)) +
 			plain.Render(" ") + name + plain.Render("  ") + paint(st.muted).Render(tildify(it.entry.Target, m.home))
 
 		if children := m.children(i); len(children) > 0 {
@@ -179,9 +179,9 @@ func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 
 		switch it.state {
 		case conflict:
-			line += paint(st.state(it.state)).Render("   (다른 파일이 있음)")
+			line += paint(st.stateStyle(it.state)).Render("   (다른 파일이 있음)")
 		case errored:
-			line += paint(st.state(it.state)).Render("   (" + errorReason(it.err, m.home) + ")")
+			line += paint(st.stateStyle(it.state)).Render("   (" + errorReason(it.err, m.home) + ")")
 		case notSynced, synced, syncing:
 			// 체크박스만으로 충분해서 덧붙일 설명이 없다.
 		}
@@ -211,9 +211,9 @@ func (m Model) renderDescription(st styles, text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// fold 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >이고 나머지는 칸만 맞춘다.
+// foldMarker 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >이고 나머지는 칸만 맞춘다.
 // 체크박스 안의 +와 헷갈리지 않게 +와 -는 쓰지 않는다.
-func (m Model) fold(i int) string {
+func (m Model) foldMarker(i int) string {
 	switch {
 	case m.items[i].parent != "" || !slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }):
 		return ""
@@ -226,9 +226,9 @@ func (m Model) fold(i int) string {
 	}
 }
 
-// branch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
+// treeBranch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
 // 가지는 그룹 줄의 접기 표시 바로 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
-func (m Model) branch(i int) string {
+func (m Model) treeBranch(i int) string {
 	parent := m.items[i].parent
 	if parent == "" {
 		return ""
@@ -249,7 +249,7 @@ func (m Model) renderMarker(s itemState) string {
 
 // confirmPrompt 는 확인 질문 문구와 선택지를 만든다. handleConfirmKey이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
 func (m Model) confirmPrompt() (question string, options []string) {
-	i := m.indexOf(m.confirming)
+	i := m.indexOf(m.confirmingName)
 	if i < 0 {
 		return "", []string{"취소"}
 	}
@@ -284,20 +284,20 @@ func (m Model) confirmPrompt() (question string, options []string) {
 			[]string{"연결 끊기", "취소"}
 	case confirmTurnOn:
 		question := fmt.Sprintf("%s  %s 파일을 연결할까요?", it.entry.Name, target)
-		if it.parent != "" && slices.Contains(m.pending, it.parent) {
+		if it.parent != "" && slices.Contains(m.pendingNames, it.parent) {
 			parent := m.items[m.indexOf(it.parent)]
 			question += fmt.Sprintf(" 그룹 파일 %s  %s 도 함께 연결해요.", parent.entry.Name, tildify(parent.entry.Target, m.home))
 		}
 		return question, []string{"연결", "취소"}
 	default:
 		var conflicted []string
-		for _, name := range m.pending {
+		for _, name := range m.pendingNames {
 			if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
 				conflicted = append(conflicted, tildify(m.items[j].entry.Target, m.home))
 			}
 		}
 		question := fmt.Sprintf("%s 에 이미 파일이 있어요. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
-		if it.parent != "" && slices.Contains(m.pending, it.parent) {
+		if it.parent != "" && slices.Contains(m.pendingNames, it.parent) {
 			question = fmt.Sprintf("그룹 파일 %s 도 함께 연결해요. ", it.parent) + question
 		}
 		return question, []string{"백업 후 연결", "차이 보기", "취소"}
@@ -306,7 +306,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 
 // renderMenuTitle 은 항목 메뉴의 제목이다.
 func (m Model) renderMenuTitle(st styles) string {
-	return m.renderItemTitle(st, m.indexOf(m.confirming))
+	return m.renderItemTitle(st, m.indexOf(m.confirmingName))
 }
 
 // renderItemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓰고 하위 항목은 그룹 줄 아래에 매단다.
