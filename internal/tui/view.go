@@ -247,7 +247,7 @@ func (m Model) marker(s itemState) string {
 	return s.marker()
 }
 
-// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. answerConfirm이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
+// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. handleConfirmKey이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
 func (m Model) confirmPrompt() (question string, options []string) {
 	i := m.indexOf(m.confirming)
 	if i < 0 {
@@ -267,7 +267,7 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	}
 
 	switch m.confirmKind {
-	case confirmUnlink:
+	case confirmUnlinkWithoutBackup:
 		return fmt.Sprintf("%s 백업이 없어서 되돌릴 원본 파일이 없어요. %s연결을 어떻게 끊을까요?", target, childrenNote),
 			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
 	case confirmAction:

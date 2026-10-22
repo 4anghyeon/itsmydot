@@ -185,8 +185,8 @@ func diffRows(hunks []diff.Hunk) []diffRow {
 	return rows
 }
 
-// scrollDiff 는 비교 보기 화면의 키 입력을 처리한다. esc나 q로 닫으면 화면을 열기 전으로 돌아간다.
-func (m Model) scrollDiff(key string) (Model, tea.Cmd) {
+// handleDiffKey 는 비교 보기 화면의 키 입력을 처리한다. esc나 q로 닫으면 화면을 열기 전으로 돌아간다.
+func (m Model) handleDiffKey(key string) (Model, tea.Cmd) {
 	layout := m.diffLayout(newStyles(!m.light))
 	y, x := m.diffScreen.yOffset, m.diffScreen.xOffset
 	switch key {

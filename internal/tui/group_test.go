@@ -174,7 +174,7 @@ func TestChildTurnOnAsksOnceForGroupConflict(t *testing.T) {
 
 	m, _ = press(t, m, "down")
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirmKind != confirmLink {
+	if cmd != nil || m.confirmKind != confirmBackupLink {
 		t.Fatalf("want a link prompt, got cmd=%v kind=%d", cmd != nil, m.confirmKind)
 	}
 	v := viewText(m)
@@ -202,8 +202,8 @@ func TestGroupUnlinkWithoutBackupTurnsOffChildren(t *testing.T) {
 
 	m, _ = press(t, m, "up")
 	m, _ = press(t, m, "space")
-	if m.confirmKind != confirmUnlink {
-		t.Fatalf("kind = %d, want confirmUnlink", m.confirmKind)
+	if m.confirmKind != confirmUnlinkWithoutBackup {
+		t.Fatalf("kind = %d, want confirmUnlinkWithoutBackup", m.confirmKind)
 	}
 	if v := viewText(m); !strings.Contains(v, "하위 항목 1개(env)도 함께 연결이 끊겨요.") {
 		t.Errorf("prompt should mention the children:\n%s", v)

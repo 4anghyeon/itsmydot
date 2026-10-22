@@ -9,8 +9,8 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 )
 
-// answerHelp 는 도움말 화면의 키 입력을 처리한다. ?나 esc, q로 닫으면 목록으로 돌아가고 다른 키는 무시한다.
-func (m Model) answerHelp(key string) (Model, tea.Cmd) {
+// handleHelpKey 는 도움말 화면의 키 입력을 처리한다. ?나 esc, q로 닫으면 목록으로 돌아가고 다른 키는 무시한다.
+func (m Model) handleHelpKey(key string) (Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit

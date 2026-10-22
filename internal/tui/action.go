@@ -42,14 +42,14 @@ func (m Model) toggle() (Model, tea.Cmd) {
 	if state == link.Synced {
 		// 되돌릴 백업이 없으면 target 자리가 비게 되므로 먼저 묻는다.
 		// 처음부터 파일이 없었던 건지, 백업이 사고로 사라진 건지 디스크만으로는 구분할 수 없다.
-		has, err := link.HasBackup(it.entry.Target)
+		hasBackup, err := link.HasBackup(it.entry.Target)
 		if err != nil {
 			it.state, it.err = errored, err
 			m = m.notify(statusFailed, it.entry.Name+" 백업을 확인하지 못했어요 ("+errorReason(err, m.home)+")")
 			return m, nil
 		}
-		if !has {
-			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmUnlink, 0
+		if !hasBackup {
+			m.confirming, m.confirmKind, m.choice = it.entry.Name, confirmUnlinkWithoutBackup, 0
 			return m, nil
 		}
 		if len(m.syncedChildren(m.cursor)) > 0 {
@@ -98,7 +98,7 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 	}
 	m.confirming, m.confirmKind, m.choice = m.items[i].entry.Name, confirmTurnOn, 0
 	if conflicted {
-		m.confirmKind = confirmLink
+		m.confirmKind = confirmBackupLink
 	}
 	return m, nil
 }
@@ -151,9 +151,9 @@ func (m Model) withChildrenOff(count int) Model {
 	return m
 }
 
-// answerConfirm 은 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
+// handleConfirmKey 는 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
 // 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
-func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
+func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
@@ -171,19 +171,19 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	case "esc":
 		key = cancel
 	}
-	n, err := strconv.Atoi(key)
-	if err != nil || n < 1 || n > len(options) {
+	picked, err := strconv.Atoi(key)
+	if err != nil || picked < 1 || picked > len(options) {
 		return m, nil
 	}
 
 	// 차이 보기는 답이 아니라 답을 고르려고 보는 것이라 질문을 닫지 않는다.
-	if m.confirmKind == confirmLink && n == 2 {
+	if m.confirmKind == confirmBackupLink && picked == 2 {
 		return m.startTargetCompare()
 	}
 
 	name, pending := m.confirming, m.pending
 	m.confirming, m.pending, m.confirmNote = "", nil, ""
-	if m.confirmKind == confirmLink {
+	if m.confirmKind == confirmBackupLink {
 		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
 		m.comparing = ""
 	}
@@ -200,7 +200,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	m.items = slices.Clone(m.items)
 
 	switch m.confirmKind {
-	case confirmLink, confirmTurnOn:
+	case confirmBackupLink, confirmTurnOn:
 		indexes := make([]int, 0, len(pending))
 		for _, p := range pending {
 			if j := m.indexOf(p); j >= 0 {
@@ -208,8 +208,8 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 			}
 		}
 		return m.startSync(indexes...)
-	case confirmUnlink:
-		if n == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
+	case confirmUnlinkWithoutBackup:
+		if picked == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
 			return m.detach(i).startAnimation()
 		}
 		// 2. 연결을 끊고 파일도 지우기
@@ -219,7 +219,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	case confirmAction:
 		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
 		if m.items[i].state == synced {
-			switch n {
+			switch picked {
 			case 1: // 최신으로 받기
 				return m.updateCopy(i)
 			case 2: // 차이 보기

@@ -18,7 +18,7 @@ func TestSplitWords(t *testing.T) {
 	}
 }
 
-func TestWords(t *testing.T) {
+func TestChangedWords(t *testing.T) {
 	tests := []struct {
 		name           string
 		before, after  string
@@ -57,7 +57,7 @@ func TestWords(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		removed, added := words(tt.before, tt.after)
+		removed, added := changedWords(tt.before, tt.after)
 		if got := slicesOf(tt.before, removed); !reflect.DeepEqual(got, tt.removed) {
 			t.Errorf("%s: removed = %q, want %q", tt.name, got, tt.removed)
 		}

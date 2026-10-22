@@ -82,7 +82,7 @@ type Model struct {
 	confirming  string
 	confirmKind confirmKind
 	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
-	pending     []string // confirmLink나 confirmTurnOn에서 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
+	pending     []string // confirmBackupLink나 confirmTurnOn에서 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
 	confirmNote string   // 확인 질문 아래 한 줄. 질문에서 고른 차이 보기의 진행 상황이나 결과를 알린다
 
 	comparing  string     // 비교할 저장소 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
@@ -128,12 +128,12 @@ func (m Model) notify(tone statusTone, text string) Model {
 type confirmKind int
 
 const (
-	confirmLink        confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
-	confirmUnlink                         // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
-	confirmGroupUnlink                    // 켜진 하위 항목이 있어서 그룹 파일과 함께 끌지 묻는 중
-	confirmAction                         // enter로 연 항목 메뉴에서 할 일을 고르는 중
-	confirmTurnOn                         // 다른 질문 없이 켜지는 항목을 정말 켤지 묻는 중
-	confirmTurnOff                        // 다른 질문 없이 꺼지는 항목을 정말 끌지 묻는 중
+	confirmBackupLink          confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
+	confirmUnlinkWithoutBackup                    // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
+	confirmGroupUnlink                            // 켜진 하위 항목이 있어서 그룹 파일과 함께 끌지 묻는 중
+	confirmAction                                 // enter로 연 항목 메뉴에서 할 일을 고르는 중
+	confirmTurnOn                                 // 다른 질문 없이 켜지는 항목을 정말 켤지 묻는 중
+	confirmTurnOff                                // 다른 질문 없이 꺼지는 항목을 정말 끌지 묻는 중
 )
 
 // New 는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [Model.Init] 에서 시작한다.
@@ -189,13 +189,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
 		if m.helpOpen {
-			return m.answerHelp(key)
+			return m.handleHelpKey(key)
 		}
 		if m.diffScreen.name != "" {
-			return m.scrollDiff(key)
+			return m.handleDiffKey(key)
 		}
 		if m.confirming != "" {
-			return m.answerConfirm(key)
+			return m.handleConfirmKey(key)
 		}
 		// 받거나 비교하는 중이라는 알림은 끝나면 결과로 바뀌므로 지우지 않는다.
 		// 이 키가 새 알림을 띄우면 notify가 수를 다시 센다.

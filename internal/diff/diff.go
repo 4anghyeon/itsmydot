@@ -125,7 +125,7 @@ func markWordChanges(lines []Line) {
 		}
 		for k := 0; k < min(removedEnd-i, addedEnd-removedEnd); k++ {
 			removed, added := &lines[i+k], &lines[removedEnd+k]
-			removed.Changes, added.Changes = words(removed.Text, added.Text)
+			removed.Changes, added.Changes = changedWords(removed.Text, added.Text)
 		}
 		i = addedEnd
 	}

@@ -12,9 +12,9 @@ type Range struct {
 	Start, End int
 }
 
-// words 는 지운 줄과 추가한 줄을 짝지었을 때 각 줄에서 바뀐 단어의 위치를 돌려준다.
+// changedWords 는 지운 줄과 추가한 줄을 짝지었을 때 각 줄에서 바뀐 단어의 위치를 돌려준다.
 // 글자 단위로 비교하면 label과 fieldLabel처럼 겹치는 글자가 군데군데 남아서 단어 단위로 비교한다.
-func words(before, after string) (removed, added []Range) {
+func changedWords(before, after string) (removed, added []Range) {
 	if before == after {
 		return nil, nil
 	}
@@ -53,6 +53,13 @@ func words(before, after string) (removed, added []Range) {
 	return removed, added
 }
 
+// splitWords 가 단어를 나눌 때 보는 글자 종류다.
+const (
+	symbolChar = iota
+	wordChar
+	spaceChar
+)
+
 // splitWords 는 줄을 단어로 나눈다. 글자와 숫자가 이어진 묶음과 공백이 이어진 묶음은 한 단어로,
 // 그 밖의 기호는 한 글자씩 따로 센다. 나눈 단어를 이어 붙이면 원래 줄이 된다.
 func splitWords(line string) []string {
@@ -61,16 +68,16 @@ func splitWords(line string) []string {
 	kind := func(r rune) int {
 		switch {
 		case unicode.IsLetter(r), unicode.IsDigit(r), r == '_':
-			return 1
+			return wordChar
 		case unicode.IsSpace(r):
-			return 2
+			return spaceChar
 		}
-		return 0
+		return symbolChar
 	}
 	previous := -1
 	for i, r := range line {
 		current := kind(r)
-		if i > start && (current == 0 || current != previous) {
+		if i > start && (current == symbolChar || current != previous) {
 			words = append(words, line[start:i])
 			start = i
 		}

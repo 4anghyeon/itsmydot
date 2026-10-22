@@ -90,7 +90,7 @@ func TestToggleOnAndOff(t *testing.T) {
 
 	// 백업이 없어서 끌 때 먼저 묻는다. 2번 파일도 지우기를 고르면 target이 사라진다.
 	m, cmd = press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlink {
+	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlinkWithoutBackup {
 		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
@@ -470,7 +470,7 @@ func TestMenuTurnOffAsksLikeSpace(t *testing.T) {
 	m, _ := linkedFixture(t)
 	m, _ = press(t, m, "enter")
 	m, _ = press(t, m, "3")
-	if m.confirmKind != confirmUnlink || m.confirming != "gitconfig" {
+	if m.confirmKind != confirmUnlinkWithoutBackup || m.confirming != "gitconfig" {
 		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirming)
 	}
 }

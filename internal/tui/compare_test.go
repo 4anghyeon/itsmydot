@@ -276,7 +276,7 @@ func conflictFixture(t *testing.T, mine, remote string) (Model, string) {
 		t.Fatal(err)
 	}
 	m, _ = press(t, m, "space")
-	if m.confirmKind != confirmLink || m.confirming != "gitconfig" {
+	if m.confirmKind != confirmBackupLink || m.confirming != "gitconfig" {
 		t.Fatalf("setup: kind = %d confirming = %q", m.confirmKind, m.confirming)
 	}
 	return m, target
