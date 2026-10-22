@@ -118,7 +118,7 @@ func newStyles(dark bool) styles {
 		groupName:      lipgloss.NewStyle().Bold(true).Foreground(p.group),
 		fileName:       lipgloss.NewStyle().Bold(true).Foreground(p.file),
 		description:    lipgloss.NewStyle().Italic(true).Foreground(p.muted),
-		descriptionBar: lipgloss.NewStyle().Foreground(p.accent),
+		descriptionBar: lipgloss.NewStyle().Foreground(p.muted),
 		heading:        lipgloss.NewStyle().Bold(true),
 		mascotFace:     lipgloss.NewStyle().Bold(true),
 		mascotMouth:    lipgloss.NewStyle().Bold(true).Foreground(p.group),
