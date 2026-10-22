@@ -12,9 +12,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// View 는 맨 위에 제목 배지와 진행 게이지를 놓고 구분선 아래에 항목 목록을 그린다.
-// 목록 아래 구분선 밑에는 커서가 있는 항목의 설명이나 확인 질문을, 맨 아래에는 상태 줄과 도움말을 붙인다.
-// 목록을 불러오는 중이거나 실패했으면 목록 대신 그 안내를 보여 준다.
+// View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
+// 도움말이나 비교 보기 화면이 열려 있으면 그 화면을 그린다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
 	if m.helpOpen {
@@ -124,11 +123,8 @@ func (m Model) confirmLines(st styles) (lines, numbers []string) {
 	return lines, numbers
 }
 
-// itemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다.
-// 하위 항목은 트리 가지를 붙여 들여 쓰고 접힌 그룹의 하위 항목은 뺀다.
-// 그룹 줄의 체크박스는 그룹 파일의 상태이고 하위 항목이 몇 개 켜졌는지는 줄 끝에 따로 적는다.
-// 그룹 줄의 체크박스 앞에는 펼쳤으면 v, 접었으면 >를 붙이고 하위 항목의 트리 가지는 그 표시 바로 아래에서 내린다.
-// 커서가 있는 줄은 맨 앞에 강조색 막대를 세우고 배경을 칠한다.
+// itemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다. 접힌 그룹의 하위 항목은 뺀다.
+// 그룹 줄의 체크박스는 그룹 파일의 상태이고 켜진 하위 항목 수는 줄 끝에 따로 적는다.
 //
 //	    [+] gitconfig  ~/.gitconfig
 //	▌ v [+] zshrc      ~/.zshrc  1/2
@@ -215,8 +211,7 @@ func (m Model) descriptionBlock(st styles, text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// fold 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >다.
-// 그룹이 아닌 맨 위 항목은 체크박스 칸을 맞추려고 같은 폭의 공백을 붙인다. 하위 항목과 그룹이 없는 목록에는 붙이지 않는다.
+// fold 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >이고 나머지는 칸만 맞춘다.
 // 체크박스 안의 +와 헷갈리지 않게 +와 -는 쓰지 않는다.
 func (m Model) fold(i int) string {
 	switch {
@@ -309,15 +304,15 @@ func (m Model) confirmPrompt() (question string, options []string) {
 	}
 }
 
-// zshrc  ~/.zshrc
-// └─ env  ~/.config/zsh/env.zsh
-//
-// gitconfig  ~/.gitconfig
+// menuTitle 은 항목 메뉴의 제목이다.
 func (m Model) menuTitle(st styles) string {
 	return m.itemTitle(st, m.indexOf(m.confirming))
 }
 
-// itemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓴다.
+// itemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓰고 하위 항목은 그룹 줄 아래에 매단다.
+//
+//	zshrc  ~/.zshrc
+//	└─ env  ~/.config/zsh/env.zsh
 func (m Model) itemTitle(st styles, i int) string {
 	if i < 0 {
 		return ""

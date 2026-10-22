@@ -91,6 +91,7 @@ func Compare(before, after []byte) ([]Hunk, error) {
 	return hunks, nil
 }
 
+// Header 는 @@ -1,3 +1,4 @@ 꼴의 hunk 머리줄이다.
 func (h Hunk) Header() string {
 	return "@@ " + hunkRange("-", h.BeforeStart, h.BeforeCount) + " " + hunkRange("+", h.AfterStart, h.AfterCount) + " @@"
 }

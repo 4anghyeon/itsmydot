@@ -65,7 +65,7 @@ func TestViewShowsCursorDescription(t *testing.T) {
 		t.Errorf("view missing description of the cursor item:\n%s", v)
 	}
 
-	// 설명이 없는 항목으로 옮기면 설명 줄은 비지만 상자 높이는 그대로다.
+	// 설명이 없는 항목으로 옮기면 설명 줄은 비지만 화면 높이는 그대로다.
 	before := strings.Count(viewText(m), "\n")
 	m, _ = press(t, m, "down")
 	v := viewText(m)

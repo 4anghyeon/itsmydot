@@ -26,7 +26,6 @@ func (m Model) toggle() (Model, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
-	// m.items는 이전 Model과 같은 배열을 쓴다. 복사하지 않고 고치면 이전 Model까지 바뀐다.
 	m.items = slices.Clone(m.items)
 	it := &m.items[m.cursor]
 	if it.state == syncing {
@@ -152,9 +151,7 @@ func (m Model) withChildrenOff(count int) Model {
 	return m
 }
 
-// answerConfirm 은 확인 질문에 대한 키 입력을 처리한다.
-// 방향키로 커서를 옮겨 enter나 space로 고르거나 번호를 눌러 바로 고른다. esc는 취소다.
-// y와 n 대신 숫자를 쓰는 건 한글 입력기가 자모를 조합 대기로 붙잡아서 늦게 도착하기 때문이다.
+// answerConfirm 은 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
 // 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
 func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 	if key == "ctrl+c" {
@@ -191,7 +188,7 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		m.comparing = ""
 	}
 	if key == cancel {
-		// 닫거나 취소하면 아무 일도 일어나지 않았으니 알릴 것이 없다. 질문 전에 떠 있던 알림도 지금과 상관없어서 지운다.
+		// 질문 전에 떠 있던 알림은 지금과 상관없어서 함께 지운다.
 		m = m.notify(statusInfo, "")
 		return m, nil
 	}
@@ -339,8 +336,7 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	return m
 }
 
-// loadEntries 는 GitHub에서 manifest를 받아 파싱하고, 각 항목의 현재 상태를 확인한다.
-// 디스크는 바꾸지 않는다. Init의 백그라운드 작업에서 호출된다.
+// loadEntries 는 GitHub에서 manifest를 받아 파싱하고 각 항목의 현재 상태를 확인한다. 디스크는 바꾸지 않는다.
 func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir) entriesLoadedMsg {
 	data, err := client.Fetch(ctx, "manifest.yaml")
 	if err != nil {

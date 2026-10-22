@@ -46,7 +46,7 @@ func TestHeaderShowsSyncedCount(t *testing.T) {
 	}
 }
 
-// 터미널이 좁으면 상자를 터미널 폭에 맞추고, 긴 에러는 상자 안에서 줄바꿈한다.
+// 터미널이 좁으면 화면을 터미널 폭에 맞추고 긴 에러는 줄바꿈한다.
 func TestViewFitsTerminalWidth(t *testing.T) {
 	m := loadedModel(item{
 		entry: entry("gitconfig", "/home/me/.gitconfig"),

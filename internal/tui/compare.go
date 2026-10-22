@@ -66,7 +66,7 @@ const diffHorizontalStep = 8
 // diffMaxHeight 는 터미널 높이를 모를 때 diff 본문을 보여 줄 최대 줄 수다.
 const diffMaxHeight = 20
 
-// tabWidth 는 탭 하나를 펼칠 칸 수다. 터미널마다 탭 폭이 달라 그대로 두면 상자 테두리가 어긋난다.
+// tabWidth 는 탭 하나를 펼칠 칸 수다. 터미널마다 탭 폭이 달라 그대로 두면 줄 번호와 배경 칸이 어긋난다.
 const tabWidth = 4
 
 // noNewlineText 는 파일 끝에 줄바꿈이 없는 줄 아래에 붙이는 안내다. git diff와 같은 문구를 쓴다.
@@ -223,8 +223,7 @@ func (m Model) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
 	return y, x
 }
 
-// diffLayout 은 본문 폭과 높이를 정한다. 폭은 가장 긴 줄에 맞추되 터미널을 넘지 않게 하고
-// 높이는 줄 수에 맞추되 상자 테두리와 제목, 도움말 줄을 빼고 남는 만큼을 넘지 않는다.
+// diffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
 func (m Model) diffLayout(st styles) diffLayout {
 	rows := m.diffScreen.rows
 	title := m.diffTitle(st)
@@ -319,7 +318,6 @@ func (m Model) diffView(st styles) tea.View {
 }
 
 // renderDiffRow 는 화면 한 줄을 줄 번호와 함께 그린다. 가로로 밀 때는 내용만 밀고 줄 번호는 그 자리에 둔다.
-// 지운 줄과 추가한 줄은 줄 끝까지 배경을 칠하고 줄 번호 칸은 조금 더 진하게, 바뀐 단어는 가장 진하게 칠한다.
 //
 //	1 1     [user]
 //	2    -      name = me

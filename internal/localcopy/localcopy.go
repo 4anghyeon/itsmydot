@@ -68,7 +68,7 @@ func (d *Dir) Write(source string, data []byte) (string, error) {
 	}
 	tmpName := tmp.Name()
 
-	// 중간에 실패했을 때 남은 임시 파일을 지운다. 성공했으면 이미 이름이 바뀌어서 지울 것이 없다.
+	// 성공하면 이름이 바뀌어 지울 것이 없고 실패했을 때만 남은 임시 파일이 지워진다.
 	defer func() { _ = os.Remove(tmpName) }()
 
 	if _, err := tmp.Write(data); err != nil {

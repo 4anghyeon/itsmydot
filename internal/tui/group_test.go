@@ -87,7 +87,7 @@ func TestGroupView(t *testing.T) {
 	}
 }
 
-// ←는 그룹을 접고 커서를 그룹 줄로 옮긴다. 접힌 하위 항목은 커서가 건너뛰고 →로 다시 펼친다.
+// 왼쪽 방향키는 그룹을 접고 커서를 그룹 줄로 옮긴다. 접힌 하위 항목은 커서가 건너뛰고 오른쪽 방향키로 다시 펼친다.
 func TestCollapseAndExpand(t *testing.T) {
 	m := loadedModel(
 		item{entry: entry("zshrc", "/home/me/.zshrc")},

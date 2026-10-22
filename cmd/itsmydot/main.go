@@ -41,8 +41,6 @@ func run() error {
 var releaseTag = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
 // version 은 화면에 보여 줄 버전이다. go install 로 태그를 받았으면 그 태그이고 아니면 dev다.
-// 저장소에서 직접 빌드하면 v0.6.1-0.20261022...-abcdef+dirty 같은 긴 의사 버전이 나오는데
-// 아직 없는 릴리스처럼 보이고 제목 줄도 넘치므로 dev로 줄인다.
 func version() string {
 	if info, ok := debug.ReadBuildInfo(); ok && releaseTag.MatchString(info.Main.Version) {
 		return info.Main.Version

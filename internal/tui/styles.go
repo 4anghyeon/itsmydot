@@ -19,9 +19,9 @@ type palette struct {
 	synced, conflict, errored, syncing color.Color
 	muted, accent                      color.Color
 	update                             color.Color // 업데이트 있음 표시. 충돌의 노란색과 헷갈리지 않게 주황 쪽으로 둔다
-	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름. 다른 상태 색과 겹치지 않는 파랑과 분홍
-	count                              color.Color // 그룹 줄 끝의 하위 항목 수. 회색 경로와 구분되되 눈에 띄지 않게 채도를 낮춘 파랑
-	selection, statusBar               color.Color // 선택한 줄과 맨 아래 상태 줄의 배경. diff 배경처럼 256색표에 있는 회색만 쓴다
+	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름
+	count                              color.Color // 그룹 줄 끝의 하위 항목 수. 회색 경로와 구분되게 채도 낮은 파랑을 쓴다
+	selection, statusBar               color.Color // 선택한 줄과 맨 아래 상태 줄의 배경. 256색표에 있는 회색만 쓴다
 
 	diffRemoved, diffAdded diffTones   // 비교 보기에서 지운 줄과 추가한 줄의 배경
 	diffHunk               color.Color // 비교 보기에서 @@ 줄의 배경
@@ -220,9 +220,8 @@ func (st styles) mascot() [3]string {
 	}
 }
 
-// page 는 모든 화면이 같이 쓰는 틀이다. 맨 위 세 줄 왼쪽에 캐릭터를 그리고 가운데 줄 양 끝에 제목과 right를 놓는다.
-// version이 있으면 제목 아래 줄에 흐리게 적는다. 한 줄에 다 들어가지 않는 좁은 터미널에서는 right도 그 아래 줄로 내린다.
-// 그 아래에 구분선을 긋고 lines를 붙인 뒤 한 줄 띄워 맨 아래에 도움말 줄 footer를 붙인다. 폭 width를 넘는 줄은 줄바꿈한다.
+// page 는 모든 화면이 같이 쓰는 틀이다. 캐릭터와 제목, right를 놓은 머리 아래에 구분선과 lines, footer를 차례로 붙인다.
+// 좁은 터미널에서는 right를 제목 아래 줄로 내리고 폭 width를 넘는 줄은 줄바꿈한다.
 func (st styles) page(width int, version, right string, lines []string, footer string) string {
 	face := st.mascot()
 	title := st.title.Render("itsmydot")
@@ -252,8 +251,7 @@ func (st styles) rule(width int) string {
 }
 
 // statusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
-// 글이 폭보다 길면 marker 뒤 칸에 맞춰 줄을 나눈다.
-// 글이 없으면 칠하지 않은 빈 줄을 돌려준다. 줄은 남겨 두어 메시지가 생길 때 화면 높이가 바뀌지 않게 한다.
+// 글이 없어도 빈 줄로 자리를 지켜서 메시지가 생길 때 화면 높이가 바뀌지 않게 한다.
 func (st styles) statusLine(width int, marker string, color color.Color, text string) string {
 	if text == "" {
 		return ""
@@ -275,9 +273,8 @@ func (st styles) statusLine(width int, marker string, color color.Color, text st
 	return strings.Join(lines, "\n")
 }
 
-// help 는 키와 설명을 번갈아 받아 상자 아래에 붙일 도움말 줄로 이어 붙인다.
+// help 는 키와 설명을 번갈아 받아 맨 아래 도움말 줄로 이어 붙인다.
 // 터미널 폭 width를 넘으면 키와 설명 묶음 사이에서 줄을 나눈다. width가 0이면 나누지 않는다.
-// 화면은 도움말 앞에 한 칸을 띄우므로 나눈 줄에도 같은 한 칸을 붙인다.
 func (st styles) help(width int, pairs ...string) string {
 	const gap = "   "
 	var lines []string

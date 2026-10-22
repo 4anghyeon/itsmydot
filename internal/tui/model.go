@@ -61,7 +61,7 @@ type Model struct {
 	copies  *localcopy.Dir
 	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
 	version string // 제목 옆에 보여 주는 itsmydot 버전. 비어 있으면 보여 주지 않는다
-	width   int    // 터미널 폭. 모르면 0이고 이때는 상자 폭을 제한하지 않는다
+	width   int    // 터미널 폭. 모르면 0이고 이때는 화면 폭을 내용에 맞춘다
 	height  int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
 	light   bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
 
@@ -109,7 +109,7 @@ type statusTone int
 const (
 	statusInfo     statusTone = iota // 표시 없이 글만 보여 준다
 	statusDone                       // [+] 연결하거나 사본을 받은 일
-	statusUnlinked                   // [ ] 연결을 끊은 일. 목록의 체크박스처럼 끊은 뒤의 모습을 보여 준다
+	statusUnlinked                   // [ ] 연결을 끊은 일
 	statusFailed                     // [-] 하지 못한 일
 	statusBusy                       // 스피너. 받거나 비교하는 중
 )
@@ -151,7 +151,6 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-// 도움말 화면이 열려 있으면 키 입력을 모두 answerHelp로, 비교 보기 화면이 열려 있으면 scrollDiff로, 확인 질문이 떠 있으면 answerConfirm으로 넘긴다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:

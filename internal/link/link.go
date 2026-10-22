@@ -58,7 +58,6 @@ var now = time.Now
 // Check 는 target 자리를 보고 상태를 판단한다. 디스크는 바꾸지 않는다.
 // copyPath는 symlink가 가리켜야 할 로컬 사본의 절대 경로다.
 func Check(target, copyPath string) (State, error) {
-	// symlink를 따라가지 않고 target 자리 자체를 본다.
 	info, err := os.Lstat(target)
 	if errors.Is(err, fs.ErrNotExist) {
 		return NotSynced, nil
@@ -75,7 +74,6 @@ func Check(target, copyPath string) (State, error) {
 	if err != nil {
 		return 0, fmt.Errorf("check %s: %w", target, err)
 	}
-	// ../x 같은 상대 경로는 symlink가 있는 폴더를 기준으로 푼다.
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(filepath.Dir(target), dest)
 	}
@@ -122,7 +120,6 @@ func Link(target, copyPath string) (backup string, err error) {
 // 되돌린 백업의 경로를 돌려주고 되돌린 게 없으면 빈 문자열을 돌려준다.
 // target이 itsmydot이 건 symlink가 아니면 아무것도 지우지 않고 에러를 돌려준다.
 func Unlink(target, copyPath string) (restored string, err error) {
-	// 사용자의 실제 파일을 지우지 않도록 itsmydot이 건 symlink일 때만 진행한다.
 	state, err := Check(target, copyPath)
 	if err != nil {
 		return "", err
@@ -260,7 +257,6 @@ func latestBackup(target string) (string, error) {
 //
 // 시각 부분은 글자 순서가 곧 시간 순서라서 문자열로 비교한다.
 // 같은 초에 만든 백업은 뒤에 붙은 번호를 숫자로 비교한다. 글자로 비교하면 -10이 -2보다 앞에 오기 때문이다.
-// 번호가 없는 것은 1번으로 본다.
 func backupLess(a, b string) bool {
 	stampA, nA := splitBackupName(a)
 	stampB, nB := splitBackupName(b)
