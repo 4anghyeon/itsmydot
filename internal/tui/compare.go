@@ -230,9 +230,9 @@ func (m Model) diffLayout(st styles) diffLayout {
 	title := m.diffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
 	if m.height > 0 {
-		// 맨 위 줄과 구분선, 빈 줄, 제목과 빈 줄, 도움말과 그 위 빈 줄, 마지막 줄바꿈 뒤의 빈 줄로 8줄이다.
+		// 맨 위 캐릭터 세 줄과 구분선, 빈 줄, 제목과 빈 줄, 도움말과 그 위 빈 줄, 마지막 줄바꿈 뒤의 빈 줄로 10줄이다.
 		// 하위 항목은 제목이 그룹 줄까지 두 줄이다.
-		chrome := 8 + strings.Count(title, "\n")
+		chrome := 10 + strings.Count(title, "\n")
 		layout.height = min(len(rows), max(m.height-chrome, 3))
 	}
 	layout.scrollbar = len(rows) > layout.height

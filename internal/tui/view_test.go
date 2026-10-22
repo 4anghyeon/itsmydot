@@ -135,10 +135,10 @@ func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
 	m.status, m.statusTone = "끝났어요", statusDone
 
 	lines := strings.Split(viewText(m), "\n")
-	if w := ansi.StringWidth(lines[0]); w != headerMaxWidth {
-		t.Errorf("header is %d cells wide, want %d: %q", w, headerMaxWidth, lines[0])
+	if w := ansi.StringWidth(lines[1]); w != headerMaxWidth {
+		t.Errorf("header is %d cells wide, want %d: %q", w, headerMaxWidth, lines[1])
 	}
-	if w := ansi.StringWidth(lines[1]); w != 200 {
+	if w := ansi.StringWidth(lines[3]); w != 200 {
 		t.Errorf("rule is %d cells wide, want 200", w)
 	}
 	// 마지막 줄바꿈 뒤의 빈 줄, 도움말, 빈 줄, 상태 줄 순이다.

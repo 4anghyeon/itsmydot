@@ -81,6 +81,7 @@ type styles struct {
 	update, groupName, fileName                   lipgloss.Style
 	description, descriptionBar                   lipgloss.Style
 	heading                                       lipgloss.Style // 도움말 화면의 소제목
+	mascotFace, mascotMouth                       lipgloss.Style // 맨 위 캐릭터의 눈과 코, 입
 	diffRemoved, diffAdded                        diffStyles
 	diffHunk                                      lipgloss.Style
 }
@@ -121,6 +122,8 @@ func newStyles(dark bool) styles {
 		description:    lipgloss.NewStyle().Italic(true).Foreground(p.muted),
 		descriptionBar: lipgloss.NewStyle().Foreground(p.accent),
 		heading:        lipgloss.NewStyle().Bold(true),
+		mascotFace:     lipgloss.NewStyle().Bold(true),
+		mascotMouth:    lipgloss.NewStyle().Bold(true).Foreground(p.group),
 		diffRemoved:    newDiffStyles(p.diffRemoved, p.errored, p.muted),
 		diffAdded:      newDiffStyles(p.diffAdded, p.synced, p.muted),
 		diffHunk:       lipgloss.NewStyle().Background(p.diffHunk).Foreground(p.muted),
@@ -188,7 +191,7 @@ func (st styles) pageWidth(terminal int, right string, lines ...string) int {
 	if terminal > 0 {
 		return terminal
 	}
-	width := lipgloss.Width(st.title.Render("itsmydot")) + 2 + lipgloss.Width(right)
+	width := mascotWidth + 2 + lipgloss.Width(st.title.Render("itsmydot")) + 2 + lipgloss.Width(right)
 	for _, line := range lines {
 		width = max(width, lipgloss.Width(line))
 	}
@@ -199,13 +202,36 @@ func (st styles) pageWidth(terminal int, right string, lines ...string) int {
 // 넓은 터미널에서 게이지가 제목에서 너무 멀어지지 않게 한다. 구분선과 상태 줄은 그대로 터미널 끝까지 그린다.
 const headerMaxWidth = 80
 
-// page 는 모든 화면이 같이 쓰는 틀이다. 맨 위 줄 양 끝에 제목 배지와 right를 놓고 그 아래에 구분선을 긋는다.
-// 이어서 lines를 폭 width에 맞춰 줄바꿈해 붙이고 한 줄 띄운 뒤 맨 아래에 도움말 줄 footer를 붙인다.
+// mascotWidth 는 캐릭터가 차지하는 폭이다. 왼쪽 여백 한 칸과 두 눈 사이를 합쳤다.
+const mascotWidth = 6
+
+// mascot 은 맨 위 왼쪽에 세 줄로 그리는 itsmydot 캐릭터다. 두 눈 아래에 비스듬한 코와 물결 모양 입이 있다.
+//
+//	.   .
+//	  /
+//	  ~
+func (st styles) mascot() [3]string {
+	return [3]string{
+		" " + st.mascotFace.Render(".   ."),
+		"   " + st.mascotFace.Render("/") + "  ",
+		"   " + st.mascotMouth.Render("~") + "  ",
+	}
+}
+
+// page 는 모든 화면이 같이 쓰는 틀이다. 맨 위 세 줄 왼쪽에 캐릭터를 그리고 가운데 줄에 제목 배지와 right를 양 끝에 놓는다.
+// 한 줄에 다 들어가지 않는 좁은 터미널에서는 right를 캐릭터 아랫줄로 내린다.
+// 그 아래에 구분선을 긋고 lines를 폭 width에 맞춰 줄바꿈해 붙인 뒤 한 줄 띄워 맨 아래에 도움말 줄 footer를 붙인다.
 func (st styles) page(width int, right string, lines []string, footer string) string {
+	face := st.mascot()
 	title := st.title.Render("itsmydot")
-	gap := min(width, headerMaxWidth) - lipgloss.Width(title) - lipgloss.Width(right)
-	header := title + strings.Repeat(" ", max(gap, 2)) + right
-	out := []string{header, st.rule(width), ""}
+	header := []string{face[0], face[1] + "  " + title, face[2]}
+	gap := min(width, headerMaxWidth) - mascotWidth - 2 - lipgloss.Width(title) - lipgloss.Width(right)
+	if gap >= 2 {
+		header[1] += strings.Repeat(" ", gap) + right
+	} else if right != "" {
+		header[2] += "  " + right
+	}
+	out := append(header[:], st.rule(width), "")
 	for _, line := range lines {
 		if lipgloss.Width(line) > width {
 			line = ansi.Wrap(line, width, " ")
