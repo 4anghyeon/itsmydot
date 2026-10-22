@@ -37,7 +37,7 @@ func (m Model) helpView(st styles) tea.View {
 		return lines
 	}
 
-	body := []string{st.heading.Render("키")}
+	body := []string{" " + st.heading.Render("키")}
 	body = append(body, rows([][2]string{
 		{st.key.Render("방향키"), "항목을 옮기고 그룹을 접거나 펼쳐요"},
 		{st.key.Render("space"), "항목을 연결하거나 연결을 끊어요"},
@@ -52,6 +52,8 @@ func (m Model) helpView(st styles) tea.View {
 		{st.state(errored).Render(errored.marker()), "확인하거나 받지 못함"},
 		{st.state(syncing).Render("[o]"), "받는 중"},
 		{st.update.Render("^  "), "저장소에 업데이트 있음"},
+		{st.key.Render("v  "), "펼친 그룹"},
+		{st.key.Render(">  "), "접힌 그룹"},
 	}
 	cells := make([]string, len(markers))
 	for i, p := range markers {
@@ -61,7 +63,7 @@ func (m Model) helpView(st styles) tea.View {
 	for i := 0; i < len(cells); i += 2 {
 		left = max(left, lipgloss.Width(cells[i]))
 	}
-	body = append(body, "", st.heading.Render("동기화 상태"))
+	body = append(body, "", " "+st.heading.Render("동기화 상태"))
 	for i := 0; i < len(cells); i += 2 {
 		line := "  " + pad(cells[i], left)
 		if i+1 < len(cells) {
@@ -70,18 +72,10 @@ func (m Model) helpView(st styles) tea.View {
 		body = append(body, line)
 	}
 
-	body = append(body, "", st.heading.Render("파일 경로"))
+	body = append(body, "", " "+st.heading.Render("파일 경로"))
 	body = append(body, "  "+st.key.Render("사본 저장 경로:")+" ~/"+localcopy.DirName)
 
-	inner := lipgloss.Width(st.title.Render("itsmydot 도움말"))
-	for _, line := range body {
-		inner = max(inner, lipgloss.Width(line))
-	}
-	if m.width > 0 && inner+frameExtra > m.width {
-		inner = max(m.width-frameExtra, 1)
-	}
-	content := st.title.Render("itsmydot 도움말") + "\n\n" + strings.Join(body, "\n")
-	box := st.frame.Width(inner + frameExtra).Render(content)
+	right := st.muted.Render("도움말")
 	footer := st.help(m.width, "?/esc", "닫기")
-	return tea.NewView(box + "\n " + footer + "\n")
+	return tea.NewView(st.page(st.pageWidth(m.width, right, body...), m.version, right, body, footer))
 }

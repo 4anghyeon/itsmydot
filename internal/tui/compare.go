@@ -77,7 +77,7 @@ const noNewlineText = `\ No newline at end of file`
 func (m Model) startCompare(i int) (Model, tea.Cmd) {
 	it := m.items[i]
 	m.comparing = it.entry.Name
-	m.status = it.entry.Name + " 저장소 최신본과 비교하는 중이에요..."
+	m = m.notify(statusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
 	entry, copyPath, client := it.entry, it.copyPath, m.client
 	load := func() tea.Msg {
 		return compareWithRepo(context.Background(), client, entry, copyPath)
@@ -148,13 +148,14 @@ func (m Model) applyDiff(msg diffLoadedMsg) Model {
 		same = msg.name + " 지금 파일과 저장소 파일이 같아요"
 	}
 	var note string
+	tone := statusInfo
 	switch {
 	case errors.Is(msg.err, diff.ErrBinary):
 		note = msg.name + " 파일은 텍스트가 아니라서 비교할 수 없어요"
 	case errors.Is(msg.err, diff.ErrTooLarge):
 		note = fmt.Sprintf("%s 파일이 %dMB보다 커서 비교할 수 없어요", msg.name, diff.MaxSize>>20)
 	case msg.err != nil:
-		note = msg.name + " 파일을 비교하지 못했어요 (" + errorReason(msg.err, m.home) + ")"
+		note, tone = msg.name+" 파일을 비교하지 못했어요 ("+errorReason(msg.err, m.home)+")", statusFailed
 	case len(msg.hunks) == 0:
 		note = same
 	default:
@@ -164,7 +165,7 @@ func (m Model) applyDiff(msg diffLoadedMsg) Model {
 	if msg.current {
 		m.confirmNote = note
 	} else {
-		m.status = note
+		m = m.notify(tone, note)
 	}
 	return m
 }
@@ -229,9 +230,9 @@ func (m Model) diffLayout(st styles) diffLayout {
 	title := m.diffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
 	if m.height > 0 {
-		// 위아래 테두리, 맨 위 줄과 빈 줄, 제목과 빈 줄, 상자 아래 도움말, 마지막 줄바꿈 뒤의 빈 줄로 8줄이다.
+		// 맨 위 캐릭터 세 줄과 구분선, 빈 줄, 제목과 빈 줄, 도움말과 그 위 빈 줄, 마지막 줄바꿈 뒤의 빈 줄로 10줄이다.
 		// 하위 항목은 제목이 그룹 줄까지 두 줄이다.
-		chrome := 8 + strings.Count(title, "\n")
+		chrome := 10 + strings.Count(title, "\n")
 		layout.height = min(len(rows), max(m.height-chrome, 3))
 	}
 	layout.scrollbar = len(rows) > layout.height
@@ -258,8 +259,9 @@ func (m Model) diffLayout(st styles) diffLayout {
 	prefix := diffPrefixWidth(layout.numberWidth)
 	hunk += diffHunkIndent(layout.numberWidth)
 	layout.width = max(lipgloss.Width(title), prefix+longest+scrollbarWidth, hunk+scrollbarWidth)
-	if m.width > 0 && layout.width+frameExtra > m.width {
-		layout.width = max(m.width-frameExtra, 1)
+	if m.width > 0 {
+		// 본문 앞에 화면 왼쪽 여백 한 칸을 둔다.
+		layout.width = max(m.width-1, 1)
 	}
 	layout.rowWidth = layout.width - scrollbarWidth
 	layout.contentWidth = max(layout.rowWidth-prefix, 1)
@@ -303,13 +305,17 @@ func (m Model) diffView(st styles) tea.View {
 		body = append(body, line)
 	}
 
-	title := st.title.Render("itsmydot")
 	right := st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(rows)))
-	header := title + strings.Repeat(" ", max(layout.width-lipgloss.Width(title)-lipgloss.Width(right), 1)) + right
-	content := header + "\n\n" + m.diffTitle(st) + "\n\n" + strings.Join(body, "\n")
-	box := st.frame.Width(layout.width + frameExtra).Render(content)
+	lines := make([]string, 0, len(body)+3)
+	for line := range strings.SplitSeq(m.diffTitle(st), "\n") {
+		lines = append(lines, " "+line)
+	}
+	lines = append(lines, "")
+	for _, line := range body {
+		lines = append(lines, " "+line)
+	}
 	footer := st.help(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
-	return tea.NewView(box + "\n " + footer + "\n")
+	return tea.NewView(st.page(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
 }
 
 // renderDiffRow 는 화면 한 줄을 줄 번호와 함께 그린다. 가로로 밀 때는 내용만 밀고 줄 번호는 그 자리에 둔다.

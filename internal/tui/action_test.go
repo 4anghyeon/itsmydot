@@ -94,8 +94,8 @@ func TestToggleOnAndOff(t *testing.T) {
 		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
-	if !strings.Contains(m.status, "에 남아 있어요") {
-		t.Errorf("status = %q, want where the content remains", m.status)
+	if !strings.Contains(m.status, "에 남아 있어요") || m.statusTone != statusUnlinked {
+		t.Errorf("status = %q tone = %d, want where the content remains with the unlinked marker", m.status, m.statusTone)
 	}
 	if m.items[0].state != notSynced {
 		t.Errorf("state = %d, want notSynced", m.items[0].state)
@@ -161,7 +161,7 @@ func TestConfirmCancel(t *testing.T) {
 			if m.items[0].state != conflict {
 				t.Errorf("state = %d, want conflict", m.items[0].state)
 			}
-			if !strings.Contains(m.status, "취소") {
+			if m.status != "" {
 				t.Errorf("status = %q", m.status)
 			}
 			assertContent(t, target, "mine")
@@ -179,7 +179,7 @@ func TestToggleConfirmCancel(t *testing.T) {
 			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirming != "" || m.items[0].state != notSynced || !strings.Contains(m.status, "취소") {
+			if cmd != nil || m.confirming != "" || m.items[0].state != notSynced || m.status != "" {
 				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirming, m.items[0].state, m.status)
 			}
 			if _, err := os.Lstat(target); !os.IsNotExist(err) {
@@ -200,7 +200,7 @@ func TestToggleConfirmCancel(t *testing.T) {
 				t.Fatalf("kind = %d, want confirmTurnOff", m.confirmKind)
 			}
 			m, _ = press(t, m, key)
-			if m.confirming != "" || m.items[0].state != synced || !strings.Contains(m.status, "취소") {
+			if m.confirming != "" || m.items[0].state != synced || m.status != "" {
 				t.Fatalf("confirming=%q state=%d status=%q", m.confirming, m.items[0].state, m.status)
 			}
 			assertSymlink(t, target, true)
@@ -305,7 +305,7 @@ func TestUnlinkWithoutBackupCancel(t *testing.T) {
 			m, target := linkedFixture(t)
 			m, _ = press(t, m, "space")
 			m, _ = press(t, m, key)
-			if m.confirming != "" || !strings.Contains(m.status, "취소") {
+			if m.confirming != "" || m.status != "" {
 				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirming, m.status)
 			}
 			info, err := os.Lstat(target)
@@ -368,7 +368,7 @@ func TestConfirmSpaceSelects(t *testing.T) {
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "down") // 3. 취소
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "" || !strings.Contains(m.status, "취소") {
+	if cmd != nil || m.confirming != "" || m.status != "" {
 		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
 	}
 	assertContent(t, target, "mine")

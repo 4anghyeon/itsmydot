@@ -39,7 +39,7 @@ func groupFixture(t *testing.T) (m Model, home string) {
 		items[i] = item{entry: e.entry, parent: e.parent, copyPath: copyPath}
 	}
 
-	m = New(client, copies)
+	m = New(client, copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
 	return next.(Model), home
@@ -75,10 +75,10 @@ func TestGroupView(t *testing.T) {
 	)
 	v := viewText(m)
 	for _, want := range []string{
-		"> [+] gitconfig    ~/.gitconfig",
-		"  [+] zshrc        ~/.zshrc  1/2",
-		"   ├─ [+] env      ~/.config/zsh/00-env.zsh",
-		"   └─ [ ] android  ~/.config/zsh/40-android.zsh",
+		"▌   [+] gitconfig  ~/.gitconfig",
+		"  v [+] zshrc      ~/.zshrc  1/2",
+		"  ├── [+] env      ~/.config/zsh/00-env.zsh",
+		"  └── [ ] android  ~/.config/zsh/40-android.zsh",
 		"연결됨 3/4",
 	} {
 		if !strings.Contains(v, want) {
@@ -100,7 +100,7 @@ func TestCollapseAndExpand(t *testing.T) {
 		t.Fatalf("cursor = %d, want 0 (the group line)", m.cursor)
 	}
 	v := viewText(m)
-	if strings.Contains(v, "env") || !strings.Contains(v, "0/1 접힘") {
+	if strings.Contains(v, "env") || !strings.Contains(v, "▌ > [ ] zshrc") {
 		t.Errorf("collapsed group should hide its children:\n%s", v)
 	}
 
@@ -110,7 +110,7 @@ func TestCollapseAndExpand(t *testing.T) {
 	}
 	m, _ = press(t, m, "up")
 	m, _ = press(t, m, "right")
-	if v := viewText(m); !strings.Contains(v, "env") {
+	if v := viewText(m); !strings.Contains(v, "env") || !strings.Contains(v, "▌ v [ ] zshrc") {
 		t.Errorf("expanded group should show its children:\n%s", v)
 	}
 
@@ -302,7 +302,19 @@ func TestOutdatedMarkInGroup(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "left")
-	if v := viewText(m); !strings.Contains(v, "~/.zshrc  2/3 접힘  ^ 업데이트 있음  ^ 하위 2개 업데이트 있음") {
+	if v := viewText(m); !strings.Contains(v, "~/.zshrc  2/3  ^ 업데이트 있음  ^ 하위 2개 업데이트 있음") {
 		t.Errorf("collapsed group should collect the children:\n%s", v)
+	}
+}
+
+// 그룹 줄 끝의 하위 항목 수는 경로와 구분되게 따로 칠한다.
+func TestGroupCountColor(t *testing.T) {
+	m := loadedModel(
+		item{entry: entry("gitconfig", "/home/me/.gitconfig")},
+		item{entry: entry("zshrc", "/home/me/.zshrc")},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced},
+	)
+	if want := newStyles(true).count.Render("1/1"); !strings.Contains(m.View().Content, want) {
+		t.Errorf("group count should be drawn in the count color %q", want)
 	}
 }

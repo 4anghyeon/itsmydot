@@ -63,7 +63,7 @@ func TestMenuCompareOpensDiff(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "esc")
-	if m.diffScreen.name != "" || !strings.Contains(viewText(m), "> [+] gitconfig") {
+	if m.diffScreen.name != "" || !strings.Contains(viewText(m), "▌ [+] gitconfig") {
 		t.Fatalf("esc should go back to the list:\n%s", viewText(m))
 	}
 	assertContent(t, target, "[user]\n\tname = me\n")
@@ -139,13 +139,13 @@ func TestDiffScroll(t *testing.T) {
 	next, _ = next.(Model).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
 	m = next.(Model)
 
-	// 높이 18에서 테두리와 제목, 도움말 8줄을 빼면 본문은 10줄이다.
+	// 높이 18에서 캐릭터와 구분선, 도움말 10줄을 빼면 본문은 8줄이다.
 	// 아래에 더 있다는 걸 알 수 있게 오른쪽에 스크롤 막대가 붙고 맨 위에 있으니 막대 위쪽이 채워져 있다.
 	v := viewText(m)
-	if !strings.Contains(v, "10/31줄") || !strings.Contains(v, "line 9") || strings.Contains(v, "line 10") {
+	if !strings.Contains(v, "8/31줄") || !strings.Contains(v, "line 7") || strings.Contains(v, "line 8") {
 		t.Fatalf("first page:\n%s", v)
 	}
-	if bar := scrollbarColumn(v); bar != "███░░░░░░░" {
+	if bar := scrollbarColumn(v); bar != "██░░░░░░" {
 		t.Errorf("scrollbar = %q at the top", bar)
 	}
 
@@ -159,16 +159,16 @@ func TestDiffScroll(t *testing.T) {
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
 	m = next.(Model)
-	if m.diffScreen.yOffset != 11 {
-		t.Errorf("yOffset = %d, want 11 after pgdn", m.diffScreen.yOffset)
+	if m.diffScreen.yOffset != 9 {
+		t.Errorf("yOffset = %d, want 9 after pgdn", m.diffScreen.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	m = next.(Model)
 	v = viewText(m)
-	if m.diffScreen.yOffset != 21 || !strings.Contains(v, "31/31줄") || !strings.Contains(v, "line 30") {
+	if m.diffScreen.yOffset != 23 || !strings.Contains(v, "31/31줄") || !strings.Contains(v, "line 30") {
 		t.Errorf("yOffset = %d after end:\n%s", m.diffScreen.yOffset, v)
 	}
-	if bar := scrollbarColumn(v); bar != "░░░░░░░███" {
+	if bar := scrollbarColumn(v); bar != "░░░░░░██" {
 		t.Errorf("scrollbar = %q at the bottom", bar)
 	}
 }
@@ -247,9 +247,9 @@ func TestDiffRowColors(t *testing.T) {
 		}
 	}
 
-	// 배경을 칠한 줄은 내용이 짧아도 상자 안쪽 끝까지 이어져야 한다.
+	// 배경을 칠한 줄은 내용이 짧아도 가장 긴 줄 끝까지 이어져야 한다.
 	text := viewText(m)
-	if !strings.Contains(text, "│ 2    -  export EDITOR=vim  │") || !strings.Contains(text, "│   2  +  export EDITOR=nvim │") {
+	if !strings.Contains(text, " 2    -  export EDITOR=vim \n") || !strings.Contains(text, "   2  +  export EDITOR=nvim\n") {
 		t.Errorf("tinted rows should fill the box:\n%s", text)
 	}
 }

@@ -36,7 +36,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 	state, err := link.Check(it.entry.Target, it.copyPath)
 	if err != nil {
 		it.state, it.err = errored, err
-		m.status = it.entry.Name + " 파일 상태를 확인하지 못했어요 (" + errorReason(err, m.home) + ")"
+		m = m.notify(statusFailed, it.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
 		return m, nil
 	}
 
@@ -46,7 +46,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 		has, err := link.HasBackup(it.entry.Target)
 		if err != nil {
 			it.state, it.err = errored, err
-			m.status = it.entry.Name + " 백업을 확인하지 못했어요 (" + errorReason(err, m.home) + ")"
+			m = m.notify(statusFailed, it.entry.Name+" 백업을 확인하지 못했어요 ("+errorReason(err, m.home)+")")
 			return m, nil
 		}
 		if !has {
@@ -75,7 +75,7 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 			groupState, err := link.Check(group.entry.Target, group.copyPath)
 			if err != nil {
 				group.state, group.err = errored, err
-				m.status = group.entry.Name + " 파일 상태를 확인하지 못했어요 (" + errorReason(err, m.home) + ")"
+				m = m.notify(statusFailed, group.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
 				return m, nil
 			}
 			if groupState != link.Synced {
@@ -113,16 +113,16 @@ func (m Model) unlink(i int) Model {
 	restored, err := link.Unlink(it.entry.Target, it.copyPath)
 	if err != nil {
 		it.state, it.err = errored, err
-		m.status = it.entry.Name + " 연결을 끊지 못했어요 (" + errorReason(err, m.home) + ")"
+		m = m.notify(statusFailed, it.entry.Name+" 연결을 끊지 못했어요 ("+errorReason(err, m.home)+")")
 		return m.withChildrenOff(childrenOff)
 	}
 	if restored != "" {
 		// 백업을 되돌렸으면 target 자리에 다시 일반 파일이 있다.
 		it.state, it.err = conflict, nil
-		m.status = it.entry.Name + " 연결을 끊고 원본 파일을 되돌렸어요"
+		m = m.notify(statusUnlinked, it.entry.Name+" 연결을 끊고 원본 파일을 되돌렸어요")
 	} else {
 		it.state, it.err = notSynced, nil
-		m.status = it.entry.Name + " 연결을 끊었어요. 사본은 " + tildify(it.copyPath, m.home) + " 에 남아 있어요"
+		m = m.notify(statusUnlinked, it.entry.Name+" 연결을 끊었어요. 사본은 "+tildify(it.copyPath, m.home)+" 에 남아 있어요")
 	}
 	return m.withChildrenOff(childrenOff)
 }
@@ -135,12 +135,12 @@ func (m Model) detach(i int) Model {
 	it.flash = 1
 	if err := link.Detach(it.entry.Target, it.copyPath); err != nil {
 		it.state, it.err = errored, err
-		m.status = it.entry.Name + " 연결을 끊지 못했어요 (" + errorReason(err, m.home) + ")"
+		m = m.notify(statusFailed, it.entry.Name+" 연결을 끊지 못했어요 ("+errorReason(err, m.home)+")")
 		return m.withChildrenOff(childrenOff)
 	}
 	// target 자리에 일반 파일이 남았으므로 디스크 기준으로는 conflict다.
 	it.state, it.err = conflict, nil
-	m.status = it.entry.Name + " 연결을 끊었어요. 지금 설정은 " + tildify(it.entry.Target, m.home) + " 에 남겨 뒀어요"
+	m = m.notify(statusUnlinked, it.entry.Name+" 연결을 끊었어요. 지금 설정은 "+tildify(it.entry.Target, m.home)+" 에 남겨 뒀어요")
 	return m.withChildrenOff(childrenOff)
 }
 
@@ -191,10 +191,8 @@ func (m Model) answerConfirm(key string) (Model, tea.Cmd) {
 		m.comparing = ""
 	}
 	if key == cancel {
-		// 메뉴는 아무것도 하지 않고 닫는 것이라 취소를 알릴 필요가 없다.
-		if m.confirmKind != confirmAction {
-			m.status = "취소했어요"
-		}
+		// 닫거나 취소하면 아무 일도 일어나지 않았으니 알릴 것이 없다. 질문 전에 떠 있던 알림도 지금과 상관없어서 지운다.
+		m = m.notify(statusInfo, "")
 		return m, nil
 	}
 
@@ -253,17 +251,17 @@ func (m Model) updateCopy(i int) (Model, tea.Cmd) {
 	state, err := link.Check(it.entry.Target, it.copyPath)
 	if err != nil {
 		it.state, it.err = errored, err
-		m.status = it.entry.Name + " 파일 상태를 확인하지 못했어요 (" + errorReason(err, m.home) + ")"
+		m = m.notify(statusFailed, it.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
 		return m, nil
 	}
 	if state != link.Synced {
 		it.state, it.err = fromLinkState(state), nil
-		m.status = it.entry.Name + " 연결이 풀려 있어서 받지 않았어요"
+		m = m.notify(statusInfo, it.entry.Name+" 연결이 풀려 있어서 받지 않았어요")
 		return m, nil
 	}
 
 	it.state, it.err = syncing, nil
-	m.status = it.entry.Name + " 최신본을 받는 중이에요..."
+	m = m.notify(statusBusy, it.entry.Name+" 최신본을 받는 중이에요...")
 	entry, client, copies := it.entry, m.client, m.copies
 	fetch := func() tea.Msg {
 		return fetchCopy(context.Background(), client, copies, entry)
@@ -286,7 +284,7 @@ func (m Model) startSync(indexes ...int) (Model, tea.Cmd) {
 			return syncEntry(context.Background(), client, copies, entry)
 		})
 	}
-	m.status = strings.Join(names, ", ") + " 받는 중이에요..."
+	m = m.notify(statusBusy, strings.Join(names, ", ")+" 받는 중이에요...")
 	return m, tea.Batch(append(cmds, m.spinner.Tick)...)
 }
 
@@ -303,6 +301,7 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 	it.flash = 1
 
 	var result string
+	failed := msg.err != nil
 	switch {
 	case msg.err != nil && msg.copyUpdated:
 		// 받기에 실패해도 연결과 이전 사본은 그대로라 연결된 상태로 둔다.
@@ -322,16 +321,21 @@ func (m Model) applySynced(msg entrySyncedMsg) Model {
 		}
 	}
 
-	m.syncResults = append(slices.Clone(m.syncResults), syncResult{index: i, text: result})
+	m.syncResults = append(slices.Clone(m.syncResults), syncResult{index: i, text: result, failed: failed})
 	if slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 		return m
 	}
 	slices.SortFunc(m.syncResults, func(a, b syncResult) int { return a.index - b.index })
 	texts := make([]string, len(m.syncResults))
+	tone := statusDone
 	for k, r := range m.syncResults {
 		texts[k] = r.text
+		if r.failed {
+			tone = statusFailed
+		}
 	}
-	m.status, m.syncResults = strings.Join(texts, " / "), nil
+	m = m.notify(tone, strings.Join(texts, " / "))
+	m.syncResults = nil
 	return m
 }
 

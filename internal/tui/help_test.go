@@ -13,7 +13,7 @@ func TestHelpScreen(t *testing.T) {
 
 	m, _ = press(t, m, "?")
 	v := viewText(m)
-	for _, want := range []string{"itsmydot 도움말", "[!] 다른 파일이 있음", "사본 저장 경로: ~/.itsmydot"} {
+	for _, want := range []string{"동기화 상태", "[!] 다른 파일이 있음", ">   접힌 그룹", "사본 저장 경로: ~/.itsmydot"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("help missing %q:\n%s", want, v)
 		}
