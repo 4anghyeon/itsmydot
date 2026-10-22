@@ -70,14 +70,14 @@ func Check(target, copyPath string) (State, error) {
 		return Conflict, nil
 	}
 
-	dest, err := os.Readlink(target)
+	destination, err := os.Readlink(target)
 	if err != nil {
 		return 0, fmt.Errorf("check %s: %w", target, err)
 	}
-	if !filepath.IsAbs(dest) {
-		dest = filepath.Join(filepath.Dir(target), dest)
+	if !filepath.IsAbs(destination) {
+		destination = filepath.Join(filepath.Dir(target), destination)
 	}
-	if filepath.Clean(dest) == filepath.Clean(copyPath) {
+	if filepath.Clean(destination) == filepath.Clean(copyPath) {
 		return Synced, nil
 	}
 	return Conflict, nil
@@ -173,25 +173,25 @@ func Detach(target, copyPath string) error {
 
 	// target에 바로 쓰면 symlink를 따라가서 로컬 사본이 바뀐다.
 	// 같은 폴더의 임시 파일에 쓴 뒤 이름을 바꿔서 symlink 자리를 통째로 교체한다.
-	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".itsmydot-*.tmp")
+	temp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".itsmydot-*.tmp")
 	if err != nil {
 		return fmt.Errorf("detach %s: %w", target, err)
 	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
+	tempName := temp.Name()
+	defer func() { _ = os.Remove(tempName) }()
 
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
 		return fmt.Errorf("detach %s: %w", target, err)
 	}
-	if err := tmp.Close(); err != nil {
+	if err := temp.Close(); err != nil {
 		return fmt.Errorf("detach %s: %w", target, err)
 	}
-	if err := os.Chmod(tmpName, info.Mode().Perm()); err != nil {
+	if err := os.Chmod(tempName, info.Mode().Perm()); err != nil {
 		return fmt.Errorf("detach %s: %w", target, err)
 	}
 
-	if err := os.Rename(tmpName, target); err != nil {
+	if err := os.Rename(tempName, target); err != nil {
 		return fmt.Errorf("detach %s: %w", target, err)
 	}
 	return nil
@@ -258,12 +258,12 @@ func latestBackup(target string) (string, error) {
 // 시각 부분은 글자 순서가 곧 시간 순서라서 문자열로 비교한다.
 // 같은 초에 만든 백업은 뒤에 붙은 번호를 숫자로 비교한다. 글자로 비교하면 -10이 -2보다 앞에 오기 때문이다.
 func backupLess(a, b string) bool {
-	stampA, nA := splitBackupName(a)
-	stampB, nB := splitBackupName(b)
+	stampA, numberA := splitBackupName(a)
+	stampB, numberB := splitBackupName(b)
 	if stampA != stampB {
 		return stampA < stampB
 	}
-	return nA < nB
+	return numberA < numberB
 }
 
 // splitBackupName 은 백업 이름 끝에 붙은 -2 같은 번호를 떼어 나머지 이름과 번호를 돌려준다. 번호가 없으면 1이다.

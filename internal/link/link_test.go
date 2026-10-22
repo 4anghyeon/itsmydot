@@ -42,15 +42,15 @@ func TestCheck(t *testing.T) {
 	assertState(t, target, copyPath, Synced)
 
 	// 상대 경로 symlink도 같은 파일을 가리키면 Synced.
-	rel, err := filepath.Rel(home, copyPath)
+	relative, err := filepath.Rel(home, copyPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	relTarget := filepath.Join(home, ".zshrc-rel")
-	if err := os.Symlink(rel, relTarget); err != nil {
+	relativeTarget := filepath.Join(home, ".zshrc-rel")
+	if err := os.Symlink(relative, relativeTarget); err != nil {
 		t.Fatal(err)
 	}
-	assertState(t, relTarget, copyPath, Synced)
+	assertState(t, relativeTarget, copyPath, Synced)
 
 	// 다른 곳을 가리키는 symlink는 Conflict.
 	other := filepath.Join(home, ".other")

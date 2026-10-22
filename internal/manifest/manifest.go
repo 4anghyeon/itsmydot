@@ -116,7 +116,7 @@ func validateEntry(e Entry, label string, seen map[string]bool) []string {
 
 	if e.Source == "" {
 		problems = append(problems, label+"에 source가 없어요")
-	} else if !isSafeRelPath(e.Source) {
+	} else if !isSafeRelativePath(e.Source) {
 		problems = append(problems, fmt.Sprintf("%s의 source는 저장소 기준 경로여야 하고 ..를 쓸 수 없어요 (지금 값 %q)", label, e.Source))
 	}
 
@@ -135,9 +135,9 @@ func entryLabel(e Entry, fallback string) string {
 	return fallback
 }
 
-// isSafeRelPath 는 p가 저장소 안을 가리키는 상대 경로인지 확인한다.
+// isSafeRelativePath 는 p가 저장소 안을 가리키는 상대 경로인지 확인한다.
 // 절대 경로나 저장소 루트 자체, 루트 밖으로 나가는 경로는 거부한다.
-func isSafeRelPath(p string) bool {
+func isSafeRelativePath(p string) bool {
 	if path.IsAbs(p) || filepath.IsAbs(p) {
 		return false
 	}

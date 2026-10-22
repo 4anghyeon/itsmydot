@@ -88,6 +88,6 @@ func (m Model) stepAnimation() (Model, tea.Cmd) {
 	return m, animationTick()
 }
 
-func settled(pos, vel, target float64) bool {
-	return math.Abs(pos-target) < animationSettle && math.Abs(vel) < animationSettle
+func settled(position, velocity, target float64) bool {
+	return math.Abs(position-target) < animationSettle && math.Abs(velocity) < animationSettle
 }
