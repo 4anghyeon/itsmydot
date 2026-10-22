@@ -87,7 +87,7 @@ func (m Model) View() tea.View {
 	// 설명이나 질문은 구분선 바로 아래에 붙여서 목록과 멀어지지 않게 한다.
 	lines := append(append(list, "", st.rule(width)), lower...)
 	lines = append(lines, "", st.statusLine(width, marker, st.stateColor(tone), status))
-	return tea.NewView(st.page(width, right, lines, footer))
+	return tea.NewView(st.page(width, m.version, right, lines, footer))
 }
 
 // confirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.

@@ -190,3 +190,14 @@ func TestEmptyStatusLineHasNoBackground(t *testing.T) {
 		t.Errorf("empty status line = %q, want no painted cells", got)
 	}
 }
+
+// 버전을 알면 제목 아래 줄에 제목과 같은 칸부터 적는다.
+func TestViewShowsVersion(t *testing.T) {
+	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig")})
+	m.version = "v1.2.3"
+	lines := strings.Split(viewText(m), "\n")
+	title, version := strings.Index(lines[1], "itsmydot"), strings.Index(lines[2], "v1.2.3")
+	if title < 0 || version != title {
+		t.Errorf("version should sit under the title:\n%s", strings.Join(lines[:3], "\n"))
+	}
+}

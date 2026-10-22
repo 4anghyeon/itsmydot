@@ -39,7 +39,7 @@ func groupFixture(t *testing.T) (m Model, home string) {
 		items[i] = item{entry: e.entry, parent: e.parent, copyPath: copyPath}
 	}
 
-	m = New(client, copies)
+	m = New(client, copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
 	return next.(Model), home

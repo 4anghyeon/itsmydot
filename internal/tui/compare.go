@@ -315,7 +315,7 @@ func (m Model) diffView(st styles) tea.View {
 		lines = append(lines, " "+line)
 	}
 	footer := st.help(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
-	return tea.NewView(st.page(st.pageWidth(m.width, right, lines...), right, lines, footer))
+	return tea.NewView(st.page(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
 }
 
 // renderDiffRow 는 화면 한 줄을 줄 번호와 함께 그린다. 가로로 밀 때는 내용만 밀고 줄 번호는 그 자리에 둔다.

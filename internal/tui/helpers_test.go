@@ -111,7 +111,7 @@ func toggleFixture(t *testing.T, files map[string]string) (m Model, target strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = New(fakeRepo(t, files), copies)
+	m = New(fakeRepo(t, files), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	return next.(Model), target

@@ -57,12 +57,13 @@ type item struct {
 
 // Model 은 화면의 상태 전부를 담는다.
 type Model struct {
-	client *github.Client
-	copies *localcopy.Dir
-	home   string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
-	width  int    // 터미널 폭. 모르면 0이고 이때는 상자 폭을 제한하지 않는다
-	height int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
-	light  bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
+	client  *github.Client
+	copies  *localcopy.Dir
+	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
+	version string // 제목 옆에 보여 주는 itsmydot 버전. 비어 있으면 보여 주지 않는다
+	width   int    // 터미널 폭. 모르면 0이고 이때는 상자 폭을 제한하지 않는다
+	height  int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
+	light   bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
 
 	items   []item
 	cursor  int    // 선택된 줄. 0부터 센다
@@ -135,10 +136,10 @@ const (
 	confirmTurnOff                        // 다른 질문 없이 꺼지는 항목을 정말 끌지 묻는 중
 )
 
-// New 는 처음 화면 상태를 만든다. 실제 불러오기는 [Model.Init] 에서 시작한다.
-func New(client *github.Client, copies *localcopy.Dir) Model {
+// New 는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [Model.Init] 에서 시작한다.
+func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	home, _ := os.UserHomeDir() // 실패하면 경로를 줄이지 않고 그대로 보여 줄 뿐이라 무시한다
-	return Model{client: client, copies: copies, home: home, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
+	return Model{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
 }
 
 // Init 은 manifest 불러오기를 시작하고, 색을 고르기 위해 터미널 배경색을 물어본다.
