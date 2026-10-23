@@ -11,9 +11,9 @@ import (
 // fixNow 는 테스트 동안 현재 시각을 고정하고 끝나면 원래대로 돌려놓는다.
 func fixNow(t *testing.T, at time.Time) {
 	t.Helper()
-	orig := now
+	original := now
 	now = func() time.Time { return at }
-	t.Cleanup(func() { now = orig })
+	t.Cleanup(func() { now = original })
 }
 
 // 백업이 이미 있으면 시각을 붙이고 같은 초에 또 하면 번호를 붙인다.
@@ -29,11 +29,11 @@ func TestBackupNamingAndOrder(t *testing.T) {
 	var backups []string
 	for i := 1; i <= 11; i++ {
 		mustWrite(t, target, "version "+strconv.Itoa(i))
-		b, err := Link(target, copyPath)
+		backup, err := Link(target, copyPath)
 		if err != nil {
 			t.Fatalf("Link #%d: %v", i, err)
 		}
-		backups = append(backups, b)
+		backups = append(backups, backup)
 		if err := os.Remove(target); err != nil {
 			t.Fatal(err)
 		}

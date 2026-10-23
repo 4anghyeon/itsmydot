@@ -197,7 +197,7 @@ type syncResult struct {
 	failed bool
 }
 
-// applySynced 는 syncEntry의 결과를 해당 항목에 반영한다.
+// applySynced 는 syncEntry나 fetchCopy의 결과를 해당 항목에 반영한다.
 // 그룹 파일과 하위 파일을 함께 받으면 결과가 따로 도착한다. 먼저 온 결과의 백업 안내가 묻히지 않도록
 // 모두 끝날 때까지 모아 두었다가 목록 순서대로 한 줄에 보여 준다.
 func (m Model) applySynced(msg entrySyncedMsg) Model {
