@@ -52,6 +52,7 @@ itsmydot
 | <kbd>←</kbd> <kbd>→</kbd> | 그룹 접기 / 펼치기 |
 | <kbd>space</kbd> | 선택한 항목 연결 / 해제 |
 | <kbd>enter</kbd> | 항목 메뉴 열기 |
+| <kbd>tab</kbd> | 파일 내용 미리보기 |
 | <kbd>?</kbd> | 도움말 |
 | <kbd>esc</kbd> | 화면 닫기 / 종료 |
 

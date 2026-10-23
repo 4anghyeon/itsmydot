@@ -20,6 +20,12 @@ func (m Model) View() tea.View {
 	if m.diffScreen.name != "" {
 		return m.diffView(st)
 	}
+	if m.previewScreen.name != "" && m.isSplitPreview() {
+		return m.splitPreviewView(st)
+	}
+	if m.previewScreen.name != "" {
+		return m.previewFullScreenView(st)
+	}
 
 	right := ""
 	if m.ready && m.loadErr == nil && len(m.items) > 0 {
@@ -44,7 +50,7 @@ func (m Model) View() tea.View {
 		lower = append(lower, " "+m.renderDescription(st, m.items[m.cursor].entry.Description))
 	}
 
-	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "tab", "미리보기", "enter", "메뉴", "?", "도움말", "esc", "종료")
 	status := m.status
 	if m.confirmingName != "" {
 		var numbers []string

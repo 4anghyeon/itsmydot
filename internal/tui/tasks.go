@@ -14,8 +14,9 @@ import (
 
 // entriesLoadedMsg 는 manifest를 불러와 각 항목의 상태까지 확인한 결과다.
 type entriesLoadedMsg struct {
-	items []item
-	err   error
+	items  []item
+	hashes map[string]string
+	err    error
 }
 
 // entrySyncedMsg 는 syncEntry나 fetchCopy가 항목 하나를 받아 온 결과다.
@@ -55,7 +56,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 			items = append(items, checkItem(child, e.Name, copies, hashes))
 		}
 	}
-	return entriesLoadedMsg{items: items}
+	return entriesLoadedMsg{items: items, hashes: hashes}
 }
 
 // checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.

@@ -109,7 +109,7 @@ func TestHelpLineWraps(t *testing.T) {
 
 	lines := strings.Split(strings.TrimRight(viewText(m), "\n"), "\n")
 	footer := strings.Join(lines[len(lines)-3:], "\n")
-	if want := " 방향키 이동   space 연결/연결 끊기\n enter 메뉴   ? 도움말   esc 종료"; !strings.HasSuffix(footer, want) {
+	if want := " 방향키 이동   space 연결/연결 끊기\n tab 미리보기   enter 메뉴   ? 도움말\n esc 종료"; !strings.HasSuffix(footer, want) {
 		t.Errorf("footer = %q, want suffix %q", footer, want)
 	}
 	for _, line := range lines {

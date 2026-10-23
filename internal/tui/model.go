@@ -89,7 +89,11 @@ type Model struct {
 	diffScreen    diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
 	helpOpen      bool       // ?로 연 도움말 화면이 떠 있으면 true
 
-	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
+	fileHashes    map[string]string // 시작할 때 받은 저장소 파일 해시들
+	previewCache  map[string][]byte // 저장소에서 받아 온 미리보기 파일 캐시
+	previewScreen previewScreen     // 미리보기 화면. name이 비어 있으면 닫혀 있다
+
+	spinner     spinner.Model // 받는 중인 항목이 있거나 비교/미리보기할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
 
 	gauge, gaugeVelocity float64 // 게이지가 지금 그리는 연결 비율과 그 속도. syncedRatio 쪽으로 움직인다
@@ -116,6 +120,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case entriesLoadedMsg:
 		m.ready = true
 		m.items = msg.items
+		m.fileHashes = msg.hashes
 		m.loadErr = msg.err
 		m.gauge = m.syncedRatio() // 처음 불러올 때는 애니메이션 없이 바로 맞춘다
 		return m, nil
@@ -125,6 +130,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case diffLoadedMsg:
 		return m.applyDiff(msg), nil
+
+	case previewLoadedMsg:
+		return m.applyPreview(msg), nil
 
 	case animationTickMsg:
 		return m.stepAnimation()
@@ -139,7 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
-		if m.comparingName == "" && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+		if m.comparingName == "" && !m.previewScreen.loading && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -153,6 +161,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.diffScreen.name != "" {
 			return m.handleDiffKey(key)
+		}
+		if m.previewScreen.name != "" {
+			return m.handlePreviewKey(key)
 		}
 		if m.confirmingName != "" {
 			return m.handleConfirmKey(key)
@@ -171,6 +182,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.expand()
 		case "space":
 			return m.toggle()
+		case "tab":
+			return m.openPreview()
 		case "enter":
 			return m.openMenu(), nil
 		case "?":

@@ -20,6 +20,9 @@ var dubeolsik = map[rune]rune{
 // normalizeKey 는 키 입력을 단축키 이름("q", "y", "space" 등)으로 바꾼다.
 // 두벌식 자모가 들어오면 같은 자리의 영문 키로 바꾼다.
 func normalizeKey(msg tea.KeyPressMsg) string {
+	if msg.Code == tea.KeyTab || msg.String() == "\t" {
+		return "tab"
+	}
 	name := msg.String()
 	r, size := utf8.DecodeRuneInString(name)
 	if size == len(name) {
