@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -143,95 +142,6 @@ func (m Model) withChildrenOff(count int) Model {
 	if count > 0 {
 		m.status += fmt.Sprintf(". 하위 항목 %d개도 함께 연결을 끊었어요", count)
 	}
-	return m
-}
-
-// handleConfirmKey 는 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
-// 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
-func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
-	if key == "ctrl+c" {
-		return m, tea.Quit
-	}
-	_, options := m.confirmPrompt()
-	cancel := strconv.Itoa(len(options)) // 마지막 선택지는 항상 취소다
-	switch key {
-	case "up", "k":
-		m.choice = max(m.choice-1, 0)
-		return m, nil
-	case "down", "j":
-		m.choice = min(m.choice+1, len(options)-1)
-		return m, nil
-	case "enter", "space":
-		key = strconv.Itoa(m.choice + 1)
-	case "esc":
-		key = cancel
-	}
-	picked, err := strconv.Atoi(key)
-	if err != nil || picked < 1 || picked > len(options) {
-		return m, nil
-	}
-
-	// 차이 보기는 답이 아니라 답을 고르려고 보는 것이라 질문을 닫지 않는다.
-	if m.confirmKind == confirmBackupLink && picked == 2 {
-		return m.startTargetCompare()
-	}
-
-	name, pending := m.confirmingName, m.pendingNames
-	m.confirmingName, m.pendingNames, m.confirmNote = "", nil, ""
-	if m.confirmKind == confirmBackupLink {
-		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
-		m.comparingName = ""
-	}
-	if key == cancel {
-		// 질문 전에 떠 있던 알림은 지금과 상관없어서 함께 지운다.
-		m = m.notify(statusInfo, "")
-		return m, nil
-	}
-
-	i := m.indexOf(name)
-	if i < 0 {
-		return m, nil
-	}
-	m.items = slices.Clone(m.items)
-
-	switch m.confirmKind {
-	case confirmBackupLink, confirmTurnOn:
-		indexes := make([]int, 0, len(pending))
-		for _, p := range pending {
-			if j := m.indexOf(p); j >= 0 {
-				indexes = append(indexes, j)
-			}
-		}
-		return m.startSync(indexes...)
-	case confirmUnlinkWithoutBackup:
-		if picked == 1 { // 1. 지금 설정은 남겨 두고 연결만 끊기
-			return m.detach(i).startAnimation()
-		}
-		// 2. 연결을 끊고 파일도 지우기
-		return m.unlink(i).startAnimation()
-	case confirmGroupUnlink, confirmTurnOff:
-		return m.unlink(i).startAnimation()
-	case confirmAction:
-		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
-		if m.items[i].state == synced {
-			switch picked {
-			case 1: // 최신으로 받기
-				return m.updateCopy(i)
-			case 2: // 차이 보기
-				return m.startCompare(i)
-			}
-		}
-		return m.toggle() // 연결 또는 연결 끊기
-	}
-	return m, nil
-}
-
-// openMenu 는 커서가 있는 항목에서 할 수 있는 일을 번호 메뉴로 띄운다. 받는 중인 항목에서는 열지 않는다.
-func (m Model) openMenu() Model {
-	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == syncing {
-		return m
-	}
-	m.confirmingName, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
 	return m
 }
 

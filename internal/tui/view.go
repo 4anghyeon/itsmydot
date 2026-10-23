@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -87,40 +86,6 @@ func (m Model) View() tea.View {
 	lines := append(append(list, "", st.renderRule(width)), lower...)
 	lines = append(lines, "", st.renderStatusLine(width, marker, st.stateColor(tone), status))
 	return tea.NewView(st.renderPage(width, m.version, right, lines, footer))
-}
-
-// renderConfirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
-// 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
-func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
-	question, options := m.confirmPrompt()
-	title := st.question.Render(question)
-	if m.confirmKind == confirmAction {
-		title = m.renderMenuTitle(st)
-		// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
-		if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
-			title += "\n" + st.muted.Render(m.items[i].err.Error())
-		}
-	}
-	for line := range strings.SplitSeq(title, "\n") {
-		lines = append(lines, " "+line)
-	}
-	lines = append(lines, "")
-	numbers = make([]string, len(options))
-	for i, opt := range options {
-		numbers[i] = strconv.Itoa(i + 1)
-		cursor, label := " ", opt
-		if i == m.choice {
-			cursor, label = st.cursor.Render(">"), st.selected.Render(opt)
-		}
-		lines = append(lines, " "+cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
-	}
-	switch {
-	case m.comparingName != "":
-		lines = append(lines, "", " "+st.stateStyle(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
-	case m.confirmNote != "":
-		lines = append(lines, "", " "+m.confirmNote)
-	}
-	return lines, numbers
 }
 
 // renderItemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다. 접힌 그룹의 하위 항목은 뺀다.
@@ -245,68 +210,6 @@ func (m Model) renderMarker(s itemState) string {
 		return "[" + m.spinner.View() + "]"
 	}
 	return s.marker()
-}
-
-// confirmPrompt 는 확인 질문 문구와 선택지를 만든다. handleConfirmKey이 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
-func (m Model) confirmPrompt() (question string, options []string) {
-	i := m.indexOf(m.confirmingName)
-	if i < 0 {
-		return "", []string{"취소"}
-	}
-	it := m.items[i]
-	target := tildify(it.entry.Target, m.home)
-
-	// 켜진 하위 항목이 있으면 그룹 파일을 끌 때 함께 꺼진다는 걸 미리 알린다.
-	childrenNote := ""
-	if children := m.syncedChildren(i); len(children) > 0 {
-		names := make([]string, len(children))
-		for k, j := range children {
-			names[k] = m.items[j].entry.Name
-		}
-		childrenNote = fmt.Sprintf("하위 항목 %d개(%s)도 함께 연결이 끊겨요. ", len(children), strings.Join(names, ", "))
-	}
-
-	switch m.confirmKind {
-	case confirmUnlinkWithoutBackup:
-		return fmt.Sprintf("%s 백업이 없어서 되돌릴 원본 파일이 없어요. %s연결을 어떻게 끊을까요?", target, childrenNote),
-			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
-	case confirmAction:
-		question := it.entry.Name + "  " + target
-		if it.state == synced {
-			return question, []string{"최신으로 받기", "차이 보기", "연결 끊기", "닫기"}
-		}
-		return question, []string{"연결", "닫기"}
-	case confirmGroupUnlink:
-		return fmt.Sprintf("%s 연결을 끊으면 %s계속할까요?", it.entry.Name, childrenNote),
-			[]string{"모두 연결 끊기", "취소"}
-	case confirmTurnOff:
-		return fmt.Sprintf("%s  %s 연결을 끊을까요? 백업해 둔 원본 파일을 되돌려요.", it.entry.Name, target),
-			[]string{"연결 끊기", "취소"}
-	case confirmTurnOn:
-		question := fmt.Sprintf("%s  %s 파일을 연결할까요?", it.entry.Name, target)
-		if it.parent != "" && slices.Contains(m.pendingNames, it.parent) {
-			parent := m.items[m.indexOf(it.parent)]
-			question += fmt.Sprintf(" 그룹 파일 %s  %s 도 함께 연결해요.", parent.entry.Name, tildify(parent.entry.Target, m.home))
-		}
-		return question, []string{"연결", "취소"}
-	default:
-		var conflicted []string
-		for _, name := range m.pendingNames {
-			if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
-				conflicted = append(conflicted, tildify(m.items[j].entry.Target, m.home))
-			}
-		}
-		question := fmt.Sprintf("%s 에 이미 파일이 있어요. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
-		if it.parent != "" && slices.Contains(m.pendingNames, it.parent) {
-			question = fmt.Sprintf("그룹 파일 %s 도 함께 연결해요. ", it.parent) + question
-		}
-		return question, []string{"백업 후 연결", "차이 보기", "취소"}
-	}
-}
-
-// renderMenuTitle 은 항목 메뉴의 제목이다.
-func (m Model) renderMenuTitle(st styles) string {
-	return m.renderItemTitle(st, m.indexOf(m.confirmingName))
 }
 
 // renderItemTitle 은 i번째 항목의 제목이다. 메뉴와 비교 보기 화면이 같이 쓰고 하위 항목은 그룹 줄 아래에 매단다.
