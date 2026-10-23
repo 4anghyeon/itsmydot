@@ -35,3 +35,15 @@ agcb() {
   echo "Created: $full_branch"
   git checkout -b "$full_branch"
 }
+
+# 로컬 브랜치를 fzf로 골라 switch
+gswb() {
+  if ! command -v fzf >/dev/null; then
+    echo "fzf가 필요합니다. brew install fzf 로 설치하세요"
+    return 1
+  fi
+
+  local branch
+  branch=$(git branch --format='%(refname:short)' | fzf --height=40% --reverse --preview 'git log --oneline -10 {}') || return
+  git switch "$branch"
+}
