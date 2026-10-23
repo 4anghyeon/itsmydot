@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -24,13 +23,7 @@ func (m Model) View() tea.View {
 
 	right := ""
 	if m.ready && m.loadErr == nil && len(m.items) > 0 {
-		done := 0
-		for _, it := range m.items {
-			if it.state == synced {
-				done++
-			}
-		}
-		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", done, len(m.items))) + st.renderGauge(m.gauge)
+		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), len(m.items))) + st.renderGauge(m.gauge)
 	}
 
 	var list, lower []string
@@ -225,18 +218,4 @@ func (m Model) renderItemTitle(st styles, i int) string {
 // renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
 func (m Model) renderGroupTitle(st styles, i int) string {
 	return st.groupName.Render(m.items[i].entry.Name) + "  " + tildify(m.items[i].entry.Target, m.home)
-}
-
-// tildify 는 홈 디렉토리 아래 경로를 ~로 줄인다. /Users/me/.zshrc 는 ~/.zshrc 가 된다.
-func tildify(path, home string) string {
-	if home == "" {
-		return path
-	}
-	if path == home {
-		return "~"
-	}
-	if rest, ok := strings.CutPrefix(path, home+string(filepath.Separator)); ok {
-		return "~/" + rest
-	}
-	return path
 }
