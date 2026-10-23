@@ -22,8 +22,8 @@ var (
 	flashSpring = harmonica.NewSpring(harmonica.FPS(animationFPS), 6, 1)
 )
 
-// animationSettle 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
-const animationSettle = 0.005
+// animationSettleThreshold 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
+const animationSettleThreshold = 0.005
 
 // animationTickMsg 는 애니메이션 한 프레임을 진행하라는 메시지다.
 type animationTickMsg struct{}
@@ -32,18 +32,23 @@ func animationTick() tea.Cmd {
 	return tea.Tick(time.Second/animationFPS, func(time.Time) tea.Msg { return animationTickMsg{} })
 }
 
+// syncedCount 는 연결된 항목 수다.
+func (m Model) syncedCount() int {
+	count := 0
+	for _, it := range m.items {
+		if it.state == synced {
+			count++
+		}
+	}
+	return count
+}
+
 // syncedRatio 는 전체 항목 중 연결된 항목의 비율이다. 게이지가 향하는 목표다.
 func (m Model) syncedRatio() float64 {
 	if len(m.items) == 0 {
 		return 0
 	}
-	done := 0
-	for _, it := range m.items {
-		if it.state == synced {
-			done++
-		}
-	}
-	return float64(done) / float64(len(m.items))
+	return float64(m.syncedCount()) / float64(len(m.items))
 }
 
 // startAnimation 은 애니메이션이 멈춰 있으면 다시 시작한다. 이미 돌고 있으면 tick을 겹쳐 예약하지 않는다.
@@ -88,6 +93,6 @@ func (m Model) stepAnimation() (Model, tea.Cmd) {
 	return m, animationTick()
 }
 
-func settled(pos, vel, target float64) bool {
-	return math.Abs(pos-target) < animationSettle && math.Abs(vel) < animationSettle
+func settled(position, velocity, target float64) bool {
+	return math.Abs(position-target) < animationSettleThreshold && math.Abs(velocity) < animationSettleThreshold
 }

@@ -23,8 +23,8 @@ func normalizeKey(msg tea.KeyPressMsg) string {
 	name := msg.String()
 	r, size := utf8.DecodeRuneInString(name)
 	if size == len(name) {
-		if en, ok := dubeolsik[r]; ok {
-			return string(en)
+		if qwerty, ok := dubeolsik[r]; ok {
+			return string(qwerty)
 		}
 	}
 	return name

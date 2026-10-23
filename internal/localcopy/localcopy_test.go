@@ -51,12 +51,12 @@ func TestWriteThroughSymlink(t *testing.T) {
 	root := t.TempDir()
 	c := New(root)
 
-	dst, err := c.Write("files/git/.gitconfig", []byte("old"))
+	destination, err := c.Write("files/git/.gitconfig", []byte("old"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	link := filepath.Join(t.TempDir(), ".gitconfig")
-	if err := os.Symlink(dst, link); err != nil {
+	if err := os.Symlink(destination, link); err != nil {
 		t.Fatal(err)
 	}
 

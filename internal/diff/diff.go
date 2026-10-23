@@ -65,12 +65,12 @@ func Compare(before, after []byte) ([]Hunk, error) {
 	}
 
 	var hunks []Hunk
-	for _, h := range unified.Hunks {
-		hunk := Hunk{BeforeStart: h.FromLine, AfterStart: h.ToLine}
-		beforeNumber, afterNumber := h.FromLine, h.ToLine
-		for _, l := range h.Lines {
-			line := Line{Text: strings.TrimSuffix(l.Content, "\n"), NoNewline: !strings.HasSuffix(l.Content, "\n")}
-			switch l.Kind {
+	for _, unifiedHunk := range unified.Hunks {
+		hunk := Hunk{BeforeStart: unifiedHunk.FromLine, AfterStart: unifiedHunk.ToLine}
+		beforeNumber, afterNumber := unifiedHunk.FromLine, unifiedHunk.ToLine
+		for _, unifiedLine := range unifiedHunk.Lines {
+			line := Line{Text: strings.TrimSuffix(unifiedLine.Content, "\n"), NoNewline: !strings.HasSuffix(unifiedLine.Content, "\n")}
+			switch unifiedLine.Kind {
 			case udiff.Delete:
 				line.Kind, line.BeforeNumber = Removed, beforeNumber
 				beforeNumber++
@@ -84,13 +84,14 @@ func Compare(before, after []byte) ([]Hunk, error) {
 			}
 			hunk.Lines = append(hunk.Lines, line)
 		}
-		hunk.BeforeCount, hunk.AfterCount = beforeNumber-h.FromLine, afterNumber-h.ToLine
+		hunk.BeforeCount, hunk.AfterCount = beforeNumber-unifiedHunk.FromLine, afterNumber-unifiedHunk.ToLine
 		markWordChanges(hunk.Lines)
 		hunks = append(hunks, hunk)
 	}
 	return hunks, nil
 }
 
+// Header 는 @@ -1,3 +1,4 @@ 꼴의 hunk 머리줄이다.
 func (h Hunk) Header() string {
 	return "@@ " + hunkRange("-", h.BeforeStart, h.BeforeCount) + " " + hunkRange("+", h.AfterStart, h.AfterCount) + " @@"
 }
@@ -124,7 +125,7 @@ func markWordChanges(lines []Line) {
 		}
 		for k := 0; k < min(removedEnd-i, addedEnd-removedEnd); k++ {
 			removed, added := &lines[i+k], &lines[removedEnd+k]
-			removed.Changes, added.Changes = words(removed.Text, added.Text)
+			removed.Changes, added.Changes = changedWords(removed.Text, added.Text)
 		}
 		i = addedEnd
 	}

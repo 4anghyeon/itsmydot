@@ -25,7 +25,7 @@ func TestHelpScreen(t *testing.T) {
 
 	// 도움말이 떠 있는 동안 목록 키는 먹지 않는다.
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "" || !m.helpOpen {
+	if cmd != nil || m.confirmingName != "" || !m.helpOpen {
 		t.Fatalf("space acted while help was open")
 	}
 

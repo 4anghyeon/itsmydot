@@ -64,13 +64,13 @@ func TestFlashingColor(t *testing.T) {
 		br, bg, bb, _ := b.GetForeground().RGBA()
 		return ar == br && ag == bg && ab == bb
 	}
-	if !same(st.flashing(synced, 0), st.state(synced)) {
+	if !same(st.flashStyle(synced, 0), st.stateStyle(synced)) {
 		t.Error("flash 0 should be the state color")
 	}
-	if !same(st.flashing(synced, 1), lipgloss.NewStyle().Foreground(st.palette.accent)) {
+	if !same(st.flashStyle(synced, 1), lipgloss.NewStyle().Foreground(st.palette.accent)) {
 		t.Error("flash 1 should be the accent color")
 	}
-	if same(st.flashing(synced, 0.5), st.state(synced)) {
+	if same(st.flashStyle(synced, 0.5), st.stateStyle(synced)) {
 		t.Error("flash 0.5 should be in between")
 	}
 }

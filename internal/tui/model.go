@@ -61,7 +61,7 @@ type Model struct {
 	copies  *localcopy.Dir
 	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
 	version string // 제목 옆에 보여 주는 itsmydot 버전. 비어 있으면 보여 주지 않는다
-	width   int    // 터미널 폭. 모르면 0이고 이때는 상자 폭을 제한하지 않는다
+	width   int    // 터미널 폭. 모르면 0이고 이때는 화면 폭을 내용에 맞춘다
 	height  int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
 	light   bool   // 터미널 배경이 밝으면 true. 감지 전에는 어두운 배경으로 본다
 
@@ -71,23 +71,23 @@ type Model struct {
 	loadErr error  // manifest 자체를 못 불러왔을 때의 에러
 	status  string // 마지막 토글 결과. 맨 아래 상태 줄에 보여 준다
 
-	statusTone statusTone // status가 어떤 결과인지. 상태 줄 앞의 표시를 고른다
-	statusKeys int        // status를 띄운 뒤 목록에서 누른 키 수. statusKeyLimit에 닿으면 status를 지운다
+	statusTone      statusTone // status가 어떤 결과인지. 상태 줄 앞의 표시를 고른다
+	keysSinceStatus int        // status를 띄운 뒤 목록에서 누른 키 수. statusKeyLimit에 닿으면 status를 지운다
 
 	// collapsed 는 접힌 그룹의 이름이다. Model이 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
 	collapsed map[string]bool
 
-	// confirming 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
+	// confirmingName 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
 	// items는 Update마다 복사되므로 포인터 대신 이름으로 가리킨다.
-	confirming  string
-	confirmKind confirmKind
-	choice      int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
-	pending     []string // confirmLink나 confirmTurnOn에서 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
-	confirmNote string   // 확인 질문 아래 한 줄. 질문에서 고른 차이 보기의 진행 상황이나 결과를 알린다
+	confirmingName string
+	confirmKind    confirmKind
+	choice         int      // 확인 질문에서 커서가 있는 선택지. 0부터 센다
+	pendingNames   []string // confirmBackupLink나 confirmTurnOn에서 연결을 고르면 받을 항목들. 그룹 파일이 함께 들어 있을 수 있다
+	confirmNote    string   // 확인 질문 아래 한 줄. 질문에서 고른 차이 보기의 진행 상황이나 결과를 알린다
 
-	comparing  string     // 비교할 저장소 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
-	diffScreen diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
-	helpOpen   bool       // ?로 연 도움말 화면이 떠 있으면 true
+	comparingName string     // 비교할 저장소 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
+	diffScreen    diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
+	helpOpen      bool       // ?로 연 도움말 화면이 떠 있으면 true
 
 	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
@@ -95,46 +95,6 @@ type Model struct {
 	gauge, gaugeVelocity float64 // 게이지가 지금 그리는 연결 비율과 그 속도. syncedRatio 쪽으로 움직인다
 	animating            bool    // animationTick이 예약돼 있으면 true
 }
-
-// syncResult 는 받기가 끝난 항목 하나의 결과 문구다. index는 목록에서의 위치로 정렬에 쓴다.
-type syncResult struct {
-	index  int
-	text   string
-	failed bool
-}
-
-// statusTone 은 상태 메시지가 어떤 결과인지 나타낸다. 표시는 목록의 체크박스와 같은 뜻으로 쓴다.
-type statusTone int
-
-const (
-	statusInfo     statusTone = iota // 표시 없이 글만 보여 준다
-	statusDone                       // [+] 연결하거나 사본을 받은 일
-	statusUnlinked                   // [ ] 연결을 끊은 일. 목록의 체크박스처럼 끊은 뒤의 모습을 보여 준다
-	statusFailed                     // [-] 하지 못한 일
-	statusBusy                       // 스피너. 받거나 비교하는 중
-)
-
-// statusKeyLimit 은 알림을 띄운 뒤 목록에서 키를 몇 번 누르면 알림을 지울지다.
-// 결과를 읽을 틈은 주되 다른 일을 이어서 하는 동안 지난 결과가 계속 남아 있지 않게 한다.
-const statusKeyLimit = 3
-
-// notify 는 상태 줄에 text를 띄우고 키 수를 처음부터 다시 센 Model을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m Model) notify(tone statusTone, text string) Model {
-	m.status, m.statusTone, m.statusKeys = text, tone, 0
-	return m
-}
-
-// confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
-type confirmKind int
-
-const (
-	confirmLink        confirmKind = iota // 다른 파일이 있어서 백업한 뒤 연결할지 묻는 중
-	confirmUnlink                         // 되돌릴 백업이 없어서 연결을 어떻게 끊을지 묻는 중
-	confirmGroupUnlink                    // 켜진 하위 항목이 있어서 그룹 파일과 함께 끌지 묻는 중
-	confirmAction                         // enter로 연 항목 메뉴에서 할 일을 고르는 중
-	confirmTurnOn                         // 다른 질문 없이 켜지는 항목을 정말 켤지 묻는 중
-	confirmTurnOff                        // 다른 질문 없이 꺼지는 항목을 정말 끌지 묻는 중
-)
 
 // New 는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [Model.Init] 에서 시작한다.
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
@@ -151,7 +111,6 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-// 도움말 화면이 열려 있으면 키 입력을 모두 answerHelp로, 비교 보기 화면이 열려 있으면 scrollDiff로, 확인 질문이 떠 있으면 answerConfirm으로 넘긴다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
@@ -180,7 +139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
-		if m.comparing == "" && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+		if m.comparingName == "" && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -190,22 +149,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		key := normalizeKey(msg)
 		if m.helpOpen {
-			return m.answerHelp(key)
+			return m.handleHelpKey(key)
 		}
 		if m.diffScreen.name != "" {
-			return m.scrollDiff(key)
+			return m.handleDiffKey(key)
 		}
-		if m.confirming != "" {
-			return m.answerConfirm(key)
+		if m.confirmingName != "" {
+			return m.handleConfirmKey(key)
 		}
-		// 받거나 비교하는 중이라는 알림은 끝나면 결과로 바뀌므로 지우지 않는다.
-		// 이 키가 새 알림을 띄우면 notify가 수를 다시 센다.
-		if m.status != "" && m.statusTone != statusBusy {
-			m.statusKeys++
-			if m.statusKeys >= statusKeyLimit {
-				m = m.notify(statusInfo, "")
-			}
-		}
+		m = m.countStatusKey()
 		switch key {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit

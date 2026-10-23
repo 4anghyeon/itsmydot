@@ -3,13 +3,10 @@ package tui
 import (
 	"image/color"
 	"math"
-	"slices"
-	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // palette 는 화면에 쓰는 색 묶음이다.
@@ -19,9 +16,9 @@ type palette struct {
 	synced, conflict, errored, syncing color.Color
 	muted, accent                      color.Color
 	update                             color.Color // 업데이트 있음 표시. 충돌의 노란색과 헷갈리지 않게 주황 쪽으로 둔다
-	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름. 다른 상태 색과 겹치지 않는 파랑과 분홍
-	count                              color.Color // 그룹 줄 끝의 하위 항목 수. 회색 경로와 구분되되 눈에 띄지 않게 채도를 낮춘 파랑
-	selection, statusBar               color.Color // 선택한 줄과 맨 아래 상태 줄의 배경. diff 배경처럼 256색표에 있는 회색만 쓴다
+	group, file                        color.Color // 메뉴 제목의 그룹 이름과 파일 이름
+	count                              color.Color // 그룹 줄 끝의 하위 항목 수. 회색 경로와 구분되게 채도 낮은 파랑을 쓴다
+	selection, statusBar               color.Color // 선택한 줄과 맨 아래 상태 줄의 배경. 256색표에 있는 회색만 쓴다
 
 	diffRemoved, diffAdded diffTones   // 비교 보기에서 지운 줄과 추가한 줄의 배경
 	diffHunk               color.Color // 비교 보기에서 @@ 줄의 배경
@@ -87,22 +84,6 @@ type styles struct {
 	diffHunk                                      lipgloss.Style
 }
 
-// diffStyles 는 비교 보기에서 지운 줄이나 추가한 줄 한쪽을 그리는 스타일이다.
-// 글자 색은 터미널 기본색을 두고 배경만 칠한다. 빨간 배경에 빨간 글자는 읽기 어렵다.
-type diffStyles struct {
-	line, number, word, marker lipgloss.Style
-}
-
-// newDiffStyles 는 tones로 칠하는 diffStyles를 만든다. marker는 +나 - 표시라서 줄 배경 위에 mark 색 글자로 그린다.
-func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
-	return diffStyles{
-		line:   lipgloss.NewStyle().Background(tones.line),
-		number: lipgloss.NewStyle().Background(tones.number).Foreground(muted),
-		word:   lipgloss.NewStyle().Background(tones.word),
-		marker: lipgloss.NewStyle().Background(tones.line).Foreground(mark).Bold(true),
-	}
-}
-
 // newStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
 func newStyles(dark bool) styles {
 	p := lightPalette
@@ -139,11 +120,8 @@ var syncSpinner = spinner.Spinner{
 	FPS:    time.Second / 8,
 }
 
-// gaugeWidth 는 진행 게이지의 칸 수다.
-const gaugeWidth = 16
-
-// state 는 상태별 체크박스 색이다.
-func (st styles) state(s itemState) lipgloss.Style {
+// stateStyle 는 상태별 체크박스 색이다.
+func (st styles) stateStyle(s itemState) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(st.stateColor(s))
 }
 
@@ -163,136 +141,13 @@ func (st styles) stateColor(s itemState) color.Color {
 	}
 }
 
-// flashing 은 상태 색에 강조색을 flash만큼 섞은 스타일이다. flash가 1이면 강조색이고 0이면 상태 색 그대로다.
-func (st styles) flashing(s itemState, flash float64) lipgloss.Style {
+// flashStyle 는 상태 색에 강조색을 flash만큼 섞은 스타일이다. flash가 1이면 강조색이고 0이면 상태 색 그대로다.
+func (st styles) flashStyle(s itemState, flash float64) lipgloss.Style {
 	if flash <= 0 {
-		return st.state(s)
+		return st.stateStyle(s)
 	}
 	const steps = 101
 	blend := lipgloss.Blend1D(steps, st.stateColor(s), st.palette.accent)
 	i := int(math.Round(min(flash, 1) * (steps - 1)))
 	return lipgloss.NewStyle().Foreground(blend[i])
-}
-
-// gauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
-// 채운 칸은 목록의 연결 표시와 같은 초록이라 색만 봐도 연결된 비율인 걸 알 수 있다.
-func (st styles) gauge(ratio float64) string {
-	ratio = min(max(ratio, 0), 1)
-	filled := int(math.Round(ratio * gaugeWidth))
-	if ratio > animationSettle && filled == 0 {
-		filled = 1 // 하나라도 연결돼 있으면 빈 막대로 보이지 않게 한다
-	}
-
-	return st.state(synced).Render(strings.Repeat("█", filled)) +
-		st.muted.Render(strings.Repeat("░", gaugeWidth-filled))
-}
-
-// pageWidth 는 화면 폭이다. 터미널 폭을 알면 그 폭을 다 쓰고 모르면 제목 줄과 lines 중 가장 긴 줄에 맞춘다.
-// 화면 폭을 터미널에 맞춰 고정해서 메뉴를 열거나 상태 메시지가 바뀌어도 구분선 길이가 출렁이지 않는다.
-func (st styles) pageWidth(terminal int, right string, lines ...string) int {
-	if terminal > 0 {
-		return terminal
-	}
-	width := mascotWidth + 2 + lipgloss.Width(st.title.Render("itsmydot")) + 2 + lipgloss.Width(right)
-	for _, line := range lines {
-		width = max(width, lipgloss.Width(line))
-	}
-	return width
-}
-
-// headerMaxWidth 는 맨 위 줄에서 right를 놓는 가장 먼 칸이다.
-// 넓은 터미널에서 게이지가 제목에서 너무 멀어지지 않게 한다. 구분선과 상태 줄은 그대로 터미널 끝까지 그린다.
-const headerMaxWidth = 80
-
-// mascotWidth 는 캐릭터가 차지하는 폭이다. 왼쪽 여백 한 칸과 두 눈 사이를 합쳤다.
-const mascotWidth = 6
-
-// mascot 은 맨 위 왼쪽에 세 줄로 그리는 itsmydot 캐릭터다. 두 눈 아래에 비스듬한 코와 물결 모양 입이 있다.
-//
-//	.   .
-//	  /
-//	  ~
-func (st styles) mascot() [3]string {
-	return [3]string{
-		" " + st.mascotFace.Render(".   ."),
-		"   " + st.mascotFace.Render("/") + "  ",
-		"   " + st.mascotMouth.Render("~") + "  ",
-	}
-}
-
-// page 는 모든 화면이 같이 쓰는 틀이다. 맨 위 세 줄 왼쪽에 캐릭터를 그리고 가운데 줄 양 끝에 제목과 right를 놓는다.
-// version이 있으면 제목 아래 줄에 흐리게 적는다. 한 줄에 다 들어가지 않는 좁은 터미널에서는 right도 그 아래 줄로 내린다.
-// 그 아래에 구분선을 긋고 lines를 붙인 뒤 한 줄 띄워 맨 아래에 도움말 줄 footer를 붙인다. 폭 width를 넘는 줄은 줄바꿈한다.
-func (st styles) page(width int, version, right string, lines []string, footer string) string {
-	face := st.mascot()
-	title := st.title.Render("itsmydot")
-	header := []string{face[0], face[1] + "  " + title, face[2]}
-	if version != "" {
-		header[2] += "  " + st.muted.Render(version)
-	}
-	gap := min(width, headerMaxWidth) - mascotWidth - 2 - lipgloss.Width(title) - lipgloss.Width(right)
-	if gap >= 2 {
-		header[1] += strings.Repeat(" ", gap) + right
-	} else if right != "" {
-		header[2] += "  " + right
-	}
-
-	out := slices.Concat(header[:], []string{st.rule(width), ""}, lines)
-	for i, line := range out {
-		if lipgloss.Width(line) > width {
-			out[i] = ansi.Wrap(line, width, " ")
-		}
-	}
-	return strings.Join(out, "\n") + "\n\n " + footer + "\n"
-}
-
-// rule 은 화면 폭만큼 긋는 가로 구분선이다.
-func (st styles) rule(width int) string {
-	return st.muted.Render(strings.Repeat("─", width))
-}
-
-// statusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
-// 글이 폭보다 길면 marker 뒤 칸에 맞춰 줄을 나눈다.
-// 글이 없으면 칠하지 않은 빈 줄을 돌려준다. 줄은 남겨 두어 메시지가 생길 때 화면 높이가 바뀌지 않게 한다.
-func (st styles) statusLine(width int, marker string, color color.Color, text string) string {
-	if text == "" {
-		return ""
-	}
-	bar := lipgloss.NewStyle().Background(st.palette.statusBar)
-	indent := 1
-	if marker != "" {
-		indent += lipgloss.Width(marker) + 1
-	}
-	lines := strings.Split(ansi.Wrap(text, max(width-indent, 1), " "), "\n")
-	for i, line := range lines {
-		head := bar.Render(strings.Repeat(" ", indent))
-		if i == 0 && marker != "" {
-			head = bar.Render(" ") + bar.Foreground(color).Bold(true).Render(marker) + bar.Render(" ")
-		}
-		line = head + bar.Render(line)
-		lines[i] = line + bar.Render(strings.Repeat(" ", max(width-lipgloss.Width(line), 0)))
-	}
-	return strings.Join(lines, "\n")
-}
-
-// help 는 키와 설명을 번갈아 받아 상자 아래에 붙일 도움말 줄로 이어 붙인다.
-// 터미널 폭 width를 넘으면 키와 설명 묶음 사이에서 줄을 나눈다. width가 0이면 나누지 않는다.
-// 화면은 도움말 앞에 한 칸을 띄우므로 나눈 줄에도 같은 한 칸을 붙인다.
-func (st styles) help(width int, pairs ...string) string {
-	const gap = "   "
-	var lines []string
-	line := ""
-	for i := 0; i+1 < len(pairs); i += 2 {
-		part := st.key.Render(pairs[i]) + " " + st.muted.Render(pairs[i+1])
-		switch {
-		case line == "":
-			line = part
-		case width > 0 && 1+lipgloss.Width(line+gap+part) > width:
-			lines = append(lines, line)
-			line = part
-		default:
-			line += gap + part
-		}
-	}
-	return strings.Join(append(lines, line), "\n ")
 }

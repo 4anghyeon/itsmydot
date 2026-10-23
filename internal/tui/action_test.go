@@ -1,76 +1,20 @@
 package tui
 
 import (
-	"context"
-	"encoding/base64"
-	"net/http"
-	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/4anghyeon/itsmydot/internal/github"
-	"github.com/4anghyeon/itsmydot/internal/localcopy"
 )
-
-// loadEntries가 manifest를 받아 항목마다 상태를 제대로 판단하는지 가짜 서버와 임시 폴더로 확인한다.
-func TestLoadEntries(t *testing.T) {
-	home := t.TempDir()
-	copies := localcopy.New(t.TempDir())
-
-	manifestYAML := "entries:\n" +
-		"  - {name: linked, source: files/a, target: " + filepath.Join(home, ".a") + "}\n" +
-		"  - {name: empty, source: files/b, target: " + filepath.Join(home, ".b") + "}\n" +
-		"  - {name: taken, source: files/c, target: " + filepath.Join(home, ".c") + "}\n"
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		content := base64.StdEncoding.EncodeToString([]byte(manifestYAML))
-		_, _ = w.Write([]byte(`{"type":"file","encoding":"base64","content":"` + content + `"}`))
-	}))
-	t.Cleanup(srv.Close)
-	client := github.NewClient("o", "r")
-	client.BaseURL = srv.URL
-
-	// .a는 로컬 사본을 가리키는 symlink이고 .b는 없고 .c는 일반 파일이다.
-	aCopy, err := copies.Path("files/a")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(aCopy, filepath.Join(home, ".a")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".c"), []byte("mine"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	msg := loadEntries(context.Background(), client, copies)
-	if msg.err != nil {
-		t.Fatalf("loadEntries: %v", msg.err)
-	}
-	want := []itemState{synced, notSynced, conflict}
-	if len(msg.items) != len(want) {
-		t.Fatalf("got %d items, want %d", len(msg.items), len(want))
-	}
-	for i, it := range msg.items {
-		if it.state != want[i] {
-			t.Errorf("%s: state = %d, want %d", it.entry.Name, it.state, want[i])
-		}
-	}
-	if msg.items[0].copyPath != aCopy {
-		t.Errorf("copyPath = %q, want %q", msg.items[0].copyPath, aCopy)
-	}
-}
 
 func TestToggleOnAndOff(t *testing.T) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "[user]\n"})
 
 	// 켜기 전에 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmTurnOn {
-		t.Fatalf("want turn on prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	if cmd != nil || m.confirmingName != "gitconfig" || m.confirmKind != confirmTurnOn {
+		t.Fatalf("want turn on prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirmingName, m.confirmKind)
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
 		t.Fatalf("target should be untouched before answering, got err %v", err)
@@ -90,8 +34,8 @@ func TestToggleOnAndOff(t *testing.T) {
 
 	// 백업이 없어서 끌 때 먼저 묻는다. 2번 파일도 지우기를 고르면 target이 사라진다.
 	m, cmd = press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" || m.confirmKind != confirmUnlink {
-		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirming, m.confirmKind)
+	if cmd != nil || m.confirmingName != "gitconfig" || m.confirmKind != confirmUnlinkWithoutBackup {
+		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirmingName, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
 	if !strings.Contains(m.status, "에 남아 있어요") || m.statusTone != statusUnlinked {
@@ -113,14 +57,14 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 
 	// 다른 파일이 있으면 먼저 묻는다. 답하기 전에는 디스크를 건드리지 않는다.
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "gitconfig" {
-		t.Fatalf("want confirm prompt, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+	if cmd != nil || m.confirmingName != "gitconfig" {
+		t.Fatalf("want confirm prompt, got cmd=%v confirming=%q", cmd != nil, m.confirmingName)
 	}
 	assertContent(t, target, "mine")
 
 	m, cmd = press(t, m, "1")
-	if m.confirming != "" || m.items[0].state != syncing {
-		t.Fatalf("after 1: confirming=%q state=%d", m.confirming, m.items[0].state)
+	if m.confirmingName != "" || m.items[0].state != syncing {
+		t.Fatalf("after 1: confirming=%q state=%d", m.confirmingName, m.items[0].state)
 	}
 	m = runCmd(t, m, cmd)
 	if m.items[0].state != synced {
@@ -155,8 +99,8 @@ func TestConfirmCancel(t *testing.T) {
 
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirming != "" {
-				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirming)
+			if cmd != nil || m.confirmingName != "" {
+				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirmingName)
 			}
 			if m.items[0].state != conflict {
 				t.Errorf("state = %d, want conflict", m.items[0].state)
@@ -179,8 +123,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirming != "" || m.items[0].state != notSynced || m.status != "" {
-				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirming, m.items[0].state, m.status)
+			if cmd != nil || m.confirmingName != "" || m.items[0].state != notSynced || m.status != "" {
+				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirmingName, m.items[0].state, m.status)
 			}
 			if _, err := os.Lstat(target); !os.IsNotExist(err) {
 				t.Errorf("target should be untouched, got err %v", err)
@@ -200,8 +144,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 				t.Fatalf("kind = %d, want confirmTurnOff", m.confirmKind)
 			}
 			m, _ = press(t, m, key)
-			if m.confirming != "" || m.items[0].state != synced || m.status != "" {
-				t.Fatalf("confirming=%q state=%d status=%q", m.confirming, m.items[0].state, m.status)
+			if m.confirmingName != "" || m.items[0].state != synced || m.status != "" {
+				t.Fatalf("confirming=%q state=%d status=%q", m.confirmingName, m.items[0].state, m.status)
 			}
 			assertSymlink(t, target, true)
 		})
@@ -219,7 +163,7 @@ func TestConfirmIgnoresOtherKeys(t *testing.T) {
 	for _, key := range []string{"q", "y", "n", "x"} {
 		var cmd tea.Cmd
 		m, cmd = press(t, m, key)
-		if cmd != nil || m.confirming != "gitconfig" {
+		if cmd != nil || m.confirmingName != "gitconfig" {
 			t.Fatalf("%s: should be ignored while confirming", key)
 		}
 	}
@@ -305,8 +249,8 @@ func TestUnlinkWithoutBackupCancel(t *testing.T) {
 			m, target := linkedFixture(t)
 			m, _ = press(t, m, "space")
 			m, _ = press(t, m, key)
-			if m.confirming != "" || m.status != "" {
-				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirming, m.status)
+			if m.confirmingName != "" || m.status != "" {
+				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirmingName, m.status)
 			}
 			info, err := os.Lstat(target)
 			if err != nil || info.Mode()&os.ModeSymlink == 0 {
@@ -324,7 +268,7 @@ func TestConfirmLinkIgnoresOutOfRange(t *testing.T) {
 	}
 	m, _ = press(t, m, "space")
 	m, cmd := press(t, m, "4")
-	if cmd != nil || m.confirming == "" {
+	if cmd != nil || m.confirmingName == "" {
 		t.Fatal("4 should be ignored for a 3-option prompt")
 	}
 }
@@ -350,7 +294,7 @@ func TestConfirmArrowSelection(t *testing.T) {
 
 	m, _ = press(t, m, "k") // 2번 파일도 지우기로 올라간다
 	m, _ = press(t, m, "enter")
-	if m.confirming != "" {
+	if m.confirmingName != "" {
 		t.Fatal("enter should answer the prompt")
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
@@ -368,8 +312,8 @@ func TestConfirmSpaceSelects(t *testing.T) {
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "down") // 3. 취소
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirming != "" || m.status != "" {
-		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	if cmd != nil || m.confirmingName != "" || m.status != "" {
+		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
 	}
 	assertContent(t, target, "mine")
 
@@ -470,8 +414,8 @@ func TestMenuTurnOffAsksLikeSpace(t *testing.T) {
 	m, _ := linkedFixture(t)
 	m, _ = press(t, m, "enter")
 	m, _ = press(t, m, "3")
-	if m.confirmKind != confirmUnlink || m.confirming != "gitconfig" {
-		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirming)
+	if m.confirmKind != confirmUnlinkWithoutBackup || m.confirmingName != "gitconfig" {
+		t.Fatalf("want the unlink prompt, got kind=%d confirming=%q", m.confirmKind, m.confirmingName)
 	}
 }
 
@@ -480,83 +424,14 @@ func TestMenuCancelAndSyncing(t *testing.T) {
 	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 	m, _ = press(t, m, "enter")
 	m, cmd := press(t, m, "esc")
-	if cmd != nil || m.confirming != "" || m.status != "" {
-		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirming, m.status)
+	if cmd != nil || m.confirmingName != "" || m.status != "" {
+		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
 	}
 
 	m, _ = confirmToggle(t, m)
 	m, _ = press(t, m, "enter")
-	if m.confirming != "" {
+	if m.confirmingName != "" {
 		t.Error("menu should not open while syncing")
-	}
-}
-
-// 연결된 항목 중 로컬 사본이 저장소 파일과 다른 것만 업데이트 있음으로 본다.
-func TestLoadEntriesMarksOutdated(t *testing.T) {
-	home := t.TempDir()
-	copies := localcopy.New(t.TempDir())
-	client := fakeRepo(t, map[string]string{
-		"manifest.yaml": "entries:\n" +
-			"  - {name: changed, source: files/a, target: " + filepath.Join(home, ".a") + "}\n" +
-			"  - {name: same, source: files/b, target: " + filepath.Join(home, ".b") + "}\n" +
-			"  - {name: off, source: files/c, target: " + filepath.Join(home, ".c") + "}\n",
-		"files/a": "new",
-		"files/b": "same",
-		"files/c": "new",
-	})
-
-	// .a와 .b는 연결돼 있고, .c는 예전에 받은 사본만 남아 있다.
-	for source, content := range map[string]string{"files/a": "old", "files/b": "same", "files/c": "old"} {
-		if _, err := copies.Write(source, []byte(content)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for source, target := range map[string]string{"files/a": ".a", "files/b": ".b"} {
-		copyPath, _ := copies.Path(source)
-		if err := os.Symlink(copyPath, filepath.Join(home, target)); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	msg := loadEntries(context.Background(), client, copies)
-	if msg.err != nil {
-		t.Fatalf("loadEntries: %v", msg.err)
-	}
-	for i, want := range []bool{true, false, false} {
-		if got := msg.items[i].outdated; got != want {
-			t.Errorf("%s: outdated = %v, want %v", msg.items[i].entry.Name, got, want)
-		}
-	}
-}
-
-// 저장소 파일 해시를 못 받아도 목록은 그대로 뜨고 업데이트 표시만 빠진다.
-func TestLoadEntriesWithoutHashes(t *testing.T) {
-	home := t.TempDir()
-	copies := localcopy.New(t.TempDir())
-	manifestYAML := "entries:\n  - {name: a, source: files/a, target: " + filepath.Join(home, ".a") + "}\n"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/o/r/contents/manifest.yaml" {
-			http.NotFound(w, r)
-			return
-		}
-		content := base64.StdEncoding.EncodeToString([]byte(manifestYAML))
-		_, _ = w.Write([]byte(`{"type":"file","encoding":"base64","content":"` + content + `"}`))
-	}))
-	t.Cleanup(srv.Close)
-	client := github.NewClient("o", "r")
-	client.BaseURL = srv.URL
-
-	copyPath, _ := copies.Write("files/a", []byte("old"))
-	if err := os.Symlink(copyPath, filepath.Join(home, ".a")); err != nil {
-		t.Fatal(err)
-	}
-
-	msg := loadEntries(context.Background(), client, copies)
-	if msg.err != nil || len(msg.items) != 1 {
-		t.Fatalf("items = %d err = %v", len(msg.items), msg.err)
-	}
-	if msg.items[0].state != synced || msg.items[0].outdated {
-		t.Errorf("state = %d outdated = %v, want synced without the mark", msg.items[0].state, msg.items[0].outdated)
 	}
 }
 

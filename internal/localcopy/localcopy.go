@@ -38,8 +38,8 @@ func Default() (*Dir, error) {
 func (d *Dir) Path(source string) (string, error) {
 	p := filepath.Join(d.Root, filepath.FromSlash(source))
 
-	rel, err := filepath.Rel(d.Root, p)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	relative, err := filepath.Rel(d.Root, p)
+	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("local copy path %q escapes %s", source, d.Root)
 	}
 	return p, nil
@@ -51,41 +51,41 @@ func (d *Dir) Path(source string) (string, error) {
 // 사본은 $HOME의 symlink가 바로 가리키는 파일이라 반쯤 쓰인 채로 남으면 안 된다.
 // 그래서 임시 파일에 다 쓴 다음 이름을 바꾼다. 중간에 실패해도 기존 파일은 이전 내용 그대로다.
 func (d *Dir) Write(source string, data []byte) (string, error) {
-	dst, err := d.Path(source)
+	destination, err := d.Path(source)
 	if err != nil {
 		return "", err
 	}
 
-	dir := filepath.Dir(dst)
+	dir := filepath.Dir(destination)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create local copy dir: %w", err)
 	}
 
 	// 이름 바꾸기가 한 번에 끝나려면 임시 파일이 같은 폴더에 있어야 한다.
-	tmp, err := os.CreateTemp(dir, ".itsmydot-*.tmp")
+	temp, err := os.CreateTemp(dir, ".itsmydot-*.tmp")
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}
-	tmpName := tmp.Name()
+	tempName := temp.Name()
 
-	// 중간에 실패했을 때 남은 임시 파일을 지운다. 성공했으면 이미 이름이 바뀌어서 지울 것이 없다.
-	defer func() { _ = os.Remove(tmpName) }()
+	// 성공하면 이름이 바뀌어 지울 것이 없고 실패했을 때만 남은 임시 파일이 지워진다.
+	defer func() { _ = os.Remove(tempName) }()
 
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
 		return "", fmt.Errorf("write temp file: %w", err)
 	}
-	if err := tmp.Close(); err != nil {
+	if err := temp.Close(); err != nil {
 		return "", fmt.Errorf("close temp file: %w", err)
 	}
 
 	// 임시 파일은 0600으로 만들어지므로 일반 설정 파일처럼 0644로 맞춘다.
-	if err := os.Chmod(tmpName, 0o644); err != nil {
+	if err := os.Chmod(tempName, 0o644); err != nil {
 		return "", fmt.Errorf("chmod temp file: %w", err)
 	}
 
-	if err := os.Rename(tmpName, dst); err != nil {
+	if err := os.Rename(tempName, destination); err != nil {
 		return "", fmt.Errorf("move into local copy: %w", err)
 	}
-	return dst, nil
+	return destination, nil
 }
