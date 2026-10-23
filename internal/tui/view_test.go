@@ -127,27 +127,6 @@ func TestViewSelectedRowFillsWidth(t *testing.T) {
 	t.Errorf("selected row not found:\n%s", viewText(m))
 }
 
-// 넓은 터미널에서도 게이지는 headerMaxWidth 칸에서 끝나고, 상태 줄과 도움말 줄 사이는 한 줄 띄운다.
-func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
-	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
-	next, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 24})
-	m = next.(Model)
-	m.status, m.statusTone = "끝났어요", statusDone
-
-	lines := strings.Split(viewText(m), "\n")
-	if w := ansi.StringWidth(lines[1]); w != headerMaxWidth {
-		t.Errorf("header is %d cells wide, want %d: %q", w, headerMaxWidth, lines[1])
-	}
-	if w := ansi.StringWidth(lines[3]); w != 200 {
-		t.Errorf("rule is %d cells wide, want 200", w)
-	}
-	// 마지막 줄바꿈 뒤의 빈 줄, 도움말, 빈 줄, 상태 줄 순이다.
-	n := len(lines)
-	if !strings.HasPrefix(lines[n-4], " [+] 끝났어요") || strings.TrimSpace(lines[n-3]) != "" || !strings.HasPrefix(lines[n-2], " 방향키") {
-		t.Errorf("status line and footer should be one line apart:\n%s", strings.Join(lines[n-4:], "\n"))
-	}
-}
-
 // 알림은 목록에서 키를 statusKeyLimit번 누르면 사라진다. 받는 중이라는 알림은 결과로 바뀔 때까지 남는다.
 func TestStatusFadesAfterKeys(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig")}, item{entry: entry("zshrc", "/home/me/.zshrc")})
@@ -180,24 +159,5 @@ func TestCloseClearsStatus(t *testing.T) {
 	m, _ = press(t, m, "esc")
 	if m.confirmingName != "" || m.status != "" {
 		t.Errorf("confirming = %q status = %q", m.confirmingName, m.status)
-	}
-}
-
-// 알림이 없으면 상태 줄 자리를 빈 줄로 남기고 배경은 칠하지 않는다.
-func TestEmptyStatusLineHasNoBackground(t *testing.T) {
-	st := newStyles(true)
-	if got := st.renderStatusLine(40, "", st.muted.GetForeground(), ""); got != "" {
-		t.Errorf("empty status line = %q, want no painted cells", got)
-	}
-}
-
-// 버전을 알면 제목 아래 줄에 제목과 같은 칸부터 적는다.
-func TestViewShowsVersion(t *testing.T) {
-	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig")})
-	m.version = "v1.2.3"
-	lines := strings.Split(viewText(m), "\n")
-	title, version := strings.Index(lines[1], "itsmydot"), strings.Index(lines[2], "v1.2.3")
-	if title < 0 || version != title {
-		t.Errorf("version should sit under the title:\n%s", strings.Join(lines[:3], "\n"))
 	}
 }

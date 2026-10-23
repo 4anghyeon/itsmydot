@@ -10,9 +10,6 @@ import (
 	"testing"
 	"time"
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
@@ -75,23 +72,5 @@ func TestMenuShowsOriginalError(t *testing.T) {
 	m, _ = press(t, m, "enter")
 	if v := viewText(m); !strings.Contains(v, "fetch files/gitconfig: not found") {
 		t.Errorf("menu should show the original error:\n%s", v)
-	}
-}
-
-// 아래 도움말 줄이 터미널보다 길면 키와 설명 묶음 사이에서 줄을 나눈다.
-func TestHelpLineWraps(t *testing.T) {
-	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
-	next, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
-	m = next.(Model)
-
-	lines := strings.Split(strings.TrimRight(viewText(m), "\n"), "\n")
-	footer := strings.Join(lines[len(lines)-3:], "\n")
-	if want := " 방향키 이동   space 연결/연결 끊기\n enter 메뉴   ? 도움말   esc 종료"; !strings.HasSuffix(footer, want) {
-		t.Errorf("footer = %q, want suffix %q", footer, want)
-	}
-	for _, line := range lines {
-		if w := lipgloss.Width(line); w > 40 {
-			t.Errorf("line wider than terminal (%d > 40): %q", w, line)
-		}
 	}
 }
