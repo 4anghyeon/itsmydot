@@ -87,22 +87,6 @@ type styles struct {
 	diffHunk                                      lipgloss.Style
 }
 
-// diffStyles 는 비교 보기에서 지운 줄이나 추가한 줄 한쪽을 그리는 스타일이다.
-// 글자 색은 터미널 기본색을 두고 배경만 칠한다. 빨간 배경에 빨간 글자는 읽기 어렵다.
-type diffStyles struct {
-	line, number, word, marker lipgloss.Style
-}
-
-// newDiffStyles 는 tones로 칠하는 diffStyles를 만든다. marker는 +나 - 표시라서 줄 배경 위에 mark 색 글자로 그린다.
-func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
-	return diffStyles{
-		line:   lipgloss.NewStyle().Background(tones.line),
-		number: lipgloss.NewStyle().Background(tones.number).Foreground(muted),
-		word:   lipgloss.NewStyle().Background(tones.word),
-		marker: lipgloss.NewStyle().Background(tones.line).Foreground(mark).Bold(true),
-	}
-}
-
 // newStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
 func newStyles(dark bool) styles {
 	p := lightPalette
