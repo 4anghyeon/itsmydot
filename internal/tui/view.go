@@ -63,18 +63,7 @@ func (m Model) View() tea.View {
 
 	marker, tone := "", notSynced
 	if status != "" {
-		switch m.statusTone {
-		case statusDone:
-			marker, tone = synced.marker(), synced
-		case statusUnlinked:
-			marker, tone = notSynced.marker(), notSynced
-		case statusFailed:
-			marker, tone = errored.marker(), errored
-		case statusBusy:
-			marker, tone = m.renderMarker(syncing), syncing
-		case statusInfo:
-			// 결과가 아니라 알림이라 표시 없이 글만 보여 준다.
-		}
+		marker, tone = m.statusMarker()
 	}
 
 	width := st.pageWidth(m.width, right, append(slices.Concat(list, lower), " "+marker+" "+status)...)

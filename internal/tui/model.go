@@ -96,34 +96,6 @@ type Model struct {
 	animating            bool    // animationTick이 예약돼 있으면 true
 }
 
-// syncResult 는 받기가 끝난 항목 하나의 결과 문구다. index는 목록에서의 위치로 정렬에 쓴다.
-type syncResult struct {
-	index  int
-	text   string
-	failed bool
-}
-
-// statusTone 은 상태 메시지가 어떤 결과인지 나타낸다. 표시는 목록의 체크박스와 같은 뜻으로 쓴다.
-type statusTone int
-
-const (
-	statusInfo     statusTone = iota // 표시 없이 글만 보여 준다
-	statusDone                       // [+] 연결하거나 사본을 받은 일
-	statusUnlinked                   // [ ] 연결을 끊은 일
-	statusFailed                     // [-] 하지 못한 일
-	statusBusy                       // 스피너. 받거나 비교하는 중
-)
-
-// statusKeyLimit 은 알림을 띄운 뒤 목록에서 키를 몇 번 누르면 알림을 지울지다.
-// 결과를 읽을 틈은 주되 다른 일을 이어서 하는 동안 지난 결과가 계속 남아 있지 않게 한다.
-const statusKeyLimit = 3
-
-// notify 는 상태 줄에 text를 띄우고 키 수를 처음부터 다시 센 Model을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m Model) notify(tone statusTone, text string) Model {
-	m.status, m.statusTone, m.keysSinceStatus = text, tone, 0
-	return m
-}
-
 // New 는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [Model.Init] 에서 시작한다.
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	home, _ := os.UserHomeDir() // 실패하면 경로를 줄이지 않고 그대로 보여 줄 뿐이라 무시한다
@@ -185,14 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.confirmingName != "" {
 			return m.handleConfirmKey(key)
 		}
-		// 받거나 비교하는 중이라는 알림은 끝나면 결과로 바뀌므로 지우지 않는다.
-		// 이 키가 새 알림을 띄우면 notify가 수를 다시 센다.
-		if m.status != "" && m.statusTone != statusBusy {
-			m.keysSinceStatus++
-			if m.keysSinceStatus >= statusKeyLimit {
-				m = m.notify(statusInfo, "")
-			}
-		}
+		m = m.countStatusKey()
 		switch key {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit

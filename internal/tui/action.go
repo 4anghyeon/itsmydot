@@ -190,6 +190,13 @@ func (m Model) startSync(indexes ...int) (Model, tea.Cmd) {
 	return m, tea.Batch(append(cmds, m.spinner.Tick)...)
 }
 
+// syncResult 는 받기가 끝난 항목 하나의 결과 문구다. index는 목록에서의 위치로 정렬에 쓴다.
+type syncResult struct {
+	index  int
+	text   string
+	failed bool
+}
+
 // applySynced 는 syncEntry의 결과를 해당 항목에 반영한다.
 // 그룹 파일과 하위 파일을 함께 받으면 결과가 따로 도착한다. 먼저 온 결과의 백업 안내가 묻히지 않도록
 // 모두 끝날 때까지 모아 두었다가 목록 순서대로 한 줄에 보여 준다.
