@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,8 +13,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/diff"
-	"github.com/4anghyeon/itsmydot/internal/github"
-	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
 // diffScreen 은 비교 보기 화면의 내용과 스크롤 위치다.
@@ -50,14 +47,6 @@ type diffLayout struct {
 	contentWidth  int  // 줄 번호와 +/- 표시를 뺀 내용 칸의 폭
 	maxXOffset    int  // 가장 긴 내용이 끝까지 보이는 가로 위치
 	scrollbar     bool // 한 화면에 다 들어가지 않으면 true
-}
-
-// diffLoadedMsg 는 저장소 최신본과 비교한 결과다. 두 파일이 같으면 hunks가 비어 있다.
-type diffLoadedMsg struct {
-	name    string
-	hunks   []diff.Hunk
-	err     error
-	current bool // 로컬 사본 대신 target 자리의 지금 파일과 비교했으면 true. 충돌 질문에서 연 비교다
 }
 
 // diffHorizontalStep 은 좌우 방향키 한 번에 옆으로 미는 칸 수다.
@@ -115,23 +104,6 @@ func (m Model) conflictedIndex() int {
 		}
 	}
 	return -1
-}
-
-// compareWithRepo 는 저장소 최신본을 받아 path의 파일과 비교한다. 디스크는 바꾸지 않는다.
-func compareWithRepo(ctx context.Context, client *github.Client, e manifest.Entry, path string) diffLoadedMsg {
-	msg := diffLoadedMsg{name: e.Name}
-	remote, err := client.Fetch(ctx, e.Source)
-	if err != nil {
-		msg.err = err
-		return msg
-	}
-	local, err := os.ReadFile(path)
-	if err != nil {
-		msg.err = err
-		return msg
-	}
-	msg.hunks, msg.err = diff.Compare(local, remote)
-	return msg
 }
 
 // applyDiff 는 비교 결과로 비교 보기 화면을 연다. 차이가 없거나 비교할 수 없으면 화면 대신 한 줄로 알린다.
