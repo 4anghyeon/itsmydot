@@ -42,6 +42,13 @@ type previewLayout struct {
 // previewReadOnlyText 는 미리보기 창 아래에 두는 안내다. 동기화는 저장소에서 이 컴퓨터로 한 방향이라 여기서는 고칠 수 없다.
 const previewReadOnlyText = "읽기 전용이에요. 고치려면 GitHub 저장소에서 편집해 주세요"
 
+// previewSeparator 는 목록 칸과 미리보기 칸 사이의 세로 구분선이다.
+const previewSeparator = " │ "
+
+// previewMinWidth 는 목록 옆에 미리보기 칸을 붙일 때 그 칸에 필요한 가장 좁은 폭이다.
+// 읽기 전용 안내가 한 줄에 들어가는 폭이고 이보다 좁으면 화면 전체에 그린다.
+const previewMinWidth = 60
+
 // openPreview 는 커서 항목의 미리보기 창을 연다.
 // 로컬 사본이 시작할 때 본 저장소 파일과 같으면 사본을 읽고 아니면 저장소 파일을 보여 준다.
 // 저장소 파일은 처음 열 때만 백그라운드로 받고 그 뒤로는 캐시에서 꺼낸다.
@@ -136,6 +143,7 @@ func (m Model) clampPreviewOffsets(layout previewLayout, y, x int) (int, int) {
 }
 
 // computePreviewLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 안내, 도움말 줄을 빼고 남는 만큼을 쓴다.
+// 목록 옆에 붙일 때도 위아래로 빼는 줄은 같고 폭만 목록 칸과 구분선을 뺀 만큼이다.
 func (m Model) computePreviewLayout(st styles) previewLayout {
 	lines := m.preview.lines
 	layout := previewLayout{height: min(len(lines), diffMaxHeight)}
@@ -159,7 +167,9 @@ func (m Model) computePreviewLayout(st styles) previewLayout {
 	}
 	prefix := previewPrefixWidth(layout.numberWidth)
 	layout.width = prefix + longest + scrollbarWidth
-	if m.width > 0 {
+	if listWidth, split := m.previewSplit(st); split {
+		layout.width = m.width - listWidth - lipgloss.Width(previewSeparator)
+	} else if m.width > 0 {
 		// 본문 앞에 화면 왼쪽 여백 한 칸을 둔다.
 		layout.width = max(m.width-1, 1)
 	}
@@ -210,19 +220,68 @@ func (m Model) renderPreviewLines(st styles, layout previewLayout) []string {
 	return append(lines, "", st.muted.Render(previewReadOnlyText))
 }
 
+// renderPreviewCounter 는 지금 보이는 마지막 줄과 전체 줄 수다. 내용 대신 안내를 보여 줄 때는 빈 문자열이다.
+func (m Model) renderPreviewCounter(st styles, layout previewLayout) string {
+	if len(m.preview.lines) == 0 {
+		return ""
+	}
+	y, _ := m.clampPreviewOffsets(layout, m.preview.yOffset, m.preview.xOffset)
+	return st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(m.preview.lines)))
+}
+
+// renderPreviewHelp 는 미리보기 창이 떠 있을 때의 아래 도움말 줄이다.
+func (m Model) renderPreviewHelp(st styles) string {
+	return st.renderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "tab/esc", "닫기")
+}
+
 // previewView 는 목록 대신 미리보기 창을 화면 전체에 그린다.
 func (m Model) previewView(st styles) tea.View {
 	layout := m.computePreviewLayout(st)
-	right := ""
-	if len(m.preview.lines) > 0 {
-		y, _ := m.clampPreviewOffsets(layout, m.preview.yOffset, m.preview.xOffset)
-		right = st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(m.preview.lines)))
-	}
-
+	right := m.renderPreviewCounter(st, layout)
 	var lines []string
 	for _, line := range m.renderPreviewLines(st, layout) {
 		lines = append(lines, " "+line)
 	}
-	footer := st.renderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "tab/esc", "닫기")
-	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
+	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, lines...), m.version, right, lines, m.renderPreviewHelp(st)))
+}
+
+// previewSplit 은 미리보기 창을 목록 오른쪽에 나눠 그릴지와 그때 목록 칸의 폭을 알려 준다.
+// 목록 칸은 가장 긴 항목 줄에 맞추고 남은 폭이 previewMinWidth 이상일 때만 나눈다. 터미널 폭을 모르면 나누지 않는다.
+func (m Model) previewSplit(st styles) (listWidth int, split bool) {
+	if m.preview.name == "" || m.width <= 0 {
+		return 0, false
+	}
+	lines, _ := m.renderItemLines(st)
+	for _, line := range lines {
+		listWidth = max(listWidth, lipgloss.Width(line))
+	}
+	return listWidth, m.width-listWidth-lipgloss.Width(previewSeparator) >= previewMinWidth
+}
+
+// joinPreview 는 목록 화면의 줄 left 오른쪽에 구분선을 두고 미리보기 창을 붙인다. 높이는 둘 중 긴 쪽에 맞춘다.
+// 화면 머리에는 목록의 게이지가 있으므로 줄 수는 창 제목 끝에 붙인다.
+func (m Model) joinPreview(st styles, left []string, listWidth int) []string {
+	layout := m.computePreviewLayout(st)
+	right := m.renderPreviewLines(st, layout)
+	if counter := m.renderPreviewCounter(st, layout); counter != "" {
+		titleEnd := strings.Count(m.renderPreviewTitle(st), "\n")
+		right[titleEnd] += "  " + counter
+	}
+
+	// 설명과 상태 줄은 여러 줄이 한 문자열에 들어 있고 받기 실패 안내는 칸보다 길 수 있어서 화면 줄 단위로 다시 나눈다.
+	left = strings.Split(strings.Join(left, "\n"), "\n")
+	right = strings.Split(ansi.Wrap(strings.Join(right, "\n"), layout.width, " "), "\n")
+	separator := st.muted.Render(previewSeparator)
+	joined := make([]string, max(len(left), len(right)))
+	for i := range joined {
+		var l, r string
+		if i < len(left) {
+			l = left[i]
+		}
+		if i < len(right) {
+			r = right[i]
+		}
+		joined[i] = l + strings.Repeat(" ", max(listWidth-lipgloss.Width(l), 0)) + separator + r
+	}
+	return joined
 }

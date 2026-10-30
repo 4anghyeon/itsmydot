@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
@@ -196,5 +197,69 @@ func TestPreviewScroll(t *testing.T) {
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	if m = next.(Model); m.preview.yOffset != 0 {
 		t.Errorf("yOffset = %d after home", m.preview.yOffset)
+	}
+}
+
+// 터미널이 넓으면 목록 오른쪽에 구분선을 두고 창을 붙인다. 머리에는 목록의 게이지가 그대로 있고 줄 수는 창 제목 끝에 붙는다.
+// 좁으면 나누지 않고 화면 전체에 그린다.
+func TestPreviewSplitsWideTerminal(t *testing.T) {
+	content := "[user]\n\tname = me\n"
+	m := previewFixture(t, map[string]string{"files/git/.gitconfig": content}, content, item{entry: entry("zshrc", "/home/me/.zshrc")})
+	m, _ = press(t, m, "tab")
+
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
+	m = next.(Model)
+	v := viewText(m)
+	for _, want := range []string{
+		"연결됨 1/2",
+		"▌ [+] gitconfig  ~/.gitconfig │ gitconfig  ~/.gitconfig  로컬 사본  2/2줄",
+		"  [ ] zshrc      ~/.zshrc     │ ",
+		"│ 1  [user]",
+		"│ " + previewReadOnlyText,
+		"tab/esc 닫기",
+	} {
+		if !strings.Contains(v, want) {
+			t.Errorf("split view missing %q:\n%s", want, v)
+		}
+	}
+	for _, line := range strings.Split(v, "\n") {
+		if w := ansi.StringWidth(line); w > 120 {
+			t.Errorf("line wider than terminal (%d > 120): %q", w, line)
+		}
+	}
+
+	// 창이 목록 옆에 있어도 키는 창이 받는다.
+	m, _ = press(t, m, "down")
+	if m.cursor != 0 {
+		t.Errorf("cursor moved to %d while the preview had focus", m.cursor)
+	}
+
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	v = viewText(next.(Model))
+	if strings.Contains(v, "[+] gitconfig") || !strings.Contains(v, "2/2줄") || !strings.Contains(v, " 1  [user]") {
+		t.Errorf("narrow terminal should show the preview full screen:\n%s", v)
+	}
+}
+
+// 목록 옆에 붙인 창도 화면 전체일 때와 같은 높이로 본문을 자른다.
+func TestPreviewSplitHeight(t *testing.T) {
+	var text strings.Builder
+	for i := 1; i <= 30; i++ {
+		_, _ = fmt.Fprintf(&text, "line %d\n", i)
+	}
+	m := previewFixture(t, map[string]string{"files/git/.gitconfig": text.String()}, text.String())
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 18})
+	m, _ = press(t, next.(Model), "tab")
+
+	v := viewText(m)
+	if !strings.Contains(v, "6/30줄") || !strings.Contains(v, "line 6") || strings.Contains(v, "line 7") {
+		t.Fatalf("split first page:\n%s", v)
+	}
+	if lines := strings.Count(v, "\n"); lines > 18 {
+		t.Errorf("split view is %d lines tall in an 18 line terminal:\n%s", lines, v)
+	}
+	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+	if v := viewText(next.(Model)); !strings.Contains(v, "30/30줄") {
+		t.Errorf("end should scroll the split preview:\n%s", v)
 	}
 }

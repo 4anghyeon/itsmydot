@@ -63,12 +63,12 @@ func TestViewShowsCursorDescription(t *testing.T) {
 }
 
 func TestRenderDescriptionWrapsUnderBar(t *testing.T) {
-	m := Model{width: 13}
-	got := ansi.Strip(m.renderDescription(newStyles(true), "one two three"))
+	st := newStyles(true)
+	got := ansi.Strip(st.renderDescription("one two three", 13))
 	if want := "┃ one two\n  three"; got != want {
 		t.Errorf("descriptionBlock = %q, want %q", got, want)
 	}
-	if got := m.renderDescription(newStyles(true), ""); got != "" {
+	if got := st.renderDescription("", 13); got != "" {
 		t.Errorf("empty description = %q", got)
 	}
 }
