@@ -42,6 +42,7 @@ func (m Model) helpView(st styles) tea.View {
 		{st.key.Render("방향키"), "항목을 옮기고 그룹을 접거나 펼쳐요"},
 		{st.key.Render("space"), "항목을 연결하거나 연결을 끊어요"},
 		{st.key.Render("enter"), "항목 메뉴를 열어요"},
+		{st.key.Render("tab"), "항목 파일 내용을 미리 봐요"},
 		{st.key.Render("esc"), "화면을 닫거나 프로그램을 끝내요"},
 	})...)
 

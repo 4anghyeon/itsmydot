@@ -11,7 +11,7 @@ import (
 	"github.com/aymanbagabas/go-udiff"
 )
 
-// MaxSize 는 비교할 수 있는 파일 하나의 최대 크기다. dotfile은 보통 수 KB라서
+// MaxSize 는 비교하거나 미리 볼 수 있는 파일 하나의 최대 크기다. dotfile은 보통 수 KB라서
 // 이보다 크면 화면에서 읽을 만한 diff가 나오지 않고 계산만 오래 걸린다.
 const MaxSize = 1 << 20
 
@@ -49,12 +49,8 @@ type Hunk struct {
 // 줄 단위 비교가 의미 없는 파일은 diff 대신 [ErrBinary] 나 [ErrTooLarge] 를 돌려준다.
 func Compare(before, after []byte) ([]Hunk, error) {
 	for _, data := range [][]byte{before, after} {
-		// 크기를 먼저 봐야 큰 파일에서 NUL 바이트를 찾느라 전체를 훑지 않는다.
-		if len(data) > MaxSize {
-			return nil, ErrTooLarge
-		}
-		if bytes.IndexByte(data, 0) >= 0 {
-			return nil, ErrBinary
+		if err := CheckText(data); err != nil {
+			return nil, err
 		}
 	}
 
@@ -89,6 +85,18 @@ func Compare(before, after []byte) ([]Hunk, error) {
 		hunks = append(hunks, hunk)
 	}
 	return hunks, nil
+}
+
+// CheckText 는 data가 줄 단위로 보여 줄 만한 텍스트인지 확인한다. 아니면 [ErrTooLarge] 나 [ErrBinary] 를 돌려준다.
+func CheckText(data []byte) error {
+	// 크기를 먼저 봐야 큰 파일에서 NUL 바이트를 찾느라 전체를 훑지 않는다.
+	if len(data) > MaxSize {
+		return ErrTooLarge
+	}
+	if bytes.IndexByte(data, 0) >= 0 {
+		return ErrBinary
+	}
+	return nil
 }
 
 // Header 는 @@ -1,3 +1,4 @@ 꼴의 hunk 머리줄이다.

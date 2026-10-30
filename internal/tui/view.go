@@ -12,6 +12,7 @@ import (
 
 // View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
 // 도움말이나 비교 보기 화면이 열려 있으면 그 화면을 그린다.
+// 미리보기 창은 터미널이 넓으면 목록 오른쪽에 붙이고 좁으면 목록 대신 화면 전체에 그린다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
 	if m.helpOpen {
@@ -20,10 +21,20 @@ func (m Model) View() tea.View {
 	if m.diffScreen.name != "" {
 		return m.diffView(st)
 	}
+	listWidth, split := m.previewSplit(st)
+	if m.preview.name != "" && !split {
+		return m.previewView(st)
+	}
 
 	right := ""
 	if m.ready && m.loadErr == nil && len(m.items) > 0 {
 		right = st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), len(m.items))) + st.renderGauge(m.gauge)
+	}
+
+	// 목록 옆에 미리보기 창을 붙이면 설명과 구분선, 상태 줄은 화면 대신 목록 칸 폭에 맞춘다.
+	textWidth := m.width
+	if split {
+		textWidth = listWidth
 	}
 
 	var list, lower []string
@@ -41,10 +52,10 @@ func (m Model) View() tea.View {
 	default:
 		list, selected = m.renderItemLines(st)
 		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 화면 높이가 출렁이지 않게 한다.
-		lower = append(lower, " "+m.renderDescription(st, m.items[m.cursor].entry.Description))
+		lower = append(lower, " "+st.renderDescription(m.items[m.cursor].entry.Description, textWidth))
 	}
 
-	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "tab", "미리보기", "?", "도움말", "esc", "종료")
 	status := m.status
 	if m.confirmingName != "" {
 		var numbers []string
@@ -60,13 +71,20 @@ func (m Model) View() tea.View {
 	}
 
 	width := st.pageWidth(m.width, right, append(slices.Concat(list, lower), " "+marker+" "+status)...)
+	column := width
+	if split {
+		column = listWidth
+	}
 	if selected >= 0 {
-		// 선택한 줄은 배경을 화면 끝까지 칠한다.
-		list[selected] += lipgloss.NewStyle().Background(st.selection).Render(strings.Repeat(" ", max(width-lipgloss.Width(list[selected]), 0)))
+		// 선택한 줄은 배경을 목록 칸 끝까지 칠한다.
+		list[selected] += lipgloss.NewStyle().Background(st.selection).Render(strings.Repeat(" ", max(column-lipgloss.Width(list[selected]), 0)))
 	}
 	// 설명이나 질문은 구분선 바로 아래에 붙여서 목록과 멀어지지 않게 한다.
-	lines := append(append(list, "", st.renderRule(width)), lower...)
-	lines = append(lines, "", st.renderStatusLine(width, marker, st.stateColor(tone), status))
+	lines := append(append(list, "", st.renderRule(column)), lower...)
+	lines = append(lines, "", st.renderStatusLine(column, marker, st.stateColor(tone), status))
+	if split {
+		lines, footer = m.joinPreview(st, lines, listWidth), m.renderPreviewHelp(st)
+	}
 	return tea.NewView(st.renderPage(width, m.version, right, lines, footer))
 }
 
@@ -137,15 +155,15 @@ func (m Model) renderItemLines(st styles) (lines []string, selected int) {
 	return lines, selected
 }
 
-// renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다.
-func (m Model) renderDescription(st styles, text string) string {
+// renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다. 폭 width를 넘으면 줄을 바꾸고 0이면 바꾸지 않는다.
+func (st styles) renderDescription(text string, width int) string {
 	if text == "" {
 		return ""
 	}
 	const indent = 2
-	if m.width > 0 {
+	if width > 0 {
 		// 설명 앞에는 화면 왼쪽 여백 한 칸이 더 붙는다.
-		text = ansi.Wrap(text, max(m.width-1-indent, 1), " ")
+		text = ansi.Wrap(text, max(width-1-indent, 1), " ")
 	}
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
