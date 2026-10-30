@@ -38,6 +38,8 @@ func press(t *testing.T, m Model, key string) (Model, tea.Cmd) {
 		msg = tea.KeyPressMsg{Code: tea.KeyEscape}
 	case "enter":
 		msg = tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "tab":
+		msg = tea.KeyPressMsg{Code: tea.KeyTab}
 	default:
 		msg = tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}

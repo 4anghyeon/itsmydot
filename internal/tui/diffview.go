@@ -67,7 +67,7 @@ func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
 // diffHorizontalStep 은 좌우 방향키 한 번에 옆으로 미는 칸 수다.
 const diffHorizontalStep = 8
 
-// diffMaxHeight 는 터미널 높이를 모를 때 diff 본문을 보여 줄 최대 줄 수다.
+// diffMaxHeight 는 터미널 높이를 모를 때 비교 보기와 미리보기 본문을 보여 줄 최대 줄 수다.
 const diffMaxHeight = 20
 
 // tabWidth 는 탭 하나를 펼칠 칸 수다. 터미널마다 탭 폭이 달라 그대로 두면 줄 번호와 배경 칸이 어긋난다.
@@ -78,33 +78,41 @@ const noNewlineText = `\ No newline at end of file`
 
 // handleDiffKey 는 비교 보기 화면의 키 입력을 처리한다. esc나 q로 닫으면 화면을 열기 전으로 돌아간다.
 func (m Model) handleDiffKey(key string) (Model, tea.Cmd) {
-	layout := m.computeDiffLayout(newStyles(!m.light))
-	y, x := m.diffScreen.yOffset, m.diffScreen.xOffset
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "esc", "q":
 		m.diffScreen = diffScreen{}
 		return m, nil
+	}
+	layout := m.computeDiffLayout(newStyles(!m.light))
+	y, x := scrollBy(key, m.diffScreen.yOffset, m.diffScreen.xOffset, layout.height, len(m.diffScreen.rows))
+	m.diffScreen.yOffset, m.diffScreen.xOffset = m.clampDiffOffsets(layout, y, x)
+	return m, nil
+}
+
+// scrollBy 는 스크롤 키에 맞춰 세로 위치 y와 가로 위치 x를 옮긴다. 비교 보기와 미리보기가 같은 키를 쓴다.
+// page는 한 쪽의 줄 수이고 total은 전체 줄 수다. 내용 밖으로 나간 위치는 부르는 쪽에서 자른다.
+func scrollBy(key string, y, x, page, total int) (int, int) {
+	switch key {
 	case "up", "k":
 		y--
 	case "down", "j":
 		y++
 	case "pgup":
-		y -= layout.height
+		y -= page
 	case "pgdown", "space":
-		y += layout.height
+		y += page
 	case "home":
 		y = 0
 	case "end":
-		y = len(m.diffScreen.rows)
+		y = total
 	case "left", "h":
 		x -= diffHorizontalStep
 	case "right", "l":
 		x += diffHorizontalStep
 	}
-	m.diffScreen.yOffset, m.diffScreen.xOffset = m.clampDiffOffsets(layout, y, x)
-	return m, nil
+	return y, x
 }
 
 // clampDiffOffsets 는 스크롤 위치를 내용이 있는 범위 안으로 자른다.

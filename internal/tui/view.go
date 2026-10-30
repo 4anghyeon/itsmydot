@@ -11,7 +11,7 @@ import (
 )
 
 // View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
-// 도움말이나 비교 보기 화면이 열려 있으면 그 화면을 그린다.
+// 도움말이나 비교 보기 화면, 미리보기 창이 열려 있으면 그 화면을 그린다.
 func (m Model) View() tea.View {
 	st := newStyles(!m.light)
 	if m.helpOpen {
@@ -19,6 +19,9 @@ func (m Model) View() tea.View {
 	}
 	if m.diffScreen.name != "" {
 		return m.diffView(st)
+	}
+	if m.preview.name != "" {
+		return m.previewView(st)
 	}
 
 	right := ""
@@ -44,7 +47,7 @@ func (m Model) View() tea.View {
 		lower = append(lower, " "+m.renderDescription(st, m.items[m.cursor].entry.Description))
 	}
 
-	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "?", "도움말", "esc", "종료")
+	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "tab", "미리보기", "?", "도움말", "esc", "종료")
 	status := m.status
 	if m.confirmingName != "" {
 		var numbers []string

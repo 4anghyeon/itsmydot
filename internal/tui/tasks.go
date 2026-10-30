@@ -14,8 +14,9 @@ import (
 
 // entriesLoadedMsg 는 manifest를 불러와 각 항목의 상태까지 확인한 결과다.
 type entriesLoadedMsg struct {
-	items []item
-	err   error
+	items  []item
+	hashes map[string]string // 저장소 파일의 blob 해시. 받지 못했으면 nil이다
+	err    error
 }
 
 // entrySyncedMsg 는 syncEntry나 fetchCopy가 항목 하나를 받아 온 결과다.
@@ -32,6 +33,14 @@ type diffLoadedMsg struct {
 	hunks   []diff.Hunk
 	err     error
 	current bool // 로컬 사본 대신 target 자리의 지금 파일과 비교했으면 true. 충돌 질문에서 연 비교다
+}
+
+// previewLoadedMsg 는 미리보기 창에 보여 줄 저장소 파일을 받아 온 결과다. key는 캐시에 넣을 정리한 source 경로다.
+type previewLoadedMsg struct {
+	name string
+	key  string
+	data []byte
+	err  error
 }
 
 // loadEntries 는 GitHub에서 manifest를 받아 파싱하고 각 항목의 현재 상태를 확인한다. 디스크는 바꾸지 않는다.
@@ -55,7 +64,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 			items = append(items, checkItem(child, e.Name, copies, hashes))
 		}
 	}
-	return entriesLoadedMsg{items: items}
+	return entriesLoadedMsg{items: items, hashes: hashes}
 }
 
 // checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.

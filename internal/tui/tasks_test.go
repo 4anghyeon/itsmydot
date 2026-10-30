@@ -92,6 +92,9 @@ func TestLoadEntriesMarksOutdated(t *testing.T) {
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
+	if len(msg.hashes) != 4 {
+		t.Errorf("hashes = %v, want the repo file hashes for the preview", msg.hashes)
+	}
 	for i, want := range []bool{true, false, false} {
 		if got := msg.items[i].outdated; got != want {
 			t.Errorf("%s: outdated = %v, want %v", msg.items[i].entry.Name, got, want)

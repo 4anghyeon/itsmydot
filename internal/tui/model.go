@@ -74,6 +74,9 @@ type Model struct {
 	statusTone      statusTone // status가 어떤 결과인지. 상태 줄 앞의 표시를 고른다
 	keysSinceStatus int        // status를 띄운 뒤 목록에서 누른 키 수. statusKeyLimit에 닿으면 status를 지운다
 
+	// hashes 는 시작할 때 받은 저장소 파일의 blob 해시다. 정리한 source 경로가 키이고 받지 못했으면 nil이다.
+	hashes map[string]string
+
 	// collapsed 는 접힌 그룹의 이름이다. Model이 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
 	collapsed map[string]bool
 
@@ -88,6 +91,12 @@ type Model struct {
 	comparingName string     // 비교할 저장소 최신본을 받는 중인 항목의 이름. 없으면 빈 문자열이다
 	diffScreen    diffScreen // 비교 보기 화면. name이 비어 있으면 닫혀 있다
 	helpOpen      bool       // ?로 연 도움말 화면이 떠 있으면 true
+
+	// preview 는 tab으로 연 미리보기 창이다. name이 비어 있으면 닫혀 있다.
+	preview previewScreen
+
+	// previewCache 는 미리보기로 받은 저장소 파일의 내용이다. 정리한 source 경로가 키이고 바꿀 때는 새 map을 만든다.
+	previewCache map[string][]byte
 
 	spinner     spinner.Model // 받는 중인 항목이 있거나 비교할 파일을 받는 중일 때만 돈다
 	syncResults []syncResult  // 아직 받는 중인 항목이 있어서 상태 메시지로 내보내지 않은 결과
@@ -116,6 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case entriesLoadedMsg:
 		m.ready = true
 		m.items = msg.items
+		m.hashes = msg.hashes
 		m.loadErr = msg.err
 		m.gauge = m.syncedRatio() // 처음 불러올 때는 애니메이션 없이 바로 맞춘다
 		return m, nil
@@ -125,6 +135,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case diffLoadedMsg:
 		return m.applyDiff(msg), nil
+
+	case previewLoadedMsg:
+		return m.applyPreview(msg), nil
 
 	case animationTickMsg:
 		return m.stepAnimation()
@@ -139,7 +152,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
-		if m.comparingName == "" && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+		if m.comparingName == "" && !m.preview.loading && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -153,6 +166,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.diffScreen.name != "" {
 			return m.handleDiffKey(key)
+		}
+		if m.preview.name != "" {
+			return m.handlePreviewKey(key)
 		}
 		if m.confirmingName != "" {
 			return m.handleConfirmKey(key)
@@ -173,6 +189,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.toggle()
 		case "enter":
 			return m.openMenu(), nil
+		case "tab":
+			return m.openPreview()
 		case "?":
 			m.helpOpen = true
 		}
