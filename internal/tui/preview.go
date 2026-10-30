@@ -121,6 +121,7 @@ func (m Model) showPreview(data []byte, err error) Model {
 }
 
 // handlePreviewKey 는 미리보기 창의 키 입력을 처리한다. 스크롤은 비교 보기와 같은 키를 쓰고 tab이나 esc, q로 닫으면 목록으로 돌아간다.
+// 업데이트가 있는 항목이면 enter로 차이 보기를 연다.
 func (m Model) handlePreviewKey(key string) (Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
@@ -128,11 +129,39 @@ func (m Model) handlePreviewKey(key string) (Model, tea.Cmd) {
 	case "tab", "esc", "q":
 		m.preview = previewScreen{}
 		return m, nil
+	case "enter":
+		return m.openPreviewDiff(), nil
 	}
 	layout := m.computePreviewLayout(newStyles(!m.light))
 	y, x := scrollBy(key, m.preview.yOffset, m.preview.xOffset, layout.height, len(m.preview.lines))
 	m.preview.yOffset, m.preview.xOffset = m.clampPreviewOffsets(layout, y, x)
 	return m, nil
+}
+
+// previewDiffAvailable 은 미리보기 창에서 차이 보기를 열 수 있는지 알려 준다.
+// 목록에 업데이트 있음으로 표시된 항목이고 저장소 파일을 텍스트로 받아 둔 때만 연다.
+func (m Model) previewDiffAvailable() bool {
+	i := m.indexOf(m.preview.name)
+	return i >= 0 && m.items[i].state == synced && m.items[i].outdated && m.preview.fromRepo && len(m.preview.lines) > 0
+}
+
+// openPreviewDiff 는 로컬 사본과 미리보기로 받아 둔 저장소 파일의 차이를 비교 보기 화면으로 연다.
+// 저장소 파일을 다시 받지 않을 뿐 메뉴에서 연 비교와 같아서 결과는 [Model.applyDiff] 로 넘긴다.
+// 미리보기 창은 그대로 두므로 비교 보기를 닫으면 미리보기로 돌아온다.
+func (m Model) openPreviewDiff() Model {
+	if !m.previewDiffAvailable() {
+		return m
+	}
+	it := m.items[m.indexOf(m.preview.name)]
+	msg := diffLoadedMsg{name: it.entry.Name}
+	local, err := os.ReadFile(it.copyPath)
+	if err != nil {
+		msg.err = err
+	} else {
+		msg.hunks, msg.err = diff.Compare(local, m.previewCache[path.Clean(it.entry.Source)])
+	}
+	m.comparingName = it.entry.Name
+	return m.applyDiff(msg)
 }
 
 // clampPreviewOffsets 는 스크롤 위치를 내용이 있는 범위 안으로 자른다.
@@ -229,9 +258,13 @@ func (m Model) renderPreviewCounter(st styles, layout previewLayout) string {
 	return st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(m.preview.lines)))
 }
 
-// renderPreviewHelp 는 미리보기 창이 떠 있을 때의 아래 도움말 줄이다.
+// renderPreviewHelp 는 미리보기 창이 떠 있을 때의 아래 도움말 줄이다. 차이 보기는 열 수 있을 때만 알린다.
 func (m Model) renderPreviewHelp(st styles) string {
-	return st.renderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "tab/esc", "닫기")
+	pairs := []string{"방향키", "스크롤", "pgup/pgdn", "한 쪽씩"}
+	if m.previewDiffAvailable() {
+		pairs = append(pairs, "enter", "차이 보기")
+	}
+	return st.renderHelp(m.width, append(pairs, "tab/esc", "닫기")...)
 }
 
 // previewView 는 목록 대신 미리보기 창을 화면 전체에 그린다.

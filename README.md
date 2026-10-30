@@ -44,15 +44,15 @@ go install github.com/4anghyeon/itsmydot/cmd/itsmydot@latest
 itsmydot
 ```
 
-목록에서 원하는 dotfile을 선택한 다음 <kbd>space</kbd>를 눌러 연결하거나 해제합니다. <kbd>enter</kbd>로 여는 항목 메뉴에서는 최신본 받기와 차이 보기도 할 수 있고, <kbd>tab</kbd>을 누르면 파일 내용을 읽기 전용으로 미리 볼 수 있습니다. 기존 파일과 충돌하는 항목은 `[!]`로 표시되며, 처리 결과는 상태 기호로 확인할 수 있습니다.
+목록에서 dotfile을 고르고 <kbd>space</kbd>로 연결하거나 해제합니다.
 
 | 키 | 동작 |
 |---|---|
 | <kbd>↑</kbd> <kbd>↓</kbd> | 항목 이동 |
 | <kbd>←</kbd> <kbd>→</kbd> | 그룹 접기 / 펼치기 |
 | <kbd>space</kbd> | 선택한 항목 연결 / 해제 |
-| <kbd>enter</kbd> | 항목 메뉴 열기 |
-| <kbd>tab</kbd> | 선택한 항목 파일 미리보기 |
+| <kbd>enter</kbd> | 항목 메뉴 열기 (최신본 받기, 차이 보기) |
+| <kbd>tab</kbd> | 파일 미리보기. 업데이트가 있으면 <kbd>enter</kbd>로 차이 보기 |
 | <kbd>?</kbd> | 도움말 |
 | <kbd>esc</kbd> | 화면 닫기 / 종료 |
 

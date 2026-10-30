@@ -263,3 +263,45 @@ func TestPreviewSplitHeight(t *testing.T) {
 		t.Errorf("end should scroll the split preview:\n%s", v)
 	}
 }
+
+// 업데이트가 있는 항목은 미리보기에서 enter로 사본과 저장소 파일의 차이를 연다. 받아 둔 파일을 쓰므로 다시 요청하지 않는다.
+// 비교 보기를 닫으면 미리보기로 돌아온다.
+func TestPreviewOpensDiffForOutdatedItem(t *testing.T) {
+	m := previewFixture(t, map[string]string{"files/git/.gitconfig": "name = you\n"}, "name = me\n")
+	m.items[0].outdated = true
+	m, cmd := press(t, m, "tab")
+	m = runCmd(t, m, cmd)
+	if v := viewText(m); !strings.Contains(v, "enter 차이 보기") {
+		t.Fatalf("footer should offer the diff:\n%s", v)
+	}
+
+	m, cmd = press(t, m, "enter")
+	if cmd != nil || m.diffScreen.name != "gitconfig" || m.comparingName != "" {
+		t.Fatalf("diff = %q comparing = %q cmd = %v", m.diffScreen.name, m.comparingName, cmd != nil)
+	}
+	v := viewText(m)
+	for _, want := range []string{"1    -  name = me", "  1  +  name = you"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("diff missing %q:\n%s", want, v)
+		}
+	}
+
+	m, _ = press(t, m, "esc")
+	if v := viewText(m); m.diffScreen.name != "" || m.preview.name != "gitconfig" || !strings.Contains(v, previewReadOnlyText) {
+		t.Errorf("esc should go back to the preview:\n%s", v)
+	}
+}
+
+// 업데이트 표시가 없는 항목은 도움말 줄에 차이 보기를 알리지 않고 enter를 눌러도 아무것도 열지 않는다.
+func TestPreviewWithoutUpdateHasNoDiff(t *testing.T) {
+	content := "same\n"
+	m := previewFixture(t, map[string]string{"files/git/.gitconfig": content}, content)
+	m, _ = press(t, m, "tab")
+	if v := viewText(m); strings.Contains(v, "차이 보기") {
+		t.Errorf("footer should not offer the diff:\n%s", v)
+	}
+	m, cmd := press(t, m, "enter")
+	if cmd != nil || m.diffScreen.name != "" || m.comparingName != "" || m.preview.name == "" {
+		t.Errorf("enter acted on an item without updates: diff = %q preview = %q", m.diffScreen.name, m.preview.name)
+	}
+}
