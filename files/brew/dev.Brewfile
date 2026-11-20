@@ -10,7 +10,9 @@ brew "wget"                           # 파일 다운로드 도구
 brew "eza"                            # ls 대체
 brew "tree"                           # 디렉토리 트리 출력
 brew "mise"                           # Node/Python 등 런타임 버전 관리
+brew "go"                             # Go 언어 컴파일러와 도구
 brew "lazygit"                        # Git TUI 클라이언트
+brew "fzf"                            # 목록에서 항목을 골라 주는 퍼지 파인더
 brew "ffmpeg"                         # 미디어 인코딩 변환
 brew "PeonPing/tap/peon-ping"         # claude-code 알림 사운드 유틸리티
 
