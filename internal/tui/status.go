@@ -36,7 +36,12 @@ func (m dotfileList) countStatusKey() dotfileList {
 
 // statusMarker 는 상태 줄 앞에 붙일 표시와 그 색을 고를 상태다. 목록의 체크박스와 같은 표시를 쓴다.
 func (m dotfileList) statusMarker() (marker string, tone itemState) {
-	switch m.statusTone {
+	return toneMarker(m.statusTone, m.renderMarker(syncing))
+}
+
+// toneMarker 는 tone에 맞는 상태 줄 표시와 그 색을 고를 상태다. busy는 진행 중일 때 쓸 표시다.
+func toneMarker(tone statusTone, busy string) (marker string, color itemState) {
+	switch tone {
 	case statusDone:
 		return synced.marker(), synced
 	case statusUnlinked:
@@ -44,7 +49,7 @@ func (m dotfileList) statusMarker() (marker string, tone itemState) {
 	case statusFailed:
 		return errored.marker(), errored
 	case statusBusy:
-		return m.renderMarker(syncing), syncing
+		return busy, syncing
 	case statusInfo:
 		// 결과가 아니라 알림이라 표시 없이 글만 보여 준다.
 	}
