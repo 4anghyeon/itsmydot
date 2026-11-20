@@ -23,4 +23,4 @@ cask "supasidebar"                    # 사이드바 접근 도구
 
 # --- AI & Assistants ---
 cask "claude"                         # Claude 데스크탑 앱
-cask "claude-code"                    # Claude Code CLI
+cask "claude-code@latest"             # Claude Code CLI

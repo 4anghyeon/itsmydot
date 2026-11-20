@@ -14,6 +14,10 @@ brew "lazygit"                        # Git TUI 클라이언트
 brew "ffmpeg"                         # 미디어 인코딩 변환
 brew "PeonPing/tap/peon-ping"         # claude-code 알림 사운드 유틸리티
 
+# --- Android ---
+cask "android-commandlinetools"       # Android SDK 명령줄 도구
+cask "android-platform-tools"         # adb와 fastboot
+
 # --- Terminal & Editor ---
 cask "warp"                           # AI 지원 터미널
 cask "zed"
