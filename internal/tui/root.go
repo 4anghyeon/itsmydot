@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -49,8 +50,8 @@ type Model struct {
 	screen screen
 	choice int // 진입 메뉴에서 커서가 있는 선택지. 목록에서 돌아오면 마지막에 고른 메뉴에 그대로 있다
 
-	// dotfilesStarted 는 dotfiles 목록의 manifest 불러오기를 시작했으면 true다. 다시 들어가도 새로 받지 않는다.
-	dotfilesStarted bool
+	// started 는 불러오기를 시작한 목록 화면이다. 다시 들어가도 새로 받지 않는다.
+	started map[screen]bool
 
 	version string
 	width   int  // 터미널 폭. 모르면 0이다
@@ -61,7 +62,7 @@ type Model struct {
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	return Model{
 		dotfiles:  newDotfileList(client, copies, version),
-		brewfiles: brewfileList{version: version},
+		brewfiles: newBrewfileList(client, version),
 		version:   version,
 	}
 }
@@ -117,11 +118,18 @@ func (m Model) handleMenuKey(key string) (Model, tea.Cmd) {
 	}
 	m.choice = picked - 1
 	m.screen = menuOptions[m.choice].screen
-	if m.screen == dotfilesScreen && !m.dotfilesStarted {
-		m.dotfilesStarted = true
-		return m, m.dotfiles.Init()
+	if m.started[m.screen] {
+		return m, nil
 	}
-	return m, nil
+	m.started = maps.Clone(m.started)
+	if m.started == nil {
+		m.started = make(map[screen]bool)
+	}
+	m.started[m.screen] = true
+	if m.screen == brewfilesScreen {
+		return m, m.brewfiles.Init()
+	}
+	return m, m.dotfiles.Init()
 }
 
 // View 는 진입 메뉴나 고른 목록 화면을 그린다.
@@ -194,10 +202,21 @@ func (m Model) renderMenuCard(st styles, i, width int) string {
 		Render(body)
 }
 
-// renderMenuSummary 는 카드 첫 줄 오른쪽에 붙이는 목록 요약이다. dotfiles는 불러온 뒤에만 연결된 비율을 보여 준다.
+// renderMenuSummary 는 카드 첫 줄 오른쪽에 붙이는 목록 요약이다. 목록을 불러온 뒤에만 연결되거나 설치된 비율을 보여 준다.
 func (m Model) renderMenuSummary(st styles, target screen) string {
-	if target != dotfilesScreen || !m.dotfiles.ready || m.dotfiles.loadErr != nil || len(m.dotfiles.items) == 0 {
-		return ""
+	switch target {
+	case dotfilesScreen:
+		if !m.dotfiles.ready || m.dotfiles.loadErr != nil || len(m.dotfiles.items) == 0 {
+			return ""
+		}
+		return st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.dotfiles.syncedCount(), len(m.dotfiles.items))) + st.renderGauge(m.dotfiles.syncedRatio())
+	case brewfilesScreen:
+		installed, total := m.brewfiles.installedCount()
+		if !m.brewfiles.ready || m.brewfiles.missing || m.brewfiles.loadErr != nil || total == 0 {
+			return ""
+		}
+		return st.muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.renderGauge(ratio(installed, total))
+	case menuScreen:
 	}
-	return st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.dotfiles.syncedCount(), len(m.dotfiles.items))) + st.renderGauge(m.dotfiles.syncedRatio())
+	return ""
 }
