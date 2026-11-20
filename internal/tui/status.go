@@ -15,8 +15,8 @@ const (
 // 결과를 읽을 틈은 주되 다른 일을 이어서 하는 동안 지난 결과가 계속 남아 있지 않게 한다.
 const statusKeyLimit = 3
 
-// notify 는 상태 줄에 text를 띄우고 키 수를 처음부터 다시 센 Model을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m Model) notify(tone statusTone, text string) Model {
+// notify 는 상태 줄에 text를 띄우고 키 수를 처음부터 다시 센 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
+func (m dotfileList) notify(tone statusTone, text string) dotfileList {
 	m.status, m.statusTone, m.keysSinceStatus = text, tone, 0
 	return m
 }
@@ -24,7 +24,7 @@ func (m Model) notify(tone statusTone, text string) Model {
 // countStatusKey 는 목록에서 누른 키를 세다가 statusKeyLimit에 닿으면 알림을 지운다.
 // 받거나 비교하는 중이라는 알림은 끝나면 결과로 바뀌므로 세지 않는다.
 // 이 키가 새 알림을 띄우면 notify가 수를 다시 센다.
-func (m Model) countStatusKey() Model {
+func (m dotfileList) countStatusKey() dotfileList {
 	if m.status != "" && m.statusTone != statusBusy {
 		m.keysSinceStatus++
 		if m.keysSinceStatus >= statusKeyLimit {
@@ -35,7 +35,7 @@ func (m Model) countStatusKey() Model {
 }
 
 // statusMarker 는 상태 줄 앞에 붙일 표시와 그 색을 고를 상태다. 목록의 체크박스와 같은 표시를 쓴다.
-func (m Model) statusMarker() (marker string, tone itemState) {
+func (m dotfileList) statusMarker() (marker string, tone itemState) {
 	switch m.statusTone {
 	case statusDone:
 		return synced.marker(), synced

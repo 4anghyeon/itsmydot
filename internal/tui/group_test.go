@@ -11,8 +11,8 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
-// groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 Model을 만든다. 가짜 저장소에는 세 파일이 모두 있다.
-func groupFixture(t *testing.T) (m Model, home string) {
+// groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 목록 모델을 만든다. 가짜 저장소에는 세 파일이 모두 있다.
+func groupFixture(t *testing.T) (m dotfileList, home string) {
 	t.Helper()
 	home = t.TempDir()
 	copies := localcopy.New(t.TempDir())
@@ -39,14 +39,14 @@ func groupFixture(t *testing.T) (m Model, home string) {
 		items[i] = item{entry: e.entry, parent: e.parent, copyPath: copyPath}
 	}
 
-	m = New(client, copies, "")
+	m = newDotfileList(client, copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
-	return next.(Model), home
+	return next.(dotfileList), home
 }
 
 // turnOnEnv 는 하위 항목 env를 켜서 그룹 zshrc까지 연결된 상태를 만든다.
-func turnOnEnv(t *testing.T, m Model) Model {
+func turnOnEnv(t *testing.T, m dotfileList) dotfileList {
 	t.Helper()
 	m, _ = press(t, m, "down")
 	m, cmd := confirmToggle(t, m)

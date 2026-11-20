@@ -1,4 +1,3 @@
-// Package tui 는 itsmydot의 터미널 화면이다. manifest, github, localcopy, link 패키지를 엮어서 항목을 켜고 끈다.
 package tui
 
 import (
@@ -55,8 +54,8 @@ type item struct {
 	flash, flashVelocity float64 // 상태가 바뀐 직후 남아 있는 강조색의 정도와 그 속도. 1에서 0으로 줄어든다
 }
 
-// Model 은 화면의 상태 전부를 담는다.
-type Model struct {
+// dotfileList 는 dotfiles 메뉴의 목록 화면이다. manifest 항목을 보여 주고 켜고 끈다.
+type dotfileList struct {
 	client  *github.Client
 	copies  *localcopy.Dir
 	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
@@ -77,7 +76,7 @@ type Model struct {
 	// hashes 는 시작할 때 받은 저장소 파일의 blob 해시다. 정리한 source 경로가 키이고 받지 못했으면 nil이다.
 	hashes map[string]string
 
-	// collapsed 는 접힌 그룹의 이름이다. Model이 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
+	// collapsed 는 접힌 그룹의 이름이다. dotfileList 가 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
 	collapsed map[string]bool
 
 	// confirmingName 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
@@ -105,22 +104,21 @@ type Model struct {
 	animating            bool    // animationTick이 예약돼 있으면 true
 }
 
-// New 는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [Model.Init] 에서 시작한다.
-func New(client *github.Client, copies *localcopy.Dir, version string) Model {
+// newDotfileList 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [dotfileList.Init] 에서 시작한다.
+func newDotfileList(client *github.Client, copies *localcopy.Dir, version string) dotfileList {
 	home, _ := os.UserHomeDir() // 실패하면 경로를 줄이지 않고 그대로 보여 줄 뿐이라 무시한다
-	return Model{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
+	return dotfileList{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
 }
 
-// Init 은 manifest 불러오기를 시작하고, 색을 고르기 위해 터미널 배경색을 물어본다.
-func (m Model) Init() tea.Cmd {
-	load := func() tea.Msg {
+// Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 dotfiles를 처음 고를 때 한 번만 부른다.
+func (m dotfileList) Init() tea.Cmd {
+	return func() tea.Msg {
 		return loadEntries(context.Background(), m.client, m.copies)
 	}
-	return tea.Batch(load, tea.RequestBackgroundColor)
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
 		m.ready = true
@@ -175,8 +173,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m = m.countStatusKey()
 		switch key {
-		case "q", "esc", "ctrl+c":
+		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "esc":
+			return m, backToMenu
 		case "up", "k":
 			m.cursor = m.nextVisible(m.cursor, -1)
 		case "down", "j":

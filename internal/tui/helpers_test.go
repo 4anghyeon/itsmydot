@@ -19,8 +19,8 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
-// press 는 키 하나를 누른 것처럼 Update를 호출하고 새 Model을 돌려준다.
-func press(t *testing.T, m Model, key string) (Model, tea.Cmd) {
+// press 는 키 하나를 누른 것처럼 Update를 호출하고 새 목록 모델을 돌려준다.
+func press(t *testing.T, m dotfileList, key string) (dotfileList, tea.Cmd) {
 	t.Helper()
 	var msg tea.KeyPressMsg
 	switch key {
@@ -44,13 +44,13 @@ func press(t *testing.T, m Model, key string) (Model, tea.Cmd) {
 		msg = tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}
 	next, cmd := m.Update(msg)
-	return next.(Model), cmd
+	return next.(dotfileList), cmd
 }
 
-func loadedModel(items ...item) Model {
-	m := Model{home: "/home/me"}
+func loadedModel(items ...item) dotfileList {
+	m := dotfileList{home: "/home/me"}
 	next, _ := m.Update(entriesLoadedMsg{items: items})
-	return next.(Model)
+	return next.(dotfileList)
 }
 
 func entry(name, target string) manifest.Entry {
@@ -58,7 +58,7 @@ func entry(name, target string) manifest.Entry {
 }
 
 // viewText 는 화면에서 색상 코드를 걷어낸 글자만 돌려준다.
-func viewText(m Model) string {
+func viewText(m dotfileList) string {
 	return ansi.Strip(m.View().Content)
 }
 
@@ -101,8 +101,8 @@ func fakeRepo(t *testing.T, files map[string]string) *github.Client {
 	return c
 }
 
-// toggleFixture 는 가짜 저장소, 임시 로컬 사본 폴더, 임시 홈에 놓인 항목 하나로 Model을 만든다.
-func toggleFixture(t *testing.T, files map[string]string) (m Model, target string) {
+// toggleFixture 는 가짜 저장소, 임시 로컬 사본 폴더, 임시 홈에 놓인 항목 하나로 목록 모델을 만든다.
+func toggleFixture(t *testing.T, files map[string]string) (m dotfileList, target string) {
 	t.Helper()
 	home := t.TempDir()
 	copies := localcopy.New(t.TempDir())
@@ -113,15 +113,15 @@ func toggleFixture(t *testing.T, files map[string]string) (m Model, target strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = New(fakeRepo(t, files), copies, "")
+	m = newDotfileList(fakeRepo(t, files), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
-	return next.(Model), target
+	return next.(dotfileList), target
 }
 
 // confirmToggle 은 space로 토글 확인 질문을 띄우고 1번으로 답한다.
 // 다른 질문이 확인을 겸하는 경우에는 쓰지 않는다.
-func confirmToggle(t *testing.T, m Model) (Model, tea.Cmd) {
+func confirmToggle(t *testing.T, m dotfileList) (dotfileList, tea.Cmd) {
 	t.Helper()
 	m, cmd := press(t, m, "space")
 	if cmd != nil || (m.confirmKind != confirmTurnOn && m.confirmKind != confirmTurnOff) {
@@ -130,8 +130,8 @@ func confirmToggle(t *testing.T, m Model) (Model, tea.Cmd) {
 	return press(t, m, "1")
 }
 
-// linkedFixture 는 백업 없이 연결된 항목 하나로 Model을 만든다.
-func linkedFixture(t *testing.T) (Model, string) {
+// linkedFixture 는 백업 없이 연결된 항목 하나로 목록 모델을 만든다.
+func linkedFixture(t *testing.T) (dotfileList, string) {
 	t.Helper()
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	m, cmd := confirmToggle(t, m)
@@ -144,7 +144,7 @@ func linkedFixture(t *testing.T) (Model, string) {
 
 // runCmd 는 백그라운드 작업을 바로 실행하고 그 결과 메시지를 Update에 넣는다.
 // tea.Batch로 묶인 작업은 풀어서 하나씩 실행하고 스피너 tick은 건너뛴다.
-func runCmd(t *testing.T, m Model, cmd tea.Cmd) Model {
+func runCmd(t *testing.T, m dotfileList, cmd tea.Cmd) dotfileList {
 	t.Helper()
 	if cmd == nil {
 		t.Fatal("expected a command")
@@ -154,7 +154,7 @@ func runCmd(t *testing.T, m Model, cmd tea.Cmd) Model {
 			continue
 		}
 		next, _ := m.Update(msg)
-		m = next.(Model)
+		m = next.(dotfileList)
 	}
 	return m
 }

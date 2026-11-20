@@ -52,7 +52,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 		err:   errors.New(strings.Repeat("very long network error ", 10)),
 	})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
-	m = next.(Model)
+	m = next.(dotfileList)
 
 	for _, line := range strings.Split(viewText(m), "\n") {
 		if w := lipgloss.Width(line); w > 60 {
@@ -65,7 +65,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 24})
-	m = next.(Model)
+	m = next.(dotfileList)
 	m.status, m.statusTone = "끝났어요", statusDone
 
 	lines := strings.Split(viewText(m), "\n")
@@ -105,11 +105,11 @@ func TestEmptyStatusLineHasNoBackground(t *testing.T) {
 func TestHelpLineWraps(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
-	m = next.(Model)
+	m = next.(dotfileList)
 
 	lines := strings.Split(strings.TrimRight(viewText(m), "\n"), "\n")
 	footer := strings.Join(lines[len(lines)-4:], "\n")
-	if want := " 방향키 이동   space 연결/연결 끊기\n enter 메뉴   tab 미리보기   ? 도움말\n esc 종료"; !strings.HasSuffix(footer, want) {
+	if want := " 방향키 이동   space 연결/연결 끊기\n enter 메뉴   tab 미리보기   ? 도움말\n esc 진입 메뉴"; !strings.HasSuffix(footer, want) {
 		t.Errorf("footer = %q, want suffix %q", footer, want)
 	}
 	for _, line := range lines {

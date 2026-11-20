@@ -77,7 +77,7 @@ const tabWidth = 4
 const noNewlineText = `\ No newline at end of file`
 
 // handleDiffKey 는 비교 보기 화면의 키 입력을 처리한다. esc나 q로 닫으면 화면을 열기 전으로 돌아간다.
-func (m Model) handleDiffKey(key string) (Model, tea.Cmd) {
+func (m dotfileList) handleDiffKey(key string) (dotfileList, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -116,14 +116,14 @@ func scrollBy(key string, y, x, page, total int) (int, int) {
 }
 
 // clampDiffOffsets 는 스크롤 위치를 내용이 있는 범위 안으로 자른다.
-func (m Model) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
+func (m dotfileList) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
 	y = min(max(y, 0), max(len(m.diffScreen.rows)-layout.height, 0))
 	x = min(max(x, 0), layout.maxXOffset)
 	return y, x
 }
 
 // computeDiffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
-func (m Model) computeDiffLayout(st styles) diffLayout {
+func (m dotfileList) computeDiffLayout(st styles) diffLayout {
 	rows := m.diffScreen.rows
 	title := m.renderDiffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
@@ -183,12 +183,12 @@ func expandTabs(text string) string {
 }
 
 // renderDiffTitle 은 비교 보기 화면에서 어떤 항목을 비교하는지 보여 주는 제목이다.
-func (m Model) renderDiffTitle(st styles) string {
+func (m dotfileList) renderDiffTitle(st styles) string {
 	return m.renderItemTitle(st, m.indexOf(m.diffScreen.name))
 }
 
 // diffView 는 목록 대신 비교 보기 화면을 그린다.
-func (m Model) diffView(st styles) tea.View {
+func (m dotfileList) diffView(st styles) tea.View {
 	rows := m.diffScreen.rows
 	layout := m.computeDiffLayout(st)
 	y, x := m.clampDiffOffsets(layout, m.diffScreen.yOffset, m.diffScreen.xOffset)

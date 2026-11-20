@@ -13,7 +13,7 @@ import (
 // View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
 // 도움말이나 비교 보기 화면이 열려 있으면 그 화면을 그린다.
 // 미리보기 창은 터미널이 넓으면 목록 오른쪽에 붙이고 좁으면 목록 대신 화면 전체에 그린다.
-func (m Model) View() tea.View {
+func (m dotfileList) View() tea.View {
 	st := newStyles(!m.light)
 	if m.helpOpen {
 		return m.helpView(st)
@@ -55,7 +55,7 @@ func (m Model) View() tea.View {
 		lower = append(lower, " "+st.renderDescription(m.items[m.cursor].entry.Description, textWidth))
 	}
 
-	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "tab", "미리보기", "?", "도움말", "esc", "종료")
+	footer := st.renderHelp(m.width, "방향키", "이동", "space", "연결/연결 끊기", "enter", "메뉴", "tab", "미리보기", "?", "도움말", "esc", "진입 메뉴")
 	status := m.status
 	if m.confirmingName != "" {
 		var numbers []string
@@ -96,63 +96,43 @@ func (m Model) View() tea.View {
 //	  ├── [+] env      ~/.config/zsh/env.zsh
 //	  └── [!] git      ~/.config/zsh/git.zsh   (다른 파일이 있음)
 //	  > [ ] claude     ~/.claude/CLAUDE.md  0/3
-func (m Model) renderItemLines(st styles) (lines []string, selected int) {
-	// 경로 칸이 맞도록 접기 표시와 가지의 폭을 이름 폭에 넣어 센다.
-	width := 0
-	for i, it := range m.items {
-		if m.visible(i) {
-			width = max(width, lipgloss.Width(m.foldMarker(i))+lipgloss.Width(m.treeBranch(i))+lipgloss.Width(it.entry.Name))
-		}
-	}
-
-	lines = make([]string, 0, len(m.items))
+func (m dotfileList) renderItemLines(st styles) (lines []string, selected int) {
+	rows := make([]listRow, 0, len(m.items))
 	for i, it := range m.items {
 		if !m.visible(i) {
 			continue
 		}
-		current := i == m.cursor
-		// 선택한 줄은 조각마다 배경을 칠해야 조각 사이의 색 초기화에 배경이 끊기지 않는다.
-		paint := func(s lipgloss.Style) lipgloss.Style {
-			if current {
-				return s.Background(st.selection)
-			}
-			return s
+		row := listRow{
+			fold:        m.foldMarker(i),
+			branch:      m.treeBranch(i),
+			marker:      m.renderMarker(it.state),
+			markerStyle: st.flashStyle(it.state, it.flash),
+			name:        it.entry.Name,
+			detail:      tildify(it.entry.Target, m.home),
+			current:     i == m.cursor,
 		}
-		plain := paint(lipgloss.NewStyle())
-
-		branch, fold := m.treeBranch(i), m.foldMarker(i)
-		bar, name := " ", it.entry.Name+strings.Repeat(" ", width-lipgloss.Width(fold)-lipgloss.Width(branch)-lipgloss.Width(it.entry.Name))
-		if current {
-			bar, name = st.cursor.Render("▌"), paint(st.selected).Render(name)
-			selected = len(lines)
-		} else {
-			name = plain.Render(name)
-		}
-		line := bar + plain.Render(" ") + paint(st.key).Render(fold) + paint(st.muted).Render(branch) + paint(st.flashStyle(it.state, it.flash)).Render(m.renderMarker(it.state)) +
-			plain.Render(" ") + name + plain.Render("  ") + paint(st.muted).Render(tildify(it.entry.Target, m.home))
-
 		if children := m.children(i); len(children) > 0 {
-			line += plain.Render("  ") + paint(st.count).Render(fmt.Sprintf("%d/%d", len(m.syncedChildren(i)), len(children)))
+			row.tail = append(row.tail, listSegment{"  ", fmt.Sprintf("%d/%d", len(m.syncedChildren(i)), len(children)), st.count})
 		}
 		if it.state == synced && it.outdated {
-			line += plain.Render("  ") + paint(st.update).Render("^ 업데이트 있음")
+			row.tail = append(row.tail, listSegment{"  ", "^ 업데이트 있음", st.update})
 		}
 		// 접힌 그룹은 하위 항목 줄이 안 보이므로 하위 항목의 업데이트를 그룹 줄에 모아 보여 준다.
 		if n := m.outdatedChildren(i); n > 0 && m.collapsed[it.entry.Name] {
-			line += plain.Render("  ") + paint(st.update).Render(fmt.Sprintf("^ 하위 %d개 업데이트 있음", n))
+			row.tail = append(row.tail, listSegment{"  ", fmt.Sprintf("^ 하위 %d개 업데이트 있음", n), st.update})
 		}
 
 		switch it.state {
 		case conflict:
-			line += paint(st.stateStyle(it.state)).Render("   (다른 파일이 있음)")
+			row.tail = append(row.tail, listSegment{"   ", "(다른 파일이 있음)", st.stateStyle(it.state)})
 		case errored:
-			line += paint(st.stateStyle(it.state)).Render("   (" + errorReason(it.err, m.home) + ")")
+			row.tail = append(row.tail, listSegment{"   ", "(" + errorReason(it.err, m.home) + ")", st.stateStyle(it.state)})
 		case notSynced, synced, syncing:
 			// 체크박스만으로 충분해서 덧붙일 설명이 없다.
 		}
-		lines = append(lines, line)
+		rows = append(rows, row)
 	}
-	return lines, selected
+	return st.renderRows(rows)
 }
 
 // renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다. 폭 width를 넘으면 줄을 바꾸고 0이면 바꾸지 않는다.
@@ -178,7 +158,7 @@ func (st styles) renderDescription(text string, width int) string {
 
 // foldMarker 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >이고 나머지는 칸만 맞춘다.
 // 체크박스 안의 +와 헷갈리지 않게 +와 -는 쓰지 않는다.
-func (m Model) foldMarker(i int) string {
+func (m dotfileList) foldMarker(i int) string {
 	switch {
 	case m.items[i].parent != "" || !slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }):
 		return ""
@@ -193,7 +173,7 @@ func (m Model) foldMarker(i int) string {
 
 // treeBranch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
 // 가지는 그룹 줄의 접기 표시 바로 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
-func (m Model) treeBranch(i int) string {
+func (m dotfileList) treeBranch(i int) string {
 	parent := m.items[i].parent
 	if parent == "" {
 		return ""
@@ -205,9 +185,9 @@ func (m Model) treeBranch(i int) string {
 }
 
 // renderMarker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
-func (m Model) renderMarker(s itemState) string {
+func (m dotfileList) renderMarker(s itemState) string {
 	if s == syncing && len(m.spinner.Spinner.Frames) > 0 {
-		return "[" + m.spinner.View() + "]"
+		return renderSpinner(m.spinner)
 	}
 	return s.marker()
 }
@@ -216,7 +196,7 @@ func (m Model) renderMarker(s itemState) string {
 //
 //	zshrc  ~/.zshrc
 //	└─ env  ~/.config/zsh/env.zsh
-func (m Model) renderItemTitle(st styles, i int) string {
+func (m dotfileList) renderItemTitle(st styles, i int) string {
 	if i < 0 {
 		return ""
 	}
@@ -234,6 +214,6 @@ func (m Model) renderItemTitle(st styles, i int) string {
 }
 
 // renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
-func (m Model) renderGroupTitle(st styles, i int) string {
+func (m dotfileList) renderGroupTitle(st styles, i int) string {
 	return st.groupName.Render(m.items[i].entry.Name) + "  " + tildify(m.items[i].entry.Target, m.home)
 }

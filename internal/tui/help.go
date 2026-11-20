@@ -10,7 +10,7 @@ import (
 )
 
 // handleHelpKey 는 도움말 화면의 키 입력을 처리한다. ?나 esc, q로 닫으면 목록으로 돌아가고 다른 키는 무시한다.
-func (m Model) handleHelpKey(key string) (Model, tea.Cmd) {
+func (m dotfileList) handleHelpKey(key string) (dotfileList, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -21,7 +21,7 @@ func (m Model) handleHelpKey(key string) (Model, tea.Cmd) {
 }
 
 // helpView 는 목록 대신 전체 키와 상태 표시의 뜻, 로컬 사본이 놓이는 곳을 보여 준다.
-func (m Model) helpView(st styles) tea.View {
+func (m dotfileList) helpView(st styles) tea.View {
 	pad := func(text string, width int) string {
 		return text + strings.Repeat(" ", max(width-lipgloss.Width(text), 0))
 	}
@@ -43,7 +43,7 @@ func (m Model) helpView(st styles) tea.View {
 		{st.key.Render("space"), "항목을 연결하거나 연결을 끊어요"},
 		{st.key.Render("enter"), "항목 메뉴를 열어요"},
 		{st.key.Render("tab"), "항목 파일 내용을 미리 봐요"},
-		{st.key.Render("esc"), "화면을 닫거나 프로그램을 끝내요"},
+		{st.key.Render("esc"), "화면을 닫거나 진입 메뉴로 돌아가요"},
 	})...)
 
 	markers := [][2]string{

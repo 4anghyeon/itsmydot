@@ -52,7 +52,7 @@ const previewMinWidth = 60
 // openPreview 는 커서 항목의 미리보기 창을 연다.
 // 로컬 사본이 시작할 때 본 저장소 파일과 같으면 사본을 읽고 아니면 저장소 파일을 보여 준다.
 // 저장소 파일은 처음 열 때만 백그라운드로 받고 그 뒤로는 캐시에서 꺼낸다.
-func (m Model) openPreview() (Model, tea.Cmd) {
+func (m dotfileList) openPreview() (dotfileList, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
@@ -78,14 +78,14 @@ func (m Model) openPreview() (Model, tea.Cmd) {
 
 // matchesRepo 는 data가 시작할 때 본 저장소의 source 파일과 같은지 알려 준다.
 // 저장소 해시를 받지 못했으면 같은지 알 수 없으므로 다르다고 보고 저장소 파일을 보여 준다.
-func (m Model) matchesRepo(source string, data []byte) bool {
+func (m dotfileList) matchesRepo(source string, data []byte) bool {
 	remote, ok := m.hashes[path.Clean(source)]
 	return ok && github.BlobHash(data) == remote
 }
 
 // applyPreview 는 받아 온 저장소 파일을 캐시에 넣고 창이 아직 그 항목을 기다리고 있으면 보여 준다.
 // 받는 사이에 창을 닫았거나 다른 항목을 열었으면 늦게 온 결과는 보여 주지 않는다. 내용은 맞으니 캐시에는 넣는다.
-func (m Model) applyPreview(msg previewLoadedMsg) Model {
+func (m dotfileList) applyPreview(msg previewLoadedMsg) dotfileList {
 	if msg.err == nil {
 		m.previewCache = maps.Clone(m.previewCache)
 		if m.previewCache == nil {
@@ -100,7 +100,7 @@ func (m Model) applyPreview(msg previewLoadedMsg) Model {
 }
 
 // showPreview 는 data를 창에 보여 줄 줄로 나눈다. 받지 못했거나 줄 단위로 보여 줄 수 없는 파일이면 안내로 대신한다.
-func (m Model) showPreview(data []byte, err error) Model {
+func (m dotfileList) showPreview(data []byte, err error) dotfileList {
 	m.preview.loading = false
 	if err == nil {
 		err = diff.CheckText(data)
@@ -122,7 +122,7 @@ func (m Model) showPreview(data []byte, err error) Model {
 
 // handlePreviewKey 는 미리보기 창의 키 입력을 처리한다. 스크롤은 비교 보기와 같은 키를 쓰고 tab이나 esc, q로 닫으면 목록으로 돌아간다.
 // 업데이트가 있는 항목이면 enter로 차이 보기를 연다.
-func (m Model) handlePreviewKey(key string) (Model, tea.Cmd) {
+func (m dotfileList) handlePreviewKey(key string) (dotfileList, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -140,15 +140,15 @@ func (m Model) handlePreviewKey(key string) (Model, tea.Cmd) {
 
 // previewDiffAvailable 은 미리보기 창에서 차이 보기를 열 수 있는지 알려 준다.
 // 목록에 업데이트 있음으로 표시된 항목이고 저장소 파일을 텍스트로 받아 둔 때만 연다.
-func (m Model) previewDiffAvailable() bool {
+func (m dotfileList) previewDiffAvailable() bool {
 	i := m.indexOf(m.preview.name)
 	return i >= 0 && m.items[i].state == synced && m.items[i].outdated && m.preview.fromRepo && len(m.preview.lines) > 0
 }
 
 // openPreviewDiff 는 로컬 사본과 미리보기로 받아 둔 저장소 파일의 차이를 비교 보기 화면으로 연다.
-// 저장소 파일을 다시 받지 않을 뿐 메뉴에서 연 비교와 같아서 결과는 [Model.applyDiff] 로 넘긴다.
+// 저장소 파일을 다시 받지 않을 뿐 메뉴에서 연 비교와 같아서 결과는 [dotfileList.applyDiff] 로 넘긴다.
 // 미리보기 창은 그대로 두므로 비교 보기를 닫으면 미리보기로 돌아온다.
-func (m Model) openPreviewDiff() Model {
+func (m dotfileList) openPreviewDiff() dotfileList {
 	if !m.previewDiffAvailable() {
 		return m
 	}
@@ -165,7 +165,7 @@ func (m Model) openPreviewDiff() Model {
 }
 
 // clampPreviewOffsets 는 스크롤 위치를 내용이 있는 범위 안으로 자른다.
-func (m Model) clampPreviewOffsets(layout previewLayout, y, x int) (int, int) {
+func (m dotfileList) clampPreviewOffsets(layout previewLayout, y, x int) (int, int) {
 	y = min(max(y, 0), max(len(m.preview.lines)-layout.height, 0))
 	x = min(max(x, 0), layout.maxXOffset)
 	return y, x
@@ -173,7 +173,7 @@ func (m Model) clampPreviewOffsets(layout previewLayout, y, x int) (int, int) {
 
 // computePreviewLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 안내, 도움말 줄을 빼고 남는 만큼을 쓴다.
 // 목록 옆에 붙일 때도 위아래로 빼는 줄은 같고 폭만 목록 칸과 구분선을 뺀 만큼이다.
-func (m Model) computePreviewLayout(st styles) previewLayout {
+func (m dotfileList) computePreviewLayout(st styles) previewLayout {
 	lines := m.preview.lines
 	layout := previewLayout{height: min(len(lines), diffMaxHeight)}
 	if m.height > 0 {
@@ -213,7 +213,7 @@ func previewPrefixWidth(numberWidth int) int {
 }
 
 // renderPreviewTitle 은 미리보기 창에서 어떤 항목의 어느 쪽 파일을 보여 주는지 알리는 제목이다.
-func (m Model) renderPreviewTitle(st styles) string {
+func (m dotfileList) renderPreviewTitle(st styles) string {
 	origin := "로컬 사본"
 	if m.preview.fromRepo {
 		origin = "저장소 파일"
@@ -223,7 +223,7 @@ func (m Model) renderPreviewTitle(st styles) string {
 
 // renderPreviewLines 는 미리보기 창의 제목과 본문, 읽기 전용 안내를 한 줄씩 만든다.
 // 받는 중이거나 내용 대신 안내를 보여 줄 때는 본문 자리에 한 줄만 둔다.
-func (m Model) renderPreviewLines(st styles, layout previewLayout) []string {
+func (m dotfileList) renderPreviewLines(st styles, layout previewLayout) []string {
 	lines := strings.Split(m.renderPreviewTitle(st), "\n")
 	lines = append(lines, "")
 
@@ -250,7 +250,7 @@ func (m Model) renderPreviewLines(st styles, layout previewLayout) []string {
 }
 
 // renderPreviewCounter 는 지금 보이는 마지막 줄과 전체 줄 수다. 내용 대신 안내를 보여 줄 때는 빈 문자열이다.
-func (m Model) renderPreviewCounter(st styles, layout previewLayout) string {
+func (m dotfileList) renderPreviewCounter(st styles, layout previewLayout) string {
 	if len(m.preview.lines) == 0 {
 		return ""
 	}
@@ -259,7 +259,7 @@ func (m Model) renderPreviewCounter(st styles, layout previewLayout) string {
 }
 
 // renderPreviewHelp 는 미리보기 창이 떠 있을 때의 아래 도움말 줄이다. 차이 보기는 열 수 있을 때만 알린다.
-func (m Model) renderPreviewHelp(st styles) string {
+func (m dotfileList) renderPreviewHelp(st styles) string {
 	pairs := []string{"방향키", "스크롤", "pgup/pgdn", "한 쪽씩"}
 	if m.previewDiffAvailable() {
 		pairs = append(pairs, "enter", "차이 보기")
@@ -268,7 +268,7 @@ func (m Model) renderPreviewHelp(st styles) string {
 }
 
 // previewView 는 목록 대신 미리보기 창을 화면 전체에 그린다.
-func (m Model) previewView(st styles) tea.View {
+func (m dotfileList) previewView(st styles) tea.View {
 	layout := m.computePreviewLayout(st)
 	right := m.renderPreviewCounter(st, layout)
 	var lines []string
@@ -280,7 +280,7 @@ func (m Model) previewView(st styles) tea.View {
 
 // previewSplit 은 미리보기 창을 목록 오른쪽에 나눠 그릴지와 그때 목록 칸의 폭을 알려 준다.
 // 목록 칸은 가장 긴 항목 줄에 맞추고 남은 폭이 previewMinWidth 이상일 때만 나눈다. 터미널 폭을 모르면 나누지 않는다.
-func (m Model) previewSplit(st styles) (listWidth int, split bool) {
+func (m dotfileList) previewSplit(st styles) (listWidth int, split bool) {
 	if m.preview.name == "" || m.width <= 0 {
 		return 0, false
 	}
@@ -293,7 +293,7 @@ func (m Model) previewSplit(st styles) (listWidth int, split bool) {
 
 // joinPreview 는 목록 화면의 줄 left 오른쪽에 구분선을 두고 미리보기 창을 붙인다. 높이는 둘 중 긴 쪽에 맞춘다.
 // 화면 머리에는 목록의 게이지가 있으므로 줄 수는 창 제목 끝에 붙인다.
-func (m Model) joinPreview(st styles, left []string, listWidth int) []string {
+func (m dotfileList) joinPreview(st styles, left []string, listWidth int) []string {
 	layout := m.computePreviewLayout(st)
 	right := m.renderPreviewLines(st, layout)
 	if counter := m.renderPreviewCounter(st, layout); counter != "" {

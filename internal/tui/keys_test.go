@@ -41,9 +41,9 @@ func TestHangulKeysInModel(t *testing.T) {
 		item{entry: entry("a", "/home/me/.a")},
 		item{entry: entry("b", "/home/me/.b")},
 	)
-	update := func(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	update := func(m dotfileList, msg tea.KeyPressMsg) (dotfileList, tea.Cmd) {
 		next, cmd := m.Update(msg)
-		return next.(Model), cmd
+		return next.(dotfileList), cmd
 	}
 
 	m, _ = update(m, hangul('ㅓ'))

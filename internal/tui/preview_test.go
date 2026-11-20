@@ -15,7 +15,7 @@ import (
 
 // previewFixture 는 가짜 저장소 files와 임시 로컬 사본 폴더로 gitconfig 항목과 extra 항목을 띄운다.
 // localCopy가 비어 있지 않으면 gitconfig의 로컬 사본을 그 내용으로 둔다. 저장소 해시는 files 전체로 받은 것으로 한다.
-func previewFixture(t *testing.T, files map[string]string, localCopy string, extra ...item) Model {
+func previewFixture(t *testing.T, files map[string]string, localCopy string, extra ...item) dotfileList {
 	t.Helper()
 	copies := localcopy.New(t.TempDir())
 	e := manifest.Entry{Name: "gitconfig", Source: "files/git/.gitconfig", Target: "/home/me/.gitconfig"}
@@ -33,11 +33,11 @@ func previewFixture(t *testing.T, files map[string]string, localCopy string, ext
 		hashes[source] = github.BlobHash([]byte(content))
 	}
 
-	m := New(fakeRepo(t, files), copies, "")
+	m := newDotfileList(fakeRepo(t, files), copies, "")
 	m.home = "/home/me"
 	items := append([]item{{entry: e, copyPath: copyPath, state: synced}}, extra...)
 	next, _ := m.Update(entriesLoadedMsg{items: items, hashes: hashes})
-	return next.(Model)
+	return next.(dotfileList)
 }
 
 // 로컬 사본이 저장소와 같으면 요청 없이 사본을 줄 번호와 함께 보여 준다. 탭은 펼치고 창 아래에 읽기 전용 안내를 둔다.
@@ -170,7 +170,7 @@ func TestPreviewScroll(t *testing.T) {
 	}
 	m := previewFixture(t, map[string]string{"files/git/.gitconfig": text.String()}, text.String())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 18})
-	m, _ = press(t, next.(Model), "tab")
+	m, _ = press(t, next.(dotfileList), "tab")
 
 	// 높이 18에서 캐릭터와 구분선, 제목, 안내, 도움말 12줄을 빼면 본문은 6줄이다.
 	v := viewText(m)
@@ -190,12 +190,12 @@ func TestPreviewScroll(t *testing.T) {
 		t.Errorf("yOffset = %d, want 7 after down and space", m.preview.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
-	m = next.(Model)
+	m = next.(dotfileList)
 	if v := viewText(m); m.preview.yOffset != 24 || !strings.Contains(v, "30/30줄") || !strings.Contains(v, "line 30") {
 		t.Errorf("yOffset = %d after end:\n%s", m.preview.yOffset, v)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
-	if m = next.(Model); m.preview.yOffset != 0 {
+	if m = next.(dotfileList); m.preview.yOffset != 0 {
 		t.Errorf("yOffset = %d after home", m.preview.yOffset)
 	}
 }
@@ -208,7 +208,7 @@ func TestPreviewSplitsWideTerminal(t *testing.T) {
 	m, _ = press(t, m, "tab")
 
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
-	m = next.(Model)
+	m = next.(dotfileList)
 	v := viewText(m)
 	for _, want := range []string{
 		"연결됨 1/2",
@@ -235,7 +235,7 @@ func TestPreviewSplitsWideTerminal(t *testing.T) {
 	}
 
 	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	v = viewText(next.(Model))
+	v = viewText(next.(dotfileList))
 	if strings.Contains(v, "[+] gitconfig") || !strings.Contains(v, "2/2줄") || !strings.Contains(v, " 1  [user]") {
 		t.Errorf("narrow terminal should show the preview full screen:\n%s", v)
 	}
@@ -249,7 +249,7 @@ func TestPreviewSplitHeight(t *testing.T) {
 	}
 	m := previewFixture(t, map[string]string{"files/git/.gitconfig": text.String()}, text.String())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 18})
-	m, _ = press(t, next.(Model), "tab")
+	m, _ = press(t, next.(dotfileList), "tab")
 
 	v := viewText(m)
 	if !strings.Contains(v, "6/30줄") || !strings.Contains(v, "line 6") || strings.Contains(v, "line 7") {
@@ -259,7 +259,7 @@ func TestPreviewSplitHeight(t *testing.T) {
 		t.Errorf("split view is %d lines tall in an 18 line terminal:\n%s", lines, v)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
-	if v := viewText(next.(Model)); !strings.Contains(v, "30/30줄") {
+	if v := viewText(next.(dotfileList)); !strings.Contains(v, "30/30줄") {
 		t.Errorf("end should scroll the split preview:\n%s", v)
 	}
 }

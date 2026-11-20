@@ -20,7 +20,7 @@ func TestToggleAnimation(t *testing.T) {
 		}
 	}
 	next, animationCmd := m.Update(done)
-	m = next.(Model)
+	m = next.(dotfileList)
 	if animationCmd == nil || !m.animating {
 		t.Fatal("animation should start when the state changes")
 	}
@@ -38,7 +38,7 @@ func TestToggleAnimation(t *testing.T) {
 	steps := 0
 	for ; steps < 300; steps++ {
 		next, animationCmd = m.Update(animationTickMsg{})
-		m = next.(Model)
+		m = next.(dotfileList)
 		if m.gauge > 0.1 && m.gauge < 0.9 {
 			sawMiddle = true
 		}
