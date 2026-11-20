@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
@@ -19,6 +20,7 @@ func errorReason(err error, home string) string {
 	var invalid *manifest.InvalidError
 	var netErr net.Error
 	var urlErr *url.Error
+	var exitErr *exec.ExitError
 	switch {
 	case errors.Is(err, github.ErrNotFound):
 		return "저장소에 파일이 없어요"
@@ -34,6 +36,8 @@ func errorReason(err error, home string) string {
 		return "GitHub가 응답하지 않아요. 잠시 뒤에 다시 해 주세요"
 	case errors.As(err, &urlErr):
 		return "GitHub에 접속하지 못했어요. 네트워크를 확인해 주세요"
+	case errors.As(err, &exitErr):
+		return "brew 명령이 실패했어요"
 	case errors.Is(err, fs.ErrPermission):
 		if path := errorPath(err); path != "" {
 			return tildify(path, home) + " 파일에 접근할 권한이 없어요"

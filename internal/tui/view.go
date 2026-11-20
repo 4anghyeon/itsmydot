@@ -103,8 +103,8 @@ func (m dotfileList) renderItemLines(st styles) (lines []string, selected int) {
 			continue
 		}
 		row := listRow{
-			fold:        m.foldMarker(i),
-			branch:      m.treeBranch(i),
+			fold:        treeFoldMarker(m.items, m.collapsed, i),
+			branch:      treeBranch(m.items, i),
 			marker:      m.renderMarker(it.state),
 			markerStyle: st.flashStyle(it.state, it.flash),
 			name:        it.entry.Name,
@@ -154,34 +154,6 @@ func (st styles) renderDescription(text string, width int) string {
 		lines[i] = prefix + st.description.Render(line)
 	}
 	return strings.Join(lines, "\n")
-}
-
-// foldMarker 는 맨 위 항목의 체크박스 앞에 붙이는 접기 표시다. 그룹은 펼쳤으면 v, 접었으면 >이고 나머지는 칸만 맞춘다.
-// 체크박스 안의 +와 헷갈리지 않게 +와 -는 쓰지 않는다.
-func (m dotfileList) foldMarker(i int) string {
-	switch {
-	case m.items[i].parent != "" || !slices.ContainsFunc(m.items, func(it item) bool { return it.parent != "" }):
-		return ""
-	case len(m.children(i)) == 0:
-		return "  "
-	case m.collapsed[m.items[i].entry.Name]:
-		return "> "
-	default:
-		return "v "
-	}
-}
-
-// treeBranch 는 i번째 하위 항목 앞에 붙이는 트리 가지다.
-// 가지는 그룹 줄의 접기 표시 바로 아래에서 시작한다. 맨 위 항목이면 빈 문자열이다.
-func (m dotfileList) treeBranch(i int) string {
-	parent := m.items[i].parent
-	if parent == "" {
-		return ""
-	}
-	if i+1 < len(m.items) && m.items[i+1].parent == parent {
-		return "├── "
-	}
-	return "└── "
 }
 
 // renderMarker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.

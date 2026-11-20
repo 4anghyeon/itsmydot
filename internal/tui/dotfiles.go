@@ -76,7 +76,7 @@ type dotfileList struct {
 	// hashes 는 시작할 때 받은 저장소 파일의 blob 해시다. 정리한 source 경로가 키이고 받지 못했으면 nil이다.
 	hashes map[string]string
 
-	// collapsed 는 접힌 그룹의 이름이다. dotfileList 가 복사돼도 map은 공유되므로 바꿀 때는 새 map을 만든다.
+	// collapsed 는 접힌 그룹의 이름이다. 바꿀 때는 [withCollapsed] 로 새 map을 만든다.
 	collapsed map[string]bool
 
 	// confirmingName 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
@@ -178,9 +178,9 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m, backToMenu
 		case "up", "k":
-			m.cursor = m.nextVisible(m.cursor, -1)
+			m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, -1)
 		case "down", "j":
-			m.cursor = m.nextVisible(m.cursor, 1)
+			m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, 1)
 		case "left", "h":
 			m = m.collapse()
 		case "right", "l":

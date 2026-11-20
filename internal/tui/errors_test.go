@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,7 @@ func TestErrorReason(t *testing.T) {
 		{"offline", &url.Error{Op: "Get", URL: "https://api.github.com", Err: errors.New("no such host")}, "GitHub에 접속하지 못했어요. 네트워크를 확인해 주세요"},
 		{"permission", &fs.PathError{Op: "open", Path: "/home/me/.zshrc", Err: fs.ErrPermission}, "~/.zshrc 파일에 접근할 권한이 없어요"},
 		{"permission on symlink", &os.LinkError{Op: "symlink", Old: "/a", New: "/home/me/.zshrc", Err: fs.ErrPermission}, "~/.zshrc 파일에 접근할 권한이 없어요"},
+		{"brew failed", fmt.Errorf("brew tap: %w", &exec.ExitError{}), "brew 명령이 실패했어요"},
 		{"other", errors.New("boom"), "예상하지 못한 문제가 생겼어요"},
 	}
 	for _, tt := range tests {
