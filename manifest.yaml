@@ -53,3 +53,14 @@ entries:
         source: files/claude/rules/go.md
         target: ~/.claude/rules/go.md
         description: Go 파일을 다룰 때 불러오는 규칙
+
+brewfiles:
+  - name: base
+    source: files/brew/base.Brewfile
+    description: 어느 Mac에나 설치하는 셸, 브라우저, 생산성 앱
+  - name: dev
+    source: files/brew/dev.Brewfile
+    description: 개발용 CLI 도구와 터미널, 에디터
+  - name: personal
+    source: files/brew/personal.Brewfile
+    description: 개인 Mac에만 설치하는 앱

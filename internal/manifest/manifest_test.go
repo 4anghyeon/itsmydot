@@ -71,6 +71,23 @@ entries:
 	}
 }
 
+func TestParseBrewfiles(t *testing.T) {
+	m, err := Parse([]byte(`
+entries: [{name: a, source: x, target: y}]
+brewfiles:
+  - name: base
+    source: files/brew/base.Brewfile
+    description: 공통 앱
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	want := []Brewfile{{Name: "base", Source: "files/brew/base.Brewfile", Description: "공통 앱"}}
+	if !reflect.DeepEqual(m.Brewfiles, want) {
+		t.Errorf("brewfiles = %+v, want %+v", m.Brewfiles, want)
+	}
+}
+
 func TestParseValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -88,6 +105,11 @@ func TestParseValidation(t *testing.T) {
 			"g 항목의 1번째 하위 항목에 name이 없어요", "하위 항목에 source가 없어요", "하위 항목에 target이 없어요",
 		}},
 		{"duplicate across group", `entries: [{name: a, source: x, target: y}, {name: g, source: x, target: y, children: [{name: a, source: x, target: y}]}]`, []string{"a 이름을 쓰는 항목이 이미 있어요"}},
+		{"brewfile missing fields", `{entries: [{name: a, source: x, target: y}], brewfiles: [{}]}`, []string{
+			"brewfiles의 1번째 항목에 name이 없어요", "brewfiles의 1번째 항목에 source가 없어요",
+		}},
+		{"duplicate brewfile", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: x}, {name: b, source: x}]}`, []string{"b 이름을 쓰는 Brewfile 항목이 이미 있어요"}},
+		{"escaping brewfile source", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: ../x}]}`, []string{"b Brewfile 항목의 source는 저장소 기준 경로여야"}},
 		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{"c 항목은 하위 항목을 한 단계까지만 둘 수 있어요"}},
 	}
 	for _, tt := range tests {
@@ -122,9 +144,15 @@ func TestExpandHome(t *testing.T) {
 	}
 }
 
-// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 한다.
+// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 하고 Brewfile의 source는 저장소에 있어야 한다.
 func TestRepoManifest(t *testing.T) {
-	if _, err := Load("../../manifest.yaml"); err != nil {
+	m, err := Load("../../manifest.yaml")
+	if err != nil {
 		t.Fatalf("repo manifest.yaml is invalid: %v", err)
+	}
+	for _, b := range m.Brewfiles {
+		if _, err := os.Stat(filepath.Join("../..", b.Source)); err != nil {
+			t.Errorf("brewfile %s source missing: %v", b.Name, err)
+		}
 	}
 }

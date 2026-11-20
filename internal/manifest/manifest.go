@@ -1,4 +1,4 @@
-// Package manifest 는 itsmydot이 동기화할 수 있는 dotfile 목록인 manifest.yaml을 읽고 검증한다.
+// Package manifest 는 itsmydot이 다루는 dotfile과 Brewfile 목록인 manifest.yaml을 읽고 검증한다.
 package manifest
 
 import (
@@ -23,9 +23,17 @@ type Entry struct {
 	Children    []Entry `yaml:"children"`
 }
 
+// Brewfile 은 Homebrew 패키지 목록 파일 하나다. 파일 하나가 base나 dev 같은 프로필 하나다.
+type Brewfile struct {
+	Name        string `yaml:"name"`
+	Source      string `yaml:"source"`
+	Description string `yaml:"description"`
+}
+
 // Manifest 는 manifest.yaml 파일 전체다.
 type Manifest struct {
-	Entries []Entry `yaml:"entries"`
+	Entries   []Entry    `yaml:"entries"`
+	Brewfiles []Brewfile `yaml:"brewfiles"`
 }
 
 // InvalidError 는 manifest.yaml의 YAML 문법이 틀렸거나 검증을 통과하지 못했을 때 [Parse] 가 돌려준다.
@@ -98,6 +106,34 @@ func (m *Manifest) validate() []string {
 				problems = append(problems, entryLabel(child, childLabel)+"은 하위 항목을 한 단계까지만 둘 수 있어요")
 			}
 		}
+	}
+
+	// Brewfile은 dotfile과 다른 목록에 보여 주므로 이름도 따로 겹치지 않으면 된다.
+	seenBrewfiles := make(map[string]bool)
+	for i, b := range m.Brewfiles {
+		problems = append(problems, validateBrewfile(b, fmt.Sprintf("brewfiles의 %d번째 항목", i+1), seenBrewfiles)...)
+	}
+	return problems
+}
+
+// validateBrewfile 은 Brewfile 항목 하나의 이름과 source를 검사한다.
+func validateBrewfile(b Brewfile, label string, seen map[string]bool) []string {
+	if b.Name != "" {
+		label = b.Name + " Brewfile 항목"
+	}
+	var problems []string
+
+	if b.Name == "" {
+		problems = append(problems, label+"에 name이 없어요")
+	} else if seen[b.Name] {
+		problems = append(problems, b.Name+" 이름을 쓰는 Brewfile 항목이 이미 있어요")
+	}
+	seen[b.Name] = true
+
+	if b.Source == "" {
+		problems = append(problems, label+"에 source가 없어요")
+	} else if !isSafeRelativePath(b.Source) {
+		problems = append(problems, fmt.Sprintf("%s의 source는 저장소 기준 경로여야 하고 ..를 쓸 수 없어요 (지금 값 %q)", label, b.Source))
 	}
 	return problems
 }
