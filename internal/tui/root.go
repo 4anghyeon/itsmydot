@@ -2,9 +2,13 @@
 package tui
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
@@ -131,16 +135,69 @@ func (m Model) View() tea.View {
 	}
 
 	st := newStyles(!m.light)
-	labels := make([]string, len(menuOptions))
-	for i, option := range menuOptions {
-		labels[i] = option.label
+	cardWidth := menuCardWidth
+	if m.width > 0 {
+		cardWidth = min(m.width, headerMaxWidth) - 2
 	}
-	options, numbers := st.renderOptions(labels, m.choice)
-	lines := append([]string{" " + st.heading.Render("무엇을 관리할까요?"), ""}, options...)
-	description := " " + st.renderDescription(menuOptions[m.choice].description, m.width)
+	lines := []string{" " + st.heading.Render("무엇을 관리할까요?"), ""}
+	numbers := make([]string, len(menuOptions))
+	for i := range menuOptions {
+		numbers[i] = strconv.Itoa(i + 1)
+		for line := range strings.SplitSeq(m.renderMenuCard(st, i, cardWidth), "\n") {
+			lines = append(lines, " "+line)
+		}
+	}
 
-	width := st.pageWidth(m.width, "", append(lines, description)...)
-	lines = append(lines, "", st.renderRule(width), description)
+	width := st.pageWidth(m.width, "", lines...)
 	footer := st.renderHelp(m.width, "방향키", "이동", "enter", "선택", strings.Join(numbers, "/"), "바로 선택", "esc", "종료")
 	return tea.NewView(st.renderPage(width, m.version, "", lines, footer))
+}
+
+// menuCardWidth 는 터미널 폭을 모를 때 쓰는 진입 메뉴 카드의 폭이다.
+const menuCardWidth = 60
+
+// renderMenuCard 는 진입 메뉴의 i번째 선택지를 둥근 테두리 카드로 그린다. width는 테두리를 넣은 카드 전체 폭이다.
+// 첫 줄은 번호와 이름이고 둘째 줄은 설명이다. 커서가 있는 카드는 테두리와 이름을 강조색으로 칠한다.
+//
+//	╭──────────────────────────────────────────────╮
+//	│ 1  dotfiles          연결됨 3/12 ████░░░░░░░ │
+//	│    설정 파일을 이 컴퓨터에 연결하거나 끊어요 │
+//	╰──────────────────────────────────────────────╯
+func (m Model) renderMenuCard(st styles, i, width int) string {
+	option := menuOptions[i]
+	border, number, label := st.muted, st.key, st.key
+	if i == m.choice {
+		border, number, label = st.cursor, st.cursor, st.title
+	}
+
+	// 테두리 두 칸과 양옆 여백 두 칸을 뺀 안쪽 폭이다.
+	inner := max(width-4, 1)
+	title := number.Render(strconv.Itoa(i+1)) + "  " + label.Render(option.label)
+	if summary := m.renderMenuSummary(st, option.screen); summary != "" {
+		if gap := inner - lipgloss.Width(title) - lipgloss.Width(summary); gap >= 2 {
+			title += strings.Repeat(" ", gap) + summary
+		} else {
+			title += "\n   " + summary
+		}
+	}
+	// 설명은 이름 칸에 맞춰 들여 쓰고, 좁은 터미널에서 줄이 바뀌어도 들여쓰기를 지킨다.
+	body := title
+	for line := range strings.SplitSeq(ansi.Wrap(option.description, max(inner-3, 1), " "), "\n") {
+		body += "\n   " + st.muted.Render(line)
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(border.GetForeground()).
+		Padding(0, 1).
+		Width(width).
+		Render(body)
+}
+
+// renderMenuSummary 는 카드 첫 줄 오른쪽에 붙이는 목록 요약이다. dotfiles는 불러온 뒤에만 연결된 비율을 보여 준다.
+func (m Model) renderMenuSummary(st styles, target screen) string {
+	if target != dotfilesScreen || !m.dotfiles.ready || m.dotfiles.loadErr != nil || len(m.dotfiles.items) == 0 {
+		return ""
+	}
+	return st.muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.dotfiles.syncedCount(), len(m.dotfiles.items))) + st.renderGauge(m.dotfiles.syncedRatio())
 }

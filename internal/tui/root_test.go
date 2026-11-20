@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
@@ -52,7 +53,7 @@ func TestEntryMenu(t *testing.T) {
 	}
 
 	v := ansi.Strip(m.View().Content)
-	for _, want := range []string{"> 1. dotfiles", "  2. brewfiles", "설정 파일을 이 컴퓨터에", "1/2 바로 선택", "esc 종료"} {
+	for _, want := range []string{"│ 1  dotfiles", "│ 2  brewfiles", "│    설정 파일을 이 컴퓨터에", "╭─", "╰─", "1/2 바로 선택", "esc 종료"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("menu missing %q:\n%s", want, v)
 		}
@@ -91,8 +92,38 @@ func TestEntryMenuRemembersChoice(t *testing.T) {
 	if m.screen != menuScreen || m.choice != 1 {
 		t.Errorf("back on menu: screen=%d choice=%d, want menu and 1", m.screen, m.choice)
 	}
-	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "> 2. brewfiles") {
-		t.Errorf("cursor should stay on brewfiles:\n%s", v)
+}
+
+// 커서가 있는 카드만 테두리를 강조색으로 칠하고, 터미널 폭에 맞춰 카드 폭을 정한다.
+func TestMenuCards(t *testing.T) {
+	m := rootFixture(t)
+	m = updateRoot(m, tea.WindowSizeMsg{Width: 70, Height: 24})
+	st := newStyles(true)
+	accent := lipgloss.NewStyle().Foreground(st.palette.accent).Render("╭")
+	accentCode := accent[:strings.Index(accent, "╭")]
+
+	first, second := m.renderMenuCard(st, 0, 68), m.renderMenuCard(st, 1, 68)
+	if !strings.HasPrefix(first, accentCode) || strings.HasPrefix(second, accentCode) {
+		t.Errorf("only the selected card should have an accent border:\n%q\n%q", first, second)
+	}
+	for line := range strings.SplitSeq(ansi.Strip(first), "\n") {
+		if w := lipgloss.Width(line); w != 68 {
+			t.Errorf("card line width = %d, want 68: %q", w, line)
+		}
+	}
+
+	// dotfiles를 불러온 뒤에는 카드에 연결된 비율을 보여 준다.
+	if strings.Contains(ansi.Strip(first), "연결됨") {
+		t.Error("summary should not show before loading")
+	}
+	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("a", "/home/me/.a"), state: synced}, {entry: entry("b", "/home/me/.b")}}})
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "연결됨 1/2") {
+		t.Errorf("dotfiles card should show the synced count:\n%s", v)
+	}
+	for line := range strings.SplitSeq(ansi.Strip(m.View().Content), "\n") {
+		if w := lipgloss.Width(line); w > 70 {
+			t.Errorf("line wider than terminal (%d > 70): %q", w, line)
+		}
 	}
 }
 
