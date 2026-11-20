@@ -44,7 +44,9 @@ go install github.com/4anghyeon/itsmydot/cmd/itsmydot@latest
 itsmydot
 ```
 
-목록에서 dotfile을 고르고 <kbd>space</kbd>로 연결하거나 해제합니다.
+실행하면 진입 메뉴에서 `1. dotfiles`와 `2. brewfiles` 중 하나를 고릅니다. 번호를 누르거나 방향키로 옮긴 뒤 <kbd>enter</kbd>를 누르면 그 목록으로 들어갑니다.
+
+dotfiles 목록에서 dotfile을 고르고 <kbd>space</kbd>로 연결하거나 해제합니다.
 
 | 키 | 동작 |
 |---|---|
@@ -54,7 +56,7 @@ itsmydot
 | <kbd>enter</kbd> | 항목 메뉴 열기 (최신본 받기, 차이 보기) |
 | <kbd>tab</kbd> | 파일 미리보기. 업데이트가 있으면 <kbd>enter</kbd>로 차이 보기 |
 | <kbd>?</kbd> | 도움말 |
-| <kbd>esc</kbd> | 화면 닫기 / 종료 |
+| <kbd>esc</kbd> | 화면 닫기 / 진입 메뉴로 돌아가기. 진입 메뉴에서는 종료 |
 
 | 표시 | 상태 |
 |---|---|

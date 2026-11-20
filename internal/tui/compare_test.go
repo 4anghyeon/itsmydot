@@ -12,7 +12,7 @@ import (
 )
 
 // compareFixture 는 사본 내용이 local인 연결된 항목을 만들고 저장소 내용을 remote로 바꾼 뒤 메뉴에서 비교 보기를 고른다.
-func compareFixture(t *testing.T, local, remote string) (Model, tea.Cmd, string) {
+func compareFixture(t *testing.T, local, remote string) (dotfileList, tea.Cmd, string) {
 	t.Helper()
 	files := map[string]string{"files/git/.gitconfig": local}
 	m, target := toggleFixture(t, files)
@@ -105,7 +105,7 @@ func TestCompareIgnoresStaleResult(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "gitconfig", "a\n", "b\n"))
-	m = next.(Model)
+	m = next.(dotfileList)
 	if m.diffScreen.name != "" || m.comparingName != "zshrc" {
 		t.Fatalf("diff = %q comparing = %q", m.diffScreen.name, m.comparingName)
 	}
@@ -135,7 +135,7 @@ func diffLoaded(t *testing.T, name, before, after string) diffLoadedMsg {
 }
 
 // conflictFixture 는 target 자리에 mine이라는 다른 파일이 있는 항목을 켜서 충돌 질문을 띄운다.
-func conflictFixture(t *testing.T, mine, remote string) (Model, string) {
+func conflictFixture(t *testing.T, mine, remote string) (dotfileList, string) {
 	t.Helper()
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": remote})
 	if err := os.WriteFile(target, []byte(mine), 0o644); err != nil {

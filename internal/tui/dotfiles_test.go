@@ -29,15 +29,21 @@ func TestCursorMovesWithinBounds(t *testing.T) {
 	}
 }
 
-func TestQuit(t *testing.T) {
-	for _, key := range []string{"q", "esc"} {
-		_, cmd := press(t, loadedModel(), key)
-		if cmd == nil {
-			t.Fatalf("%s should return a command", key)
-		}
-		if _, ok := cmd().(tea.QuitMsg); !ok {
-			t.Errorf("%s should quit", key)
-		}
+func TestQuitAndBackToMenu(t *testing.T) {
+	_, cmd := press(t, loadedModel(), "q")
+	if cmd == nil {
+		t.Fatal("q should return a command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Error("q should quit")
+	}
+
+	_, cmd = press(t, loadedModel(), "esc")
+	if cmd == nil {
+		t.Fatal("esc should return a command")
+	}
+	if _, ok := cmd().(backToMenuMsg); !ok {
+		t.Error("esc should go back to the entry menu")
 	}
 }
 
@@ -60,7 +66,7 @@ func TestSpinner(t *testing.T) {
 		}
 	}
 	next, tickCmd := m.Update(tick)
-	m = next.(Model)
+	m = next.(dotfileList)
 	if tickCmd == nil {
 		t.Error("spinner should keep ticking while syncing")
 	}
@@ -70,7 +76,7 @@ func TestSpinner(t *testing.T) {
 
 	// 받기가 끝나면 다음 tick을 예약하지 않는다.
 	next, _ = m.Update(done)
-	m = next.(Model)
+	m = next.(dotfileList)
 	if _, tickCmd = m.Update(m.spinner.Tick()); tickCmd != nil {
 		t.Error("spinner should stop when nothing is syncing")
 	}

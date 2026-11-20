@@ -16,7 +16,7 @@ import (
 // 화면에 표시된 상태가 아니라 디스크를 다시 확인해서 결정한다.
 // errored 항목도 실제로 연결돼 있으면 끄고, 아니면 다시 받아서 연결을 시도한다.
 // 언제나 확인 질문을 먼저 띄운다.
-func (m Model) toggle() (Model, tea.Cmd) {
+func (m dotfileList) toggle() (dotfileList, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
@@ -59,7 +59,7 @@ func (m Model) toggle() (Model, tea.Cmd) {
 
 // turnOn 은 i번째 항목을 켠다. 하위 항목이면 꺼져 있는 그룹 파일도 함께 켠다.
 // state는 i번째 항목의 디스크 상태다. m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
+func (m dotfileList) turnOn(i int, state link.State) (dotfileList, tea.Cmd) {
 	indexes, states := []int{i}, []link.State{state}
 	if parent := m.items[i].parent; parent != "" {
 		groupIndex := m.indexOf(parent)
@@ -99,7 +99,7 @@ func (m Model) turnOn(i int, state link.State) (Model, tea.Cmd) {
 
 // unlink 는 i번째 항목의 연결을 끊고, 백업이 있으면 원래 파일을 되돌린다.
 // 그룹이면 연결된 하위 항목도 함께 끈다. m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) unlink(i int) Model {
+func (m dotfileList) unlink(i int) dotfileList {
 	m, childrenOff := m.unlinkChildren(i)
 	it := &m.items[i]
 	it.flash = 1
@@ -122,7 +122,7 @@ func (m Model) unlink(i int) Model {
 
 // detach 는 i번째 항목의 연결만 끊고, 지금 설정은 target에 일반 파일로 남긴다.
 // 그룹이면 연결된 하위 항목도 함께 끈다. m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) detach(i int) Model {
+func (m dotfileList) detach(i int) dotfileList {
 	m, childrenOff := m.unlinkChildren(i)
 	it := &m.items[i]
 	it.flash = 1
@@ -138,7 +138,7 @@ func (m Model) detach(i int) Model {
 }
 
 // withChildrenOff 는 그룹을 끌 때 함께 끈 하위 항목 수를 상태 메시지에 덧붙인다.
-func (m Model) withChildrenOff(count int) Model {
+func (m dotfileList) withChildrenOff(count int) dotfileList {
 	if count > 0 {
 		m.status += fmt.Sprintf(". 하위 항목 %d개도 함께 연결을 끊었어요", count)
 	}
@@ -148,7 +148,7 @@ func (m Model) withChildrenOff(count int) Model {
 // updateCopy 는 i번째 항목의 로컬 사본만 GitHub에서 다시 받는다. 연결은 건드리지 않는다.
 // 메뉴를 연 뒤에 디스크가 바뀌었을 수 있어서 받기 전에 아직 연결돼 있는지 다시 본다.
 // m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) updateCopy(i int) (Model, tea.Cmd) {
+func (m dotfileList) updateCopy(i int) (dotfileList, tea.Cmd) {
 	it := &m.items[i]
 	state, err := link.Check(it.entry.Target, it.copyPath)
 	if err != nil {
@@ -174,7 +174,7 @@ func (m Model) updateCopy(i int) (Model, tea.Cmd) {
 // startSync 는 indexes의 항목들을 syncing으로 바꾸고, 받아서 연결하는 작업을 항목마다 백그라운드로 시작한다.
 // 스피너도 함께 돌린다. 이미 돌고 있으면 스피너가 겹친 tick을 알아서 버린다.
 // 끝나면 항목마다 entrySyncedMsg로 결과가 돌아온다. m.items는 호출하기 전에 복사돼 있어야 한다.
-func (m Model) startSync(indexes ...int) (Model, tea.Cmd) {
+func (m dotfileList) startSync(indexes ...int) (dotfileList, tea.Cmd) {
 	cmds := make([]tea.Cmd, 0, len(indexes)+1)
 	names := make([]string, 0, len(indexes))
 	for _, i := range indexes {
@@ -200,7 +200,7 @@ type syncResult struct {
 // applySynced 는 syncEntry나 fetchCopy의 결과를 해당 항목에 반영한다.
 // 그룹 파일과 하위 파일을 함께 받으면 결과가 따로 도착한다. 먼저 온 결과의 백업 안내가 묻히지 않도록
 // 모두 끝날 때까지 모아 두었다가 목록 순서대로 한 줄에 보여 준다.
-func (m Model) applySynced(msg entrySyncedMsg) Model {
+func (m dotfileList) applySynced(msg entrySyncedMsg) dotfileList {
 	i := m.indexOf(msg.name)
 	if i < 0 {
 		return m

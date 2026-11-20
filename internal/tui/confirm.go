@@ -22,7 +22,7 @@ const (
 )
 
 // confirmPrompt 는 확인 질문 문구와 선택지를 만든다. handleConfirmKey가 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
-func (m Model) confirmPrompt() (question string, options []string) {
+func (m dotfileList) confirmPrompt() (question string, options []string) {
 	i := m.indexOf(m.confirmingName)
 	if i < 0 {
 		return "", []string{"취소"}
@@ -80,26 +80,17 @@ func (m Model) confirmPrompt() (question string, options []string) {
 
 // handleConfirmKey 는 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
 // 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
-func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
+func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
 	_, options := m.confirmPrompt()
-	cancel := strconv.Itoa(len(options)) // 마지막 선택지는 항상 취소다
-	switch key {
-	case "up", "k":
-		m.choice = max(m.choice-1, 0)
-		return m, nil
-	case "down", "j":
-		m.choice = min(m.choice+1, len(options)-1)
-		return m, nil
-	case "enter", "space":
-		key = strconv.Itoa(m.choice + 1)
-	case "esc":
-		key = cancel
+	if key == "esc" {
+		key = strconv.Itoa(len(options)) // 마지막 선택지는 항상 취소다
 	}
-	picked, err := strconv.Atoi(key)
-	if err != nil || picked < 1 || picked > len(options) {
+	var picked int
+	m.choice, picked = moveChoice(key, m.choice, len(options))
+	if picked == 0 {
 		return m, nil
 	}
 
@@ -114,7 +105,7 @@ func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
 		// 질문에서 연 비교는 질문이 닫히면 보여 줄 곳이 없으니 늦게 온 결과를 버린다.
 		m.comparingName = ""
 	}
-	if key == cancel {
+	if picked == len(options) {
 		// 질문 전에 떠 있던 알림은 지금과 상관없어서 함께 지운다.
 		m = m.notify(statusInfo, "")
 		return m, nil
@@ -159,7 +150,7 @@ func (m Model) handleConfirmKey(key string) (Model, tea.Cmd) {
 }
 
 // openMenu 는 커서가 있는 항목에서 할 수 있는 일을 번호 메뉴로 띄운다. 받는 중인 항목에서는 열지 않는다.
-func (m Model) openMenu() Model {
+func (m dotfileList) openMenu() dotfileList {
 	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == syncing {
 		return m
 	}
@@ -169,7 +160,7 @@ func (m Model) openMenu() Model {
 
 // renderConfirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
 // 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
-func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
+func (m dotfileList) renderConfirmLines(st styles) (lines, numbers []string) {
 	question, options := m.confirmPrompt()
 	title := st.question.Render(question)
 	if m.confirmKind == confirmAction {
@@ -183,15 +174,8 @@ func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
 		lines = append(lines, " "+line)
 	}
 	lines = append(lines, "")
-	numbers = make([]string, len(options))
-	for i, opt := range options {
-		numbers[i] = strconv.Itoa(i + 1)
-		cursor, label := " ", opt
-		if i == m.choice {
-			cursor, label = st.cursor.Render(">"), st.selected.Render(opt)
-		}
-		lines = append(lines, " "+cursor+" "+st.key.Render(numbers[i]+".")+" "+label)
-	}
+	optionLines, numbers := st.renderOptions(options, m.choice)
+	lines = append(lines, optionLines...)
 	switch {
 	case m.comparingName != "":
 		lines = append(lines, "", " "+st.stateStyle(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
@@ -202,6 +186,6 @@ func (m Model) renderConfirmLines(st styles) (lines, numbers []string) {
 }
 
 // renderMenuTitle 은 항목 메뉴의 제목이다.
-func (m Model) renderMenuTitle(st styles) string {
+func (m dotfileList) renderMenuTitle(st styles) string {
 	return m.renderItemTitle(st, m.indexOf(m.confirmingName))
 }

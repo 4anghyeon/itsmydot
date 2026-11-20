@@ -12,7 +12,7 @@ import (
 )
 
 func TestView(t *testing.T) {
-	loading := viewText(Model{})
+	loading := viewText(dotfileList{})
 	if !strings.Contains(loading, "불러오는 중") {
 		t.Errorf("loading view = %q", loading)
 	}
@@ -77,7 +77,7 @@ func TestRenderDescriptionWrapsUnderBar(t *testing.T) {
 func TestViewSelectedRowFillsWidth(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig")}, item{entry: entry("zshrc", "/home/me/.zshrc")})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
-	m = next.(Model)
+	m = next.(dotfileList)
 
 	for line := range strings.SplitSeq(viewText(m), "\n") {
 		if strings.HasPrefix(line, "▌ [ ] gitconfig") {

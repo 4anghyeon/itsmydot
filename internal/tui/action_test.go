@@ -201,7 +201,7 @@ func TestToggleFetchError(t *testing.T) {
 	}
 }
 
-// Update가 돌려준 새 Model을 바꿔도, 이전 Model의 항목은 그대로여야 한다.
+// Update가 돌려준 새 목록 모델을 바꿔도, 이전 목록 모델의 항목은 그대로여야 한다.
 func TestToggleDoesNotMutatePreviousModel(t *testing.T) {
 	before, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 	_, _ = confirmToggle(t, before)
