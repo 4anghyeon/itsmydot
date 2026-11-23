@@ -95,10 +95,12 @@ brewfiles 목록은 프로필(base, dev, personal)별 Homebrew 패키지와 설�
 flowchart LR
     repo[("Git 저장소<br/>files/ · manifest.yaml")]
     copy["~/.itsmydot/files/..."]
-    target["~/.zshrc · ~/.gitconfig"]
+    target["~/.gitconfig · ~/.config/zsh/itsmydot.zsh"]
+    zshrc["~/.zshrc"]
 
     repo -->|"가져오기"| copy
     target -.->|"심볼릭 링크"| copy
+    zshrc -.->|"맨 아래 한 줄로 불러오기"| target
 ```
 
 동기화 방향은 저장소에서 로컬 사본으로 향하는 단방향입니다. 설정을 수정할 때는 저장소의 원본 파일을 편집하세요. 로컬 사본이나 대상 경로에서 한 변경은 저장소에 자동으로 반영되지 않습니다.
@@ -113,6 +115,15 @@ entries:
     source: files/git/.gitconfig  # 저장소 안의 경로
     target: ~/.gitconfig          # 연결할 위치
     description: git 전역 설정     # 설명 (선택)
+```
+
+`loaded_by`를 적으면 그 셸 설정 파일 맨 아래에 `target`을 불러오는 한 줄을 넣고 뺍니다.
+
+```yaml
+  - name: zsh
+    source: files/zsh/itsmydot.zsh
+    target: ~/.config/zsh/itsmydot.zsh
+    loaded_by: ~/.zshrc             # 불러오는 줄을 넣을 파일 (선택)
 ```
 
 ## Homebrew 패키지 추가

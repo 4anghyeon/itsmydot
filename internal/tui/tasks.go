@@ -10,6 +10,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/link"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/rcfile"
 )
 
 // entriesLoadedMsg 는 manifest를 불러와 각 항목의 상태까지 확인한 결과다.
@@ -23,6 +24,7 @@ type entriesLoadedMsg struct {
 type entrySyncedMsg struct {
 	name        string
 	backup      string // 기존 파일을 옮겨 둔 백업 경로. 백업하지 않았으면 빈 문자열
+	lineAdded   bool   // loaded_by 파일에 불러오는 줄을 새로 넣었으면 true
 	copyUpdated bool   // 연결은 그대로 두고 로컬 사본만 새로 받았으면 true
 	err         error
 }
@@ -44,7 +46,7 @@ type previewLoadedMsg struct {
 }
 
 // loadEntries 는 GitHub에서 manifest를 받아 파싱하고 각 항목의 현재 상태를 확인한다. 디스크는 바꾸지 않는다.
-func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir) entriesLoadedMsg {
+func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir, home string) entriesLoadedMsg {
 	data, err := client.Fetch(ctx, "manifest.yaml")
 	if err != nil {
 		return entriesLoadedMsg{err: err}
@@ -59,9 +61,9 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 	// 하위 항목은 그룹 바로 뒤에 이어 붙여서 목록 순서가 화면 순서와 같게 한다.
 	var items []item
 	for _, e := range m.Entries {
-		items = append(items, checkItem(e, "", copies, hashes))
+		items = append(items, checkItem(e, "", copies, hashes, home))
 		for _, child := range e.Children {
-			items = append(items, checkItem(child, e.Name, copies, hashes))
+			items = append(items, checkItem(child, e.Name, copies, hashes, home))
 		}
 	}
 	return entriesLoadedMsg{items: items, hashes: hashes}
@@ -69,14 +71,14 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 
 // checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.
 // 확인에 실패해도 나머지 항목은 보여 주도록 그 항목만 errored로 표시한다.
-func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes map[string]string) item {
+func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes map[string]string, home string) item {
 	e.Children = nil
 	it := item{entry: e, parent: parent}
 	var err error
 	it.copyPath, err = copies.Path(e.Source)
 	if err == nil {
 		var s link.State
-		s, err = link.Check(e.Target, it.copyPath)
+		s, err = checkLink(e, it.copyPath, home)
 		it.state = fromLinkState(s)
 	}
 	if err != nil {
@@ -86,6 +88,42 @@ func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes ma
 		it.outdated = differsFromRepo(it.copyPath, e.Source, hashes)
 	}
 	return it
+}
+
+// checkLink 는 target 자리를 보고 항목의 연결 상태를 판단한다. 디스크는 바꾸지 않는다.
+// loaded_by가 있는 항목은 symlink가 걸려 있어도 그 파일에 불러오는 줄이 없으면 연결되지 않은 것으로 본다.
+// 그래야 ~/.zshrc를 통째로 바꾸는 도구가 줄을 지웠을 때 다시 켜서 줄을 넣을 수 있다.
+func checkLink(e manifest.Entry, copyPath, home string) (link.State, error) {
+	state, err := link.Check(e.Target, copyPath)
+	if err != nil || state != link.Synced || e.LoadedBy == "" {
+		return state, err
+	}
+	has, err := rcfile.Has(e.LoadedBy, rcfile.Line(e.Target, home))
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return link.NotSynced, nil
+	}
+	return link.Synced, nil
+}
+
+// linkEntry 는 target에 로컬 사본을 연결하고 loaded_by가 있으면 그 파일 끝에 불러오는 줄을 넣는다.
+func linkEntry(e manifest.Entry, copyPath, home string) (backup string, lineAdded bool, err error) {
+	backup, err = link.Link(e.Target, copyPath)
+	if err != nil || e.LoadedBy == "" {
+		return backup, false, err
+	}
+	lineAdded, err = rcfile.Add(e.LoadedBy, rcfile.Line(e.Target, home))
+	return backup, lineAdded, err
+}
+
+// removeLoadLine 은 loaded_by 파일에서 target을 불러오는 줄을 지운다. loaded_by가 없으면 아무것도 하지 않는다.
+func removeLoadLine(e manifest.Entry, home string) (bool, error) {
+	if e.LoadedBy == "" {
+		return false, nil
+	}
+	return rcfile.Remove(e.LoadedBy, rcfile.Line(e.Target, home))
 }
 
 // differsFromRepo 는 로컬 사본이 저장소의 source 파일과 다른지 알려 준다.
@@ -104,7 +142,7 @@ func differsFromRepo(copyPath, source string, hashes map[string]string) bool {
 
 // syncEntry 는 항목 하나를 GitHub에서 최신본으로 받아 로컬 사본에 저장하고 target에 연결한다.
 // 이미 연결된 항목이면 로컬 사본만 최신으로 바뀐다.
-func syncEntry(ctx context.Context, client *github.Client, copies *localcopy.Dir, e manifest.Entry) entrySyncedMsg {
+func syncEntry(ctx context.Context, client *github.Client, copies *localcopy.Dir, e manifest.Entry, home string) entrySyncedMsg {
 	msg := entrySyncedMsg{name: e.Name}
 
 	data, err := client.Fetch(ctx, e.Source)
@@ -117,7 +155,7 @@ func syncEntry(ctx context.Context, client *github.Client, copies *localcopy.Dir
 		msg.err = err
 		return msg
 	}
-	msg.backup, msg.err = link.Link(e.Target, copyPath)
+	msg.backup, msg.lineAdded, msg.err = linkEntry(e, copyPath, home)
 	return msg
 }
 

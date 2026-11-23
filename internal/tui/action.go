@@ -26,7 +26,7 @@ func (m dotfileList) toggle() (dotfileList, tea.Cmd) {
 		return m, nil
 	}
 
-	state, err := link.Check(it.entry.Target, it.copyPath)
+	state, err := checkLink(it.entry, it.copyPath, m.home)
 	if err != nil {
 		it.state, it.err = errored, err
 		m = m.notify(statusFailed, it.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
@@ -65,7 +65,7 @@ func (m dotfileList) turnOn(i int, state link.State) (dotfileList, tea.Cmd) {
 		groupIndex := m.indexOf(parent)
 		group := &m.items[groupIndex]
 		if group.state != syncing {
-			groupState, err := link.Check(group.entry.Target, group.copyPath)
+			groupState, err := checkLink(group.entry, group.copyPath, m.home)
 			if err != nil {
 				group.state, group.err = errored, err
 				m = m.notify(statusFailed, group.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
@@ -109,6 +109,13 @@ func (m dotfileList) unlink(i int) dotfileList {
 		m = m.notify(statusFailed, it.entry.Name+" 연결을 끊지 못했어요 ("+errorReason(err, m.home)+")")
 		return m.withChildrenOff(childrenOff)
 	}
+	lineRemoved, err := removeLoadLine(it.entry, m.home)
+	if err != nil {
+		// symlink는 이미 뗐다. 남은 줄은 파일을 읽을 수 있을 때만 불러오므로 셸은 문제없이 뜬다.
+		it.state, it.err = errored, err
+		m = m.notify(statusFailed, it.entry.Name+" 연결은 끊었지만 "+tildify(it.entry.LoadedBy, m.home)+" 에서 불러오는 줄을 지우지 못했어요 ("+errorReason(err, m.home)+")")
+		return m.withChildrenOff(childrenOff)
+	}
 	if restored != "" {
 		// 백업을 되돌렸으면 target 자리에 다시 일반 파일이 있다.
 		it.state, it.err = conflict, nil
@@ -116,6 +123,9 @@ func (m dotfileList) unlink(i int) dotfileList {
 	} else {
 		it.state, it.err = notSynced, nil
 		m = m.notify(statusUnlinked, it.entry.Name+" 연결을 끊었어요. 사본은 "+tildify(it.copyPath, m.home)+" 에 남아 있어요")
+	}
+	if lineRemoved {
+		m.status += ". " + tildify(it.entry.LoadedBy, m.home) + " 에서 불러오는 줄도 지웠어요"
 	}
 	return m.withChildrenOff(childrenOff)
 }
@@ -150,7 +160,7 @@ func (m dotfileList) withChildrenOff(count int) dotfileList {
 // m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m dotfileList) updateCopy(i int) (dotfileList, tea.Cmd) {
 	it := &m.items[i]
-	state, err := link.Check(it.entry.Target, it.copyPath)
+	state, err := checkLink(it.entry, it.copyPath, m.home)
 	if err != nil {
 		it.state, it.err = errored, err
 		m = m.notify(statusFailed, it.entry.Name+" 파일 상태를 확인하지 못했어요 ("+errorReason(err, m.home)+")")
@@ -181,9 +191,9 @@ func (m dotfileList) startSync(indexes ...int) (dotfileList, tea.Cmd) {
 		it := &m.items[i]
 		it.state, it.err = syncing, nil
 		names = append(names, it.entry.Name)
-		entry, client, copies := it.entry, m.client, m.copies
+		entry, client, copies, home := it.entry, m.client, m.copies, m.home
 		cmds = append(cmds, func() tea.Msg {
-			return syncEntry(context.Background(), client, copies, entry)
+			return syncEntry(context.Background(), client, copies, entry, home)
 		})
 	}
 	m = m.notify(statusBusy, strings.Join(names, ", ")+" 받는 중이에요...")
@@ -227,6 +237,9 @@ func (m dotfileList) applySynced(msg entrySyncedMsg) dotfileList {
 		result = it.entry.Name + " 파일을 연결했어요"
 		if msg.backup != "" {
 			result += ". 기존 파일은 " + tildify(msg.backup, m.home) + " 에 백업했어요"
+		}
+		if msg.lineAdded {
+			result += ". " + tildify(it.entry.LoadedBy, m.home) + " 끝에 불러오는 줄을 넣었어요"
 		}
 	}
 

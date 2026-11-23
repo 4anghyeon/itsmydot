@@ -13,12 +13,16 @@ import (
 
 // Entry 는 동기화할 수 있는 dotfile 하나다. Target에 들어 있던 ~는 [Parse] 가 홈 디렉토리로 바꿔 둔다.
 //
-// Children이 있으면 그룹이다. 그룹도 자기 파일을 가진다. zsh라면 ~/.zshrc가 그룹 파일이고
+// Children이 있으면 그룹이다. 그룹도 자기 파일을 가진다. zsh라면 ~/.config/zsh/itsmydot.zsh가 그룹 파일이고
 // 그 파일이 불러오는 ~/.config/zsh/*.zsh가 하위 항목이다. 하위 항목은 다시 Children을 가질 수 없다.
+//
+// LoadedBy가 있으면 연결할 때 그 셸 설정 파일 끝에 Target을 불러오는 한 줄을 넣고 끊을 때 그 줄을 지운다.
+// ~는 Target처럼 홈 디렉토리로 바뀐다.
 type Entry struct {
 	Name        string  `yaml:"name"`
 	Source      string  `yaml:"source"`
 	Target      string  `yaml:"target"`
+	LoadedBy    string  `yaml:"loaded_by"`
 	Description string  `yaml:"description"`
 	Children    []Entry `yaml:"children"`
 }
@@ -74,9 +78,10 @@ func Parse(data []byte) (*Manifest, error) {
 	}
 	for i := range m.Entries {
 		e := &m.Entries[i]
-		e.Target = expandHome(e.Target, home)
+		e.Target, e.LoadedBy = expandHome(e.Target, home), expandHome(e.LoadedBy, home)
 		for j := range e.Children {
-			e.Children[j].Target = expandHome(e.Children[j].Target, home)
+			child := &e.Children[j]
+			child.Target, child.LoadedBy = expandHome(child.Target, home), expandHome(child.LoadedBy, home)
 		}
 	}
 
@@ -158,6 +163,9 @@ func validateEntry(e Entry, label string, seen map[string]bool) []string {
 
 	if e.Target == "" {
 		problems = append(problems, label+"에 target이 없어요")
+	}
+	if e.LoadedBy != "" && path.Clean(e.LoadedBy) == path.Clean(e.Target) {
+		problems = append(problems, label+"의 loaded_by는 target과 다른 파일이어야 해요")
 	}
 	return problems
 }

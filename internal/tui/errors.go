@@ -11,6 +11,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/rcfile"
 )
 
 // errorReason 은 에러를 화면에 보여 줄 사유 문장으로 바꾼다. 원래 에러 내용은 항목 메뉴에서 따로 보여 준다.
@@ -38,6 +39,8 @@ func errorReason(err error, home string) string {
 		return "GitHub에 접속하지 못했어요. 네트워크를 확인해 주세요"
 	case errors.As(err, &exitErr):
 		return "brew 명령이 실패했어요"
+	case errors.Is(err, rcfile.ErrSymlink):
+		return tildify(errorPath(err), home) + " 가 심볼릭 링크라서 고치지 않았어요"
 	case errors.Is(err, fs.ErrPermission):
 		if path := errorPath(err); path != "" {
 			return tildify(path, home) + " 파일에 접근할 권한이 없어요"
