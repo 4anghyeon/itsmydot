@@ -13,6 +13,10 @@ entries:
         source: files/zsh/oh-my-zsh.zsh
         target: ~/.config/zsh/oh-my-zsh.zsh
         description: oh-my-zsh 테마와 플러그인. 설치돼 있을 때만 불러온다
+      - name: fzf
+        source: files/zsh/fzf.zsh
+        target: ~/.config/zsh/fzf.zsh
+        description: ctrl+r 히스토리 검색 같은 fzf 키 바인딩. 설치돼 있을 때만 불러온다
       - name: mise
         source: files/zsh/mise.zsh
         target: ~/.config/zsh/mise.zsh
