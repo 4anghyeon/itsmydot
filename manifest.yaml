@@ -54,6 +54,10 @@ entries:
         source: files/claude/rules/go.md
         target: ~/.claude/rules/go.md
         description: Go 파일을 다룰 때 불러오는 규칙
+      - name: skill-comment-cleanup
+        source: files/claude/skills/comment-cleanup/SKILL.md
+        target: ~/.claude/skills/comment-cleanup/SKILL.md
+        description: 주석을 덜어내는 스킬
 
 brewfiles:
   - name: base
