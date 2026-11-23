@@ -72,6 +72,9 @@ func (m dotfileList) unlinkChildren(i int) (dotfileList, int) {
 		child := &m.items[j]
 		child.flash = 1
 		restored, err := link.Unlink(child.entry.Target, child.copyPath)
+		if err == nil {
+			_, err = removeLoadLine(child.entry, m.home)
+		}
 		if err != nil {
 			child.state, child.err = errored, err
 			continue

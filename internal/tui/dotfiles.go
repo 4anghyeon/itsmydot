@@ -58,7 +58,7 @@ type item struct {
 type dotfileList struct {
 	client  *github.Client
 	copies  *localcopy.Dir
-	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때 쓴다
+	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때와 loaded_by 파일에 넣을 줄을 만들 때 쓴다
 	version string // 제목 옆에 보여 주는 itsmydot 버전. 비어 있으면 보여 주지 않는다
 	width   int    // 터미널 폭. 모르면 0이고 이때는 화면 폭을 내용에 맞춘다
 	height  int    // 터미널 높이. 모르면 0이고 이때는 비교 보기 화면 높이를 내용에 맞춘다
@@ -106,14 +106,14 @@ type dotfileList struct {
 
 // newDotfileList 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [dotfileList.Init] 에서 시작한다.
 func newDotfileList(client *github.Client, copies *localcopy.Dir, version string) dotfileList {
-	home, _ := os.UserHomeDir() // 실패하면 경로를 줄이지 않고 그대로 보여 줄 뿐이라 무시한다
+	home, _ := os.UserHomeDir() // 실패하면 manifest.Parse도 실패해서 목록이 뜨지 않는다
 	return dotfileList{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
 }
 
 // Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 dotfiles를 처음 고를 때 한 번만 부른다.
 func (m dotfileList) Init() tea.Cmd {
 	return func() tea.Msg {
-		return loadEntries(context.Background(), m.client, m.copies)
+		return loadEntries(context.Background(), m.client, m.copies, m.home)
 	}
 }
 

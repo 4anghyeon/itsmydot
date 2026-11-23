@@ -1,8 +1,9 @@
 entries:
-  - name: zshrc
-    source: files/zsh/.zshrc
-    target: ~/.zshrc
-    description: zsh 설정. 아래 파일을 정해진 순서로 불러온다
+  - name: zsh
+    source: files/zsh/itsmydot.zsh
+    target: ~/.config/zsh/itsmydot.zsh
+    loaded_by: ~/.zshrc
+    description: zsh 설정. ~/.zshrc 끝에 이 파일을 불러오는 줄을 넣고 아래 파일을 정해진 순서로 불러온다
     children:
       - name: env
         source: files/zsh/env.zsh

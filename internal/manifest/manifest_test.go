@@ -42,7 +42,7 @@ entries:
 	}
 }
 
-// 하위 항목의 target도 ~를 홈 디렉토리로 바꾼다.
+// 하위 항목의 target과 loaded_by도 ~를 홈 디렉토리로 바꾼다.
 func TestParseChildren(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -51,9 +51,10 @@ func TestParseChildren(t *testing.T) {
 
 	m, err := Parse([]byte(`
 entries:
-  - name: zshrc
-    source: files/zsh/.zshrc
-    target: ~/.zshrc
+  - name: zsh
+    source: files/zsh/itsmydot.zsh
+    target: ~/.config/zsh/itsmydot.zsh
+    loaded_by: ~/.zshrc
     children:
       - name: env
         source: files/zsh/00-env.zsh
@@ -61,6 +62,9 @@ entries:
 `))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
+	}
+	if want := filepath.Join(home, ".zshrc"); m.Entries[0].LoadedBy != want {
+		t.Errorf("loaded_by = %q, want %q", m.Entries[0].LoadedBy, want)
 	}
 	children := m.Entries[0].Children
 	if len(children) != 1 {
@@ -110,6 +114,7 @@ func TestParseValidation(t *testing.T) {
 		}},
 		{"duplicate brewfile", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: x}, {name: b, source: x}]}`, []string{"b 이름을 쓰는 Brewfile 항목이 이미 있어요"}},
 		{"escaping brewfile source", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: ../x}]}`, []string{"b Brewfile 항목의 source는 저장소 기준 경로여야"}},
+		{"loaded by itself", `entries: [{name: a, source: x, target: ~/.zshrc, loaded_by: ~/.zshrc}]`, []string{"a 항목의 loaded_by는 target과 다른 파일이어야 해요"}},
 		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{"c 항목은 하위 항목을 한 단계까지만 둘 수 있어요"}},
 	}
 	for _, tt := range tests {

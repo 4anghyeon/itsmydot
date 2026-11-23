@@ -43,7 +43,7 @@ func TestLoadEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg := loadEntries(context.Background(), client, copies)
+	msg := loadEntries(context.Background(), client, copies, "")
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
@@ -88,7 +88,7 @@ func TestLoadEntriesMarksOutdated(t *testing.T) {
 		}
 	}
 
-	msg := loadEntries(context.Background(), client, copies)
+	msg := loadEntries(context.Background(), client, copies, "")
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
@@ -124,7 +124,7 @@ func TestLoadEntriesWithoutHashes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg := loadEntries(context.Background(), client, copies)
+	msg := loadEntries(context.Background(), client, copies, "")
 	if msg.err != nil || len(msg.items) != 1 {
 		t.Fatalf("items = %d err = %v", len(msg.items), msg.err)
 	}

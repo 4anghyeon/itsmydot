@@ -267,7 +267,7 @@ func TestLoadEntriesWithChildren(t *testing.T) {
       - {name: env, source: files/zsh/00-env.zsh, target: ` + filepath.Join(home, "env.zsh") + `}
 `})
 
-	msg := loadEntries(context.Background(), client, localcopy.New(t.TempDir()))
+	msg := loadEntries(context.Background(), client, localcopy.New(t.TempDir()), "")
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}

@@ -2,10 +2,15 @@ package tui
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/link"
+	"github.com/4anghyeon/itsmydot/internal/localcopy"
+	"github.com/4anghyeon/itsmydot/internal/manifest"
 )
 
 func TestToggleOnAndOff(t *testing.T) {
@@ -449,4 +454,96 @@ func TestUpdateCopyClearsOutdated(t *testing.T) {
 	if m.items[0].outdated || strings.Contains(viewText(m), "^ 업데이트") {
 		t.Errorf("mark should disappear after updating the copy:\n%s", viewText(m))
 	}
+}
+
+// loaded_by가 있는 항목은 연결할 때 그 파일 끝에 불러오는 줄을 넣고 끊을 때 그 줄만 지운다.
+func TestToggleLoadedBy(t *testing.T) {
+	home := t.TempDir()
+	copies := localcopy.New(t.TempDir())
+	target := filepath.Join(home, ".config", "zsh", "itsmydot.zsh")
+	zshrc := filepath.Join(home, ".zshrc")
+	if err := os.WriteFile(zshrc, []byte("export A=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	line := "[[ -r ~/.config/zsh/itsmydot.zsh ]] && source ~/.config/zsh/itsmydot.zsh   # itsmydot"
+
+	e := manifest.Entry{Name: "zsh", Source: "files/zsh/itsmydot.zsh", Target: target, LoadedBy: zshrc}
+	copyPath, err := copies.Path(e.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newDotfileList(fakeRepo(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m.home = home
+	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
+	m = next.(dotfileList)
+
+	m, cmd := confirmToggle(t, m)
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != synced {
+		t.Fatalf("state = %d, want synced (err %v)", m.items[0].state, m.items[0].err)
+	}
+	assertContent(t, zshrc, "export A=1\n"+line+"\n")
+	if !strings.Contains(m.status, "~/.zshrc 끝에 불러오는 줄을 넣었어요") {
+		t.Errorf("status = %q, want line notice", m.status)
+	}
+
+	// 다른 도구가 ~/.zshrc를 통째로 바꿔 줄이 사라지면 연결되지 않은 것으로 보고 다시 켜면 줄을 넣는다.
+	if err := os.WriteFile(zshrc, []byte("export B=2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if state, err := checkLink(e, copyPath, home); err != nil || state != link.NotSynced {
+		t.Fatalf("checkLink = %v, %v, want NotSynced", state, err)
+	}
+	m, cmd = confirmToggle(t, m)
+	m = runCmd(t, m, cmd)
+	assertContent(t, zshrc, "export B=2\n"+line+"\n")
+
+	// 백업이 없어서 끊는 방법을 묻는다. 파일도 지우면 넣은 줄만 빠지고 나머지 설정은 남는다.
+	m, _ = press(t, m, "space")
+	if m.confirmKind != confirmUnlinkWithoutBackup {
+		t.Fatalf("confirmKind = %d, want confirmUnlinkWithoutBackup", m.confirmKind)
+	}
+	m, _ = press(t, m, "2")
+	if m.items[0].state != notSynced {
+		t.Fatalf("state = %d, want notSynced (err %v)", m.items[0].state, m.items[0].err)
+	}
+	assertSymlink(t, target, false)
+	assertContent(t, zshrc, "export B=2\n")
+	if !strings.Contains(m.status, "~/.zshrc 에서 불러오는 줄도 지웠어요") {
+		t.Errorf("status = %q, want line removal notice", m.status)
+	}
+}
+
+// loaded_by 파일이 symlink면 따라가서 고치지 않고 이유를 알린다.
+func TestToggleLoadedBySymlink(t *testing.T) {
+	home := t.TempDir()
+	copies := localcopy.New(t.TempDir())
+	original := filepath.Join(home, "zshrc-original")
+	if err := os.WriteFile(original, []byte("export A=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	zshrc := filepath.Join(home, ".zshrc")
+	if err := os.Symlink(original, zshrc); err != nil {
+		t.Fatal(err)
+	}
+
+	e := manifest.Entry{Name: "zsh", Source: "files/zsh/itsmydot.zsh", Target: filepath.Join(home, ".config", "zsh", "itsmydot.zsh"), LoadedBy: zshrc}
+	copyPath, err := copies.Path(e.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newDotfileList(fakeRepo(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m.home = home
+	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
+	m = next.(dotfileList)
+
+	m, cmd := confirmToggle(t, m)
+	m = runCmd(t, m, cmd)
+	if m.items[0].state != errored {
+		t.Fatalf("state = %d, want errored", m.items[0].state)
+	}
+	if !strings.Contains(m.status, "~/.zshrc 가 심볼릭 링크라서 고치지 않았어요") {
+		t.Errorf("status = %q, want symlink reason", m.status)
+	}
+	assertContent(t, original, "export A=1\n")
 }
