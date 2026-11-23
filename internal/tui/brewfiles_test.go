@@ -263,7 +263,7 @@ func TestBrewMissing(t *testing.T) {
 	m.find = func() (homebrew.Runner, error) { return nil, homebrew.ErrNotInstalled }
 	m = updateBrew(m, m.Init()())
 	v := brewView(m)
-	for _, want := range []string{"Homebrew가 필요해요", "Homebrew/install/HEAD/install.sh", "esc 진입 메뉴"} {
+	for _, want := range []string{"Homebrew가 필요해요", "Homebrew/install/HEAD/install.sh", "Next steps 명령도 실행해 주세요", "esc 진입 메뉴"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("missing view lacks %q:\n%s", want, v)
 		}

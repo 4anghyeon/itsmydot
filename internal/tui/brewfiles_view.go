@@ -180,13 +180,21 @@ func (m brewfileList) renderInstallConfirmLines(st styles) (lines, numbers []str
 }
 
 // renderMissingLines 는 Homebrew가 없을 때 목록 대신 보여 줄 안내다. itsmydot은 Homebrew를 직접 설치하지 않는다.
+//
+// 설치 스크립트는 셸 설정을 고치지 않고 끝에 Next steps 명령만 보여 준다.
+// Apple Silicon Mac에서는 그 명령을 실행해야 새 셸에서 brew가 PATH에 잡히므로 함께 안내한다.
+// PATH 설정은 Homebrew 안내대로 각 Mac의 ~/.zprofile에 두고 itsmydot은 관리하지 않는다.
 func (m brewfileList) renderMissingLines(st styles) []string {
 	return []string{
 		" " + st.question.Render("Homebrew가 필요해요"),
 		"",
-		" " + "터미널에서 아래 명령으로 Homebrew를 설치한 뒤 itsmydot을 다시 실행해 주세요.",
+		" " + "터미널에서 아래 명령으로 Homebrew를 설치해 주세요.",
 		"",
 		"   " + st.key.Render(homebrew.InstallGuide),
+		"",
+		" " + "설치가 끝나면 화면 끝에 나오는 Next steps 명령도 실행해 주세요.",
+		" " + "새 셸에서 brew와 brew로 설치한 도구를 찾으려면 이 단계가 필요해요.",
+		" " + "그다음 itsmydot을 다시 실행해 주세요.",
 		"",
 		" " + st.muted.Render("자세한 내용은 https://brew.sh 를 참고해 주세요"),
 	}
