@@ -11,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/4anghyeon/itsmydot/internal/brewfile"
 	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/homebrew"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
@@ -378,6 +377,6 @@ func testProfile(name string) manifest.Brewfile {
 	return manifest.Brewfile{Name: name, Source: "files/brew/" + name + ".Brewfile"}
 }
 
-func testPackage(name string) brewfile.Package {
-	return brewfile.Package{Kind: brewfile.Formula, Name: name, Line: `brew "` + name + `"`}
+func testPackage(name string) homebrew.Package {
+	return homebrew.Package{Kind: homebrew.Formula, Name: name, Line: `brew "` + name + `"`}
 }

@@ -1,4 +1,4 @@
-package brewfile
+package homebrew
 
 import (
 	"os"
@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
-	got := Parse([]byte(`# --- Shell ---
+func TestParseBrewfile(t *testing.T) {
+	got := ParseBrewfile([]byte(`# --- Shell ---
 brew "zsh"                            # Z Shell
 brew "zsh-completions"
 
@@ -33,7 +33,7 @@ cask "unterminated
 		{Formula, "PeonPing/tap/peon-ping", `brew "PeonPing/tap/peon-ping", args: ["HEAD"]`, "알림 # 사운드"},
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Parse =\n%+v\nwant\n%+v", got, want)
+		t.Errorf("ParseBrewfile =\n%+v\nwant\n%+v", got, want)
 	}
 }
 
@@ -74,7 +74,7 @@ func TestRepoBrewfiles(t *testing.T) {
 				want++
 			}
 		}
-		if got := len(Parse(data)); got != want {
+		if got := len(ParseBrewfile(data)); got != want {
 			t.Errorf("%s: %d packages, want %d", path, got, want)
 		}
 	}

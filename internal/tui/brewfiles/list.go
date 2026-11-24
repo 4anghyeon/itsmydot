@@ -10,7 +10,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/4anghyeon/itsmydot/internal/brewfile"
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/homebrew"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
@@ -20,7 +19,7 @@ import (
 // brewItem 은 brewfiles 목록의 한 줄이다. 프로필 줄은 profile만 채우고 패키지 줄은 pkg와 프로필 이름인 parent를 채운다.
 type brewItem struct {
 	profile manifest.Brewfile
-	pkg     brewfile.Package
+	pkg     homebrew.Package
 	parent  string
 }
 
@@ -62,7 +61,7 @@ type List struct {
 	collapsed map[string]bool // 접힌 프로필의 이름. 바꿀 때는 [ui.TreeCollapse] 와 [ui.TreeExpand] 가 새 map을 만든다
 	installed homebrew.Installed
 
-	// picked 는 설치하려고 고른 패키지의 [brewfile.Package.Key] 다. 바꿀 때는 새 map을 만든다.
+	// picked 는 설치하려고 고른 패키지의 [homebrew.Package.Key] 다. 바꿀 때는 새 map을 만든다.
 	picked map[string]bool
 
 	ready    bool  // Brewfile과 설치 상태를 다 불러왔으면 true
@@ -146,7 +145,7 @@ func loadBrewfiles(ctx context.Context, client *github.Client, find func() (home
 			return brewfilesLoadedMsg{err: err}
 		}
 		items = append(items, brewItem{profile: profile})
-		for _, p := range brewfile.Parse(data) {
+		for _, p := range homebrew.ParseBrewfile(data) {
 			items = append(items, brewItem{pkg: p, parent: profile.Name})
 		}
 	}
@@ -283,8 +282,8 @@ func (m List) togglePick() List {
 }
 
 // pickedPackages 는 고른 패키지를 목록 순서대로 한 번씩 모은다. 여러 프로필에 같은 패키지가 있어도 한 번만 넣는다.
-func (m List) pickedPackages() []brewfile.Package {
-	var packages []brewfile.Package
+func (m List) pickedPackages() []homebrew.Package {
+	var packages []homebrew.Package
 	seen := make(map[string]bool)
 	for _, it := range m.items {
 		key := it.pkg.Key()
@@ -318,10 +317,10 @@ func (m List) startInstall() (List, tea.Cmd) {
 
 // writeInstallBrewfile 은 packages의 줄만 모은 임시 Brewfile을 dir에 쓰고 그 경로를 돌려준다.
 // cask가 쓰는 tap이 먼저 등록되도록 tap 줄을 앞에 둔다.
-func writeInstallBrewfile(dir string, packages []brewfile.Package) (string, error) {
+func writeInstallBrewfile(dir string, packages []homebrew.Package) (string, error) {
 	var taps, others []string
 	for _, p := range packages {
-		if p.Kind == brewfile.Tap {
+		if p.Kind == homebrew.Tap {
 			taps = append(taps, p.Line)
 		} else {
 			others = append(others, p.Line)

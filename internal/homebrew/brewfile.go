@@ -1,7 +1,4 @@
-// Package brewfile 은 Homebrew Bundle의 Brewfile에서 tap, brew, cask 줄을 읽는다.
-//
-// Brewfile은 Ruby 문법이지만 itsmydot이 다루는 파일은 한 줄에 패키지 하나를 적는 단순한 형태라 Ruby를 해석하지 않고 줄 단위로 읽는다.
-package brewfile
+package homebrew
 
 import (
 	"strings"
@@ -43,10 +40,11 @@ func (p Package) ShortName() string {
 	return p.Name[strings.LastIndex(p.Name, "/")+1:]
 }
 
-// Parse 는 Brewfile에서 tap, brew, cask 줄을 순서대로 읽는다. 나머지 줄과 형식이 맞지 않는 줄은 건너뛴다.
+// ParseBrewfile 은 Brewfile에서 tap, brew, cask 줄을 순서대로 읽는다. 나머지 줄과 형식이 맞지 않는 줄은 건너뛴다.
+// Brewfile은 Ruby 문법이지만 itsmydot이 다루는 파일은 한 줄에 패키지 하나를 적는 단순한 형태라 Ruby를 해석하지 않고 줄 단위로 읽는다.
 //
 // "# --- Shell ---" 같은 주석만 있는 줄은 섹션 이름으로 보고 다음 섹션 주석까지 이어지는 줄의 설명이 없을 때 대신 쓴다.
-func Parse(data []byte) []Package {
+func ParseBrewfile(data []byte) []Package {
 	var packages []Package
 	section := ""
 	for raw := range strings.SplitSeq(string(data), "\n") {
