@@ -300,6 +300,62 @@ func TestBrewLoadFails(t *testing.T) {
 	}
 }
 
+// 목록이 터미널보다 길면 남는 높이만큼만 그리고 커서를 따라 창을 옮긴다.
+// 화면이 터미널 높이를 넘으면 렌더러가 위쪽 줄을 버리므로 어느 상태에서도 높이 안에 들어와야 한다.
+func TestBrewScroll(t *testing.T) {
+	const height = 18
+	m, _ := brewFixture(t)
+	m = updateBrew(m, tea.WindowSizeMsg{Width: 60, Height: height})
+
+	fits := func(step string) string {
+		t.Helper()
+		v := brewView(m)
+		if lines := strings.Count(v, "\n") + 1; lines > height {
+			t.Errorf("%s: view is %d lines, taller than the terminal:\n%s", step, lines, v)
+		}
+		if !strings.Contains(v, "itsmydot") {
+			t.Errorf("%s: title cut off:\n%s", step, v)
+		}
+		return v
+	}
+
+	v := fits("first page")
+	if !strings.Contains(v, "v [ ] base") || strings.Contains(v, "peon-ping") || !strings.Contains(v, "█") {
+		t.Errorf("first page should show the top rows with a scrollbar:\n%s", v)
+	}
+	// 터미널 창의 스크롤 막대와 겹치지 않게 오른쪽 끝에서 두 칸 떨어져 있다.
+	for line := range strings.SplitSeq(v, "\n") {
+		if strings.Contains(line, "[") && !strings.HasSuffix(line, "░  ") && !strings.HasSuffix(line, "█  ") {
+			t.Errorf("scrollbar should keep a margin from the right edge: %q", line)
+		}
+	}
+
+	// 맨 아래까지 내려가면 창이 따라 내려가 마지막 줄이 보인다.
+	m, _ = pressBrew(t, m, "down", "down", "down", "down", "down", "down", "down")
+	if v := fits("bottom"); m.cursor != 7 || !strings.Contains(v, "peon-ping") || strings.Contains(v, "v [ ] base") {
+		t.Errorf("bottom: cursor=%d\n%s", m.cursor, v)
+	}
+
+	// 창 안에서 움직이면 창은 그대로 있다.
+	offset := m.offset
+	m, _ = pressBrew(t, m, "up")
+	if m.offset != offset {
+		t.Errorf("offset moved from %d to %d while the cursor stayed inside the window", offset, m.offset)
+	}
+
+	// 확인 질문으로 아래쪽 줄이 늘어도 커서 줄은 보이고 화면은 높이 안에 들어온다.
+	m, _ = pressBrew(t, m, "space", "enter")
+	if v := fits("confirm"); !m.confirming || !strings.Contains(v, "▌") {
+		t.Errorf("confirm: confirming=%v\n%s", m.confirming, v)
+	}
+
+	// 맨 위로 돌아오면 첫 줄이 다시 보인다.
+	m, _ = pressBrew(t, m, "esc", "up", "up", "up", "up", "up", "up")
+	if v := fits("top"); m.cursor != 0 || !strings.Contains(v, "v [ ] base") {
+		t.Errorf("top: cursor=%d\n%s", m.cursor, v)
+	}
+}
+
 // 진입 메뉴에서 brewfiles에 처음 들어갈 때만 불러오고 불러온 뒤에는 카드에 설치된 비율을 보여 준다.
 func TestRootLoadsBrewfilesOnce(t *testing.T) {
 	m := rootFixture(t)
