@@ -10,6 +10,7 @@ import (
 // 그룹은 자기 파일을 가진 항목이고 하위 항목은 그룹 파일이 불러오는 파일이다.
 // 그래서 하위 항목이 켜져 있으면 그룹 파일도 켜져 있어야 한다.
 // 하위 항목을 켤 때 그룹 파일을 함께 켜고 그룹 파일을 끌 때 하위 항목도 함께 끈다.
+// 폴더 그룹은 자기 파일 없이 하위 항목만 묶으므로 이 규칙이 없고 하위 항목을 하나씩 켜고 끈다.
 
 // indexOf 는 이름이 name인 항목의 위치다. 없으면 -1이다.
 func (m List) indexOf(name string) int {
@@ -18,6 +19,36 @@ func (m List) indexOf(name string) int {
 
 func (it item) NodeName() string   { return it.entry.Name }
 func (it item) ParentName() string { return it.parent }
+
+// isFolder 는 i번째 항목이 자기 파일 없이 하위 항목만 묶는 폴더 그룹인지 알려 준다.
+func (m List) isFolder(i int) bool {
+	return m.items[i].entry.IsFolder()
+}
+
+// folderState 는 i번째 폴더 그룹 줄에 그릴 상태다. 받는 중인 하위 항목이 있으면 받는 중이고
+// 하위 항목이 모두 연결돼 있으면 연결됨, 그 밖에는 연결 안 됨이다.
+func (m List) folderState(i int) ui.ItemState {
+	children := m.children(i)
+	synced := 0
+	for _, j := range children {
+		switch m.items[j].state {
+		case ui.Syncing:
+			return ui.Syncing
+		case ui.Synced:
+			synced++
+		case ui.NotSynced, ui.Conflict, ui.Errored:
+		}
+	}
+	if len(children) > 0 && synced == len(children) {
+		return ui.Synced
+	}
+	return ui.NotSynced
+}
+
+// notifyFolder 는 폴더 그룹 줄에서 연결이나 미리보기를 고르면 하위 항목을 고르라고 알린다.
+func (m List) notifyFolder() List {
+	return m.notify(ui.StatusInfo, m.items[m.cursor].entry.Name+" 폴더에는 연결할 파일이 없어요. 하위 항목을 골라 주세요")
+}
 
 // children 은 i번째 항목의 하위 항목 위치들이다. 그룹이 아니면 비어 있다.
 func (m List) children(i int) []int {

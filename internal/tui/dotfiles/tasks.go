@@ -75,6 +75,10 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes map[string]string, home string) item {
 	e.Children = nil
 	it := item{entry: e, parent: parent}
+	if e.IsFolder() {
+		// 폴더 그룹은 연결할 파일이 없어서 상태를 확인하지 않는다. 체크 표시는 하위 항목 상태로 그린다.
+		return it
+	}
 	var err error
 	it.copyPath, err = copies.Path(e.Source)
 	if err == nil {

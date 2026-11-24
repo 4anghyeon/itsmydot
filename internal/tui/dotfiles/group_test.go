@@ -320,3 +320,94 @@ func TestGroupCountColor(t *testing.T) {
 		t.Errorf("group count should be drawn in the count color %q", want)
 	}
 }
+
+// folderFixture 는 폴더 그룹 skills와 하위 항목 a, b로 목록 모델을 만든다. 가짜 저장소에는 두 파일이 있다.
+func folderFixture(t *testing.T) (m List, home string) {
+	t.Helper()
+	home = t.TempDir()
+	copies := localcopy.New(t.TempDir())
+	client := githubtest.NewClient(t, map[string]string{
+		"files/skills/a.md": "a\n",
+		"files/skills/b.md": "b\n",
+	})
+	items := []item{
+		checkItem(manifest.Entry{Name: "skills"}, "", copies, nil, home),
+		checkItem(manifest.Entry{Name: "a", Source: "files/skills/a.md", Target: filepath.Join(home, "a.md")}, "skills", copies, nil, home),
+		checkItem(manifest.Entry{Name: "b", Source: "files/skills/b.md", Target: filepath.Join(home, "b.md")}, "skills", copies, nil, home),
+	}
+	m = New(client, copies, "")
+	m.home = home
+	next, _ := m.Update(entriesLoadedMsg{items: items})
+	return next.(List), home
+}
+
+// 폴더 그룹 줄의 체크 표시는 하위 항목이 모두 연결돼야 켜지고 연결 수에는 폴더 그룹을 세지 않는다.
+func TestFolderGroupMarker(t *testing.T) {
+	m, _ := folderFixture(t)
+	if m.items[0].state != ui.NotSynced {
+		t.Fatalf("folder state = %d, want not synced", m.items[0].state)
+	}
+	if v := viewText(m); !strings.Contains(v, "[ ] skills") || !strings.Contains(v, "0/2") || !strings.Contains(v, "연결됨 0/2") {
+		t.Errorf("view before:\n%s", v)
+	}
+
+	m, _ = press(t, m, "down")
+	m, cmd := confirmToggle(t, m)
+	m = runCmd(t, m, cmd)
+	if v := viewText(m); !strings.Contains(v, "[ ] skills") || !strings.Contains(v, "1/2") || !strings.Contains(v, "연결됨 1/2") {
+		t.Errorf("view with one child:\n%s", v)
+	}
+
+	m, _ = press(t, m, "down")
+	m, cmd = confirmToggle(t, m)
+	m = runCmd(t, m, cmd)
+	if v := viewText(m); !strings.Contains(v, "[+] skills") || !strings.Contains(v, "연결됨 2/2") {
+		t.Errorf("view with all children:\n%s", v)
+	}
+}
+
+// 폴더 그룹의 하위 항목을 켤 때는 그룹 파일 없이 그 항목만 받는다.
+func TestFolderChildTurnsOnAlone(t *testing.T) {
+	m, home := folderFixture(t)
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "space")
+	if v := viewText(m); strings.Contains(v, "그룹 파일") {
+		t.Errorf("prompt should not mention a group file:\n%s", v)
+	}
+	if want := []string{"a"}; strings.Join(m.pendingNames, ",") != strings.Join(want, ",") {
+		t.Errorf("pending = %v, want %v", m.pendingNames, want)
+	}
+	m, cmd := press(t, m, "1")
+	m = runCmd(t, m, cmd)
+	if m.items[1].state != ui.Synced || m.items[2].state != ui.NotSynced {
+		t.Errorf("a=%d b=%d, want synced and not synced", m.items[1].state, m.items[2].state)
+	}
+	assertContent(t, filepath.Join(home, "a.md"), "a\n")
+}
+
+// 폴더 그룹 줄에서는 space, enter, tab이 아무것도 열지 않고 하위 항목을 고르라고 알린다.
+func TestFolderGroupKeysDoNothing(t *testing.T) {
+	for _, key := range []string{"space", "enter", "tab"} {
+		t.Run(key, func(t *testing.T) {
+			m, _ := folderFixture(t)
+			m, cmd := press(t, m, key)
+			if cmd != nil || m.confirmingName != "" || m.preview.name != "" {
+				t.Errorf("cmd=%v confirming=%q preview=%q, want nothing opened", cmd != nil, m.confirmingName, m.preview.name)
+			}
+			if !strings.Contains(m.Status, "skills 폴더에는 연결할 파일이 없어요") {
+				t.Errorf("status = %q", m.Status)
+			}
+		})
+	}
+}
+
+// 하위 항목 메뉴의 제목은 경로가 없는 폴더 그룹을 이름만으로 보여 준다.
+func TestFolderChildMenuTitle(t *testing.T) {
+	m, _ := folderFixture(t)
+	m, _ = press(t, m, "down")
+	m, _ = press(t, m, "enter")
+	v := viewText(m)
+	if !strings.Contains(v, " skills\n") || !strings.Contains(v, "└─ a  ~/a.md") {
+		t.Errorf("menu title:\n%s", v)
+	}
+}

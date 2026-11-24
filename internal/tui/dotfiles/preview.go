@@ -57,6 +57,9 @@ func (m List) openPreview() (List, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
+	if m.isFolder(m.cursor) {
+		return m.notifyFolder(), nil
+	}
 	it := m.items[m.cursor]
 	m.preview = previewScreen{name: it.entry.Name}
 	if data, err := os.ReadFile(it.copyPath); err == nil && m.matchesRepo(it.entry.Source, data) {
