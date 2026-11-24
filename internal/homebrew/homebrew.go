@@ -1,4 +1,5 @@
-// Package homebrew 는 itsmydot이 부르는 brew 명령을 감싼다.
+// Package homebrew 는 itsmydot이 다루는 Homebrew 쪽 일을 맡는다.
+// Homebrew Bundle의 Brewfile에서 tap, brew, cask 줄을 읽고 brew 명령으로 설치 상태를 확인하고 설치한다.
 // 화면은 [Runner] 인터페이스만 보므로 테스트에서 실제 brew를 부르지 않고 가짜로 바꿀 수 있다.
 package homebrew
 
@@ -10,8 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/4anghyeon/itsmydot/internal/brewfile"
 )
 
 // ErrNotInstalled 는 이 컴퓨터에서 brew 실행 파일을 찾지 못했을 때 [Find] 가 돌려준다.
@@ -37,14 +36,14 @@ type Installed struct {
 
 // Has 는 Brewfile 줄 p의 패키지가 설치돼 있는지 알려 준다.
 // brew list는 tap 경로를 뗀 이름을 보여 주므로 formula와 cask는 그 이름으로 찾는다.
-func (in Installed) Has(p brewfile.Package) bool {
+func (in Installed) Has(p Package) bool {
 	name := strings.ToLower(p.ShortName())
 	switch p.Kind {
-	case brewfile.Tap:
+	case Tap:
 		return in.Taps[name]
-	case brewfile.Formula:
+	case Formula:
 		return in.Formulae[name]
-	case brewfile.Cask:
+	case Cask:
 		return in.Casks[name]
 	}
 	return false

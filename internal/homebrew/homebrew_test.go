@@ -9,8 +9,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/4anghyeon/itsmydot/internal/brewfile"
 )
 
 // fakeBrew 는 인자에 따라 정해진 목록을 출력하는 가짜 brew 스크립트를 만든다. 실제 brew는 부르지 않는다.
@@ -47,14 +45,14 @@ func TestInstalled(t *testing.T) {
 	}
 
 	tests := []struct {
-		p    brewfile.Package
+		p    Package
 		want bool
 	}{
-		{brewfile.Package{Kind: brewfile.Formula, Name: "PeonPing/tap/peon-ping"}, true},
-		{brewfile.Package{Kind: brewfile.Tap, Name: "Sanyam-G/switch"}, true},
-		{brewfile.Package{Kind: brewfile.Cask, Name: "raycast"}, true},
-		{brewfile.Package{Kind: brewfile.Formula, Name: "raycast"}, false}, // 종류가 다르면 다른 패키지다
-		{brewfile.Package{Kind: brewfile.Cask, Name: "zed"}, false},
+		{Package{Kind: Formula, Name: "PeonPing/tap/peon-ping"}, true},
+		{Package{Kind: Tap, Name: "Sanyam-G/switch"}, true},
+		{Package{Kind: Cask, Name: "raycast"}, true},
+		{Package{Kind: Formula, Name: "raycast"}, false}, // 종류가 다르면 다른 패키지다
+		{Package{Kind: Cask, Name: "zed"}, false},
 	}
 	for _, tt := range tests {
 		if got := in.Has(tt.p); got != tt.want {
