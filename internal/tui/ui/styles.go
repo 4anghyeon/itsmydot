@@ -32,7 +32,7 @@ type diffTones struct {
 }
 
 var (
-	DarkPalette = Palette{
+	darkPalette = Palette{
 		synced:   lipgloss.Color("#4ADE80"),
 		conflict: lipgloss.Color("#FBBF24"),
 		errored:  lipgloss.Color("#F87171"),
@@ -51,7 +51,7 @@ var (
 		DiffAdded:   diffTones{lipgloss.Color("#005F00"), lipgloss.Color("#008700"), lipgloss.Color("#00AF00")},
 		DiffHunk:    lipgloss.Color("#303030"),
 	}
-	LightPalette = Palette{
+	lightPalette = Palette{
 		synced:   lipgloss.Color("#15803D"),
 		conflict: lipgloss.Color("#B45309"),
 		errored:  lipgloss.Color("#DC2626"),
@@ -86,9 +86,9 @@ type Styles struct {
 
 // NewStyles 는 배경 밝기에 맞는 스타일 묶음을 만든다.
 func NewStyles(dark bool) Styles {
-	p := LightPalette
+	p := lightPalette
 	if dark {
-		p = DarkPalette
+		p = darkPalette
 	}
 	return Styles{
 		Palette:        p,

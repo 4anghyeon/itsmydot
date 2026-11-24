@@ -1,11 +1,9 @@
-package dotfiles
+package ui
 
 import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func hangul(r rune) tea.KeyPressMsg {
@@ -31,36 +29,9 @@ func TestNormalizeKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ui.NormalizeKey(tt.msg); got != tt.want {
+			if got := NormalizeKey(tt.msg); got != tt.want {
 				t.Errorf("normalizeKey = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestHangulKeysInModel(t *testing.T) {
-	m := loadedModel(
-		item{entry: entry("a", "/home/me/.a")},
-		item{entry: entry("b", "/home/me/.b")},
-	)
-	update := func(m List, msg tea.KeyPressMsg) (List, tea.Cmd) {
-		next, cmd := m.Update(msg)
-		return next.(List), cmd
-	}
-
-	m, _ = update(m, hangul('ㅓ'))
-	if m.cursor != 1 {
-		t.Errorf("ㅓ: cursor = %d, want 1", m.cursor)
-	}
-	m, _ = update(m, hangul('ㅏ'))
-	if m.cursor != 0 {
-		t.Errorf("ㅏ: cursor = %d, want 0", m.cursor)
-	}
-	_, cmd := update(m, hangul('ㅂ'))
-	if cmd == nil {
-		t.Fatal("ㅂ should quit")
-	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Error("ㅂ should quit")
 	}
 }

@@ -1,4 +1,4 @@
-package dotfiles
+package ui
 
 import (
 	"errors"
@@ -7,20 +7,20 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
-	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // timeoutError 는 http.Client의 Timeout이 지났을 때 url.Error 안에 들어 있는 에러를 흉내 낸다.
 type timeoutError struct{}
 
-func (timeoutError) Error() string   { return "timeout" }
-func (timeoutError) Timeout() bool   { return true }
+func (timeoutError) Error() string { return "timeout" }
+
+func (timeoutError) Timeout() bool { return true }
+
 func (timeoutError) Temporary() bool { return true }
 
 func TestErrorReason(t *testing.T) {
@@ -43,37 +43,9 @@ func TestErrorReason(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ui.ErrorReason(tt.err, "/home/me"); got != tt.want {
+			if got := ErrorReason(tt.err, "/home/me"); got != tt.want {
 				t.Errorf("errorReason = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-// manifest 형식이 잘못됐으면 사유 아래에 틀린 곳을 한 줄씩 보여 준다.
-func TestViewShowsManifestProblems(t *testing.T) {
-	m := loadedModel()
-	m.loadErr = &manifest.InvalidError{Problems: []string{"a 항목에 source가 없어요", "a 항목에 target이 없어요"}}
-	v := viewText(m)
-	for _, want := range []string{"manifest를 불러오지 못했어요. manifest.yaml 형식이 잘못됐어요", "a 항목에 source가 없어요", "a 항목에 target이 없어요"} {
-		if !strings.Contains(v, want) {
-			t.Errorf("view missing %q:\n%s", want, v)
-		}
-	}
-}
-
-// 목록에는 사유 문장만 보이고 원래 에러는 오류 항목의 메뉴에서만 보인다.
-func TestMenuShowsOriginalError(t *testing.T) {
-	m := loadedModel(item{
-		entry: entry("gitconfig", "/home/me/.gitconfig"),
-		state: ui.Errored,
-		err:   fmt.Errorf("fetch files/gitconfig: %w", github.ErrNotFound),
-	})
-	if v := viewText(m); strings.Contains(v, "fetch files/gitconfig") || !strings.Contains(v, "(저장소에 파일이 없어요)") {
-		t.Errorf("list should show only the reason:\n%s", v)
-	}
-	m, _ = press(t, m, "enter")
-	if v := viewText(m); !strings.Contains(v, "fetch files/gitconfig: not found") {
-		t.Errorf("menu should show the original error:\n%s", v)
 	}
 }

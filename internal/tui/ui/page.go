@@ -12,8 +12,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// GaugeWidth 는 진행 게이지의 칸 수다.
-const GaugeWidth = 16
+// gaugeWidth 는 진행 게이지의 칸 수다.
+const gaugeWidth = 16
 
 // HeaderMaxWidth 는 맨 위 줄에서 right를 놓는 가장 먼 칸이다.
 // 넓은 터미널에서 게이지가 제목에서 너무 멀어지지 않게 한다. 구분선과 상태 줄은 그대로 터미널 끝까지 그린다.
@@ -26,13 +26,13 @@ const mascotWidth = 6
 // 채운 칸은 목록의 연결 표시와 같은 초록이라 색만 봐도 연결된 비율인 걸 알 수 있다.
 func (st Styles) RenderGauge(ratio float64) string {
 	ratio = min(max(ratio, 0), 1)
-	filled := int(math.Round(ratio * GaugeWidth))
+	filled := int(math.Round(ratio * gaugeWidth))
 	if ratio > AnimationSettleThreshold && filled == 0 {
 		filled = 1 // 하나라도 연결돼 있으면 빈 막대로 보이지 않게 한다
 	}
 
 	return st.StateStyle(Synced).Render(strings.Repeat("█", filled)) +
-		st.Muted.Render(strings.Repeat("░", GaugeWidth-filled))
+		st.Muted.Render(strings.Repeat("░", gaugeWidth-filled))
 }
 
 // PageWidth 는 화면 폭이다. 터미널 폭을 알면 그 폭을 다 쓰고 모르면 제목 줄과 lines 중 가장 긴 줄에 맞춘다.
