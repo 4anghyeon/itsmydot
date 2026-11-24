@@ -13,6 +13,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
+	"github.com/4anghyeon/itsmydot/internal/tui/brewfiles"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
@@ -38,15 +39,10 @@ var menuOptions = []menuOption{
 	{"brewfiles", "Homebrew 패키지를 골라 설치해요", brewfilesScreen},
 }
 
-// backToMenuMsg 는 목록에서 esc를 눌러 진입 메뉴로 돌아가라는 메시지다.
-type backToMenuMsg struct{}
-
-func backToMenu() tea.Msg { return backToMenuMsg{} }
-
 // Model 은 진입 메뉴와 두 목록 화면을 오가는 루트 모델이다. 메뉴와 화면 전환만 맡고 목록의 일은 각 목록 모델에 넘긴다.
 type Model struct {
 	dotfiles  dotfileList
-	brewfiles brewfileList
+	brewfiles brewfiles.List
 
 	screen screen
 	choice int // 진입 메뉴에서 커서가 있는 선택지. 목록에서 돌아오면 마지막에 고른 메뉴에 그대로 있다
@@ -63,7 +59,7 @@ type Model struct {
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	return Model{
 		dotfiles:  newDotfileList(client, copies, version),
-		brewfiles: newBrewfileList(client, version),
+		brewfiles: brewfiles.New(client, version),
 		version:   version,
 	}
 }
@@ -85,12 +81,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		case brewfilesScreen:
 			next, cmd := m.brewfiles.Update(msg)
-			m.brewfiles = next.(brewfileList)
+			m.brewfiles = next.(brewfiles.List)
 			return m, cmd
 		case menuScreen:
 			return m.handleMenuKey(ui.NormalizeKey(msg))
 		}
-	case backToMenuMsg:
+	case ui.BackToMenuMsg:
 		m.screen = menuScreen
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -102,7 +98,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	next, dotfilesCmd := m.dotfiles.Update(msg)
 	m.dotfiles = next.(dotfileList)
 	next, brewfilesCmd := m.brewfiles.Update(msg)
-	m.brewfiles = next.(brewfileList)
+	m.brewfiles = next.(brewfiles.List)
 	return m, tea.Batch(dotfilesCmd, brewfilesCmd)
 }
 
@@ -212,11 +208,7 @@ func (m Model) renderMenuSummary(st ui.Styles, target screen) string {
 		}
 		return st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.dotfiles.syncedCount(), len(m.dotfiles.items))) + st.RenderGauge(m.dotfiles.syncedRatio())
 	case brewfilesScreen:
-		installed, total := m.brewfiles.installedCount()
-		if !m.brewfiles.ready || m.brewfiles.missing || m.brewfiles.loadErr != nil || total == 0 {
-			return ""
-		}
-		return st.Muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.RenderGauge(ui.Ratio(installed, total))
+		return m.brewfiles.Summary(st)
 	case menuScreen:
 	}
 	return ""

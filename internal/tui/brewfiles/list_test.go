@@ -1,4 +1,4 @@
-package tui
+package brewfiles
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/brewfile"
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/homebrew"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
@@ -56,9 +57,9 @@ cask "switch"
 )
 
 // brewFixture 는 base와 dev 프로필을 불러온 brewfiles 목록을 만든다. zsh와 git만 설치돼 있다.
-func brewFixture(t *testing.T) (brewfileList, *string) {
+func brewFixture(t *testing.T) (List, *string) {
 	t.Helper()
-	client := fakeRepo(t, map[string]string{
+	client := githubtest.NewClient(t, map[string]string{
 		"manifest.yaml":            testManifest,
 		"files/brew/base.Brewfile": testBaseBrewfile,
 		"files/brew/dev.Brewfile":  testDevBrewfile,
@@ -68,18 +69,18 @@ func brewFixture(t *testing.T) (brewfileList, *string) {
 		installed: homebrew.Installed{Formulae: map[string]bool{"zsh": true, "git": true}},
 		brewfile:  written,
 	}
-	m := newBrewfileList(client, "")
+	m := New(client, "")
 	m.find = func() (homebrew.Runner, error) { return runner, nil }
 	m.tempDir = t.TempDir()
 	return updateBrew(m, m.Init()()), written
 }
 
-func updateBrew(m brewfileList, msg tea.Msg) brewfileList {
+func updateBrew(m List, msg tea.Msg) List {
 	next, _ := m.Update(msg)
-	return next.(brewfileList)
+	return next.(List)
 }
 
-func pressBrew(t *testing.T, m brewfileList, keys ...string) (brewfileList, tea.Cmd) {
+func pressBrew(t *testing.T, m List, keys ...string) (List, tea.Cmd) {
 	t.Helper()
 	var cmd tea.Cmd
 	for _, key := range keys {
@@ -102,12 +103,12 @@ func pressBrew(t *testing.T, m brewfileList, keys ...string) (brewfileList, tea.
 		}
 		var next tea.Model
 		next, cmd = m.Update(msg)
-		m = next.(brewfileList)
+		m = next.(List)
 	}
 	return m, cmd
 }
 
-func brewView(m brewfileList) string {
+func brewView(m List) string {
 	return ansi.Strip(m.View().Content)
 }
 
@@ -189,7 +190,7 @@ func TestBrewPick(t *testing.T) {
 	}
 }
 
-func samePackages(m brewfileList, names []string) bool {
+func samePackages(m List, names []string) bool {
 	picked := m.pickedPackages()
 	if len(picked) != len(names) {
 		return false
@@ -236,7 +237,7 @@ func TestBrewInstall(t *testing.T) {
 		Taps:     map[string]bool{"sanyam-g/switch": true},
 	}}
 	next, check := m.Update(brewInstallFinishedMsg{})
-	m = next.(brewfileList)
+	m = next.(List)
 	if !m.checking || check == nil || !strings.Contains(brewView(m), "설치 상태를 확인하는 중") {
 		t.Fatalf("finished install should re-check (checking=%v)", m.checking)
 	}
@@ -260,7 +261,7 @@ func TestBrewInstall(t *testing.T) {
 }
 
 func TestBrewMissing(t *testing.T) {
-	m := newBrewfileList(nil, "")
+	m := New(nil, "")
 	m.find = func() (homebrew.Runner, error) { return nil, homebrew.ErrNotInstalled }
 	m = updateBrew(m, m.Init()())
 	v := brewView(m)
@@ -274,14 +275,14 @@ func TestBrewMissing(t *testing.T) {
 	}
 	if _, cmd := pressBrew(t, m, "esc"); cmd == nil {
 		t.Error("esc should go back to the menu")
-	} else if _, ok := cmd().(backToMenuMsg); !ok {
+	} else if _, ok := cmd().(ui.BackToMenuMsg); !ok {
 		t.Error("esc should go back to the menu")
 	}
 }
 
 func TestBrewLoadFails(t *testing.T) {
-	client := fakeRepo(t, map[string]string{"manifest.yaml": testManifest})
-	m := newBrewfileList(client, "")
+	client := githubtest.NewClient(t, map[string]string{"manifest.yaml": testManifest})
+	m := New(client, "")
 	m.find = func() (homebrew.Runner, error) { return fakeRunner{}, nil }
 	m = updateBrew(m, m.Init()())
 	if v := brewView(m); !strings.Contains(v, "Brewfile을 불러오지 못했어요. 저장소에 파일이 없어요") {
@@ -289,7 +290,7 @@ func TestBrewLoadFails(t *testing.T) {
 	}
 
 	m.find = func() (homebrew.Runner, error) { return fakeRunner{err: errors.New("boom")}, nil }
-	client = fakeRepo(t, map[string]string{
+	client = githubtest.NewClient(t, map[string]string{
 		"manifest.yaml":            testManifest,
 		"files/brew/base.Brewfile": testBaseBrewfile,
 		"files/brew/dev.Brewfile":  testDevBrewfile,
@@ -357,25 +358,19 @@ func TestBrewScroll(t *testing.T) {
 	}
 }
 
-// 진입 메뉴에서 brewfiles에 처음 들어갈 때만 불러오고 불러온 뒤에는 카드에 설치된 비율을 보여 준다.
-func TestRootLoadsBrewfilesOnce(t *testing.T) {
-	m := rootFixture(t)
-	m, cmd := pressRoot(t, m, "2")
-	if m.screen != brewfilesScreen || cmd == nil {
-		t.Fatalf("2 should enter brewfiles and load (screen=%d)", m.screen)
+// 설치된 비율 요약은 불러온 뒤에만 그리고 패키지가 없으면 그리지 않는다. 진입 메뉴 카드도 이 요약을 쓴다.
+func TestBrewSummary(t *testing.T) {
+	st := ui.NewStyles(true)
+	if s := New(nil, "").Summary(st); s != "" {
+		t.Errorf("summary before loading = %q", s)
 	}
-	m, back := pressRoot(t, m, "esc")
-	m = updateRoot(m, back())
-	if _, cmd = pressRoot(t, m, "2"); cmd != nil {
-		t.Error("entering brewfiles again should not reload")
+	m, _ := brewFixture(t)
+	if s := ansi.Strip(m.Summary(st)); !strings.HasPrefix(s, "설치됨 2/5 ") {
+		t.Errorf("summary = %q", s)
 	}
-
-	m = updateRoot(m, brewfilesLoadedMsg{
-		items:     []brewItem{{profile: testProfile("base")}, {pkg: testPackage("zsh"), parent: "base"}, {pkg: testPackage("git"), parent: "base"}},
-		installed: homebrew.Installed{Formulae: map[string]bool{"zsh": true}},
-	})
-	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "설치됨 1/2") {
-		t.Errorf("brewfiles card should show the installed count:\n%s", v)
+	m = updateBrew(m, brewfilesLoadedMsg{items: []brewItem{{profile: testProfile("base")}}})
+	if s := m.Summary(st); s != "" {
+		t.Errorf("summary without packages = %q", s)
 	}
 }
 

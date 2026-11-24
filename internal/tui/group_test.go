@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
@@ -17,7 +18,7 @@ func groupFixture(t *testing.T) (m dotfileList, home string) {
 	t.Helper()
 	home = t.TempDir()
 	copies := localcopy.New(t.TempDir())
-	client := fakeRepo(t, map[string]string{
+	client := githubtest.NewClient(t, map[string]string{
 		"files/zsh/.zshrc":     "for f in ~/.config/zsh/*.zsh; do source $f; done\n",
 		"files/zsh/00-env.zsh": "export EDITOR=vim\n",
 		"files/zsh/20-git.zsh": "alias g=git\n",
@@ -259,7 +260,7 @@ func TestGroupUnlinkWithBackupAsksFirst(t *testing.T) {
 // 하위 항목은 그룹 바로 뒤에 이어 붙고 그룹 이름을 parent로 가진다.
 func TestLoadEntriesWithChildren(t *testing.T) {
 	home := t.TempDir()
-	client := fakeRepo(t, map[string]string{"manifest.yaml": `entries:
+	client := githubtest.NewClient(t, map[string]string{"manifest.yaml": `entries:
   - {name: gitconfig, source: files/git/.gitconfig, target: ` + filepath.Join(home, ".gitconfig") + `}
   - name: zshrc
     source: files/zsh/.zshrc

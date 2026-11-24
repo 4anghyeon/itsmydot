@@ -1,20 +1,15 @@
 package tui
 
 import (
-	"encoding/base64"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
@@ -74,34 +69,6 @@ func assertContent(t *testing.T, path, want string) {
 	}
 }
 
-// fakeRepo 는 files에 담긴 저장소 경로별 내용을 Contents API 형식으로 돌려주는 가짜 GitHub 서버를 띄운다.
-// files에 없는 경로는 404를 돌려준다. Git Trees API에는 files 전체의 blob 해시로 답한다.
-func fakeRepo(t *testing.T, files map[string]string) *github.Client {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/repos/o/r/git/trees/HEAD" {
-			var entries []string
-			for path, content := range files {
-				entries = append(entries, fmt.Sprintf(`{"path":%q,"type":"blob","sha":%q}`, path, github.BlobHash([]byte(content))))
-			}
-			_, _ = w.Write([]byte(`{"tree":[` + strings.Join(entries, ",") + `]}`))
-			return
-		}
-		path := strings.TrimPrefix(r.URL.Path, "/repos/o/r/contents/")
-		content, ok := files[path]
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-		encoded := base64.StdEncoding.EncodeToString([]byte(content))
-		_, _ = w.Write([]byte(`{"type":"file","encoding":"base64","content":"` + encoded + `"}`))
-	}))
-	t.Cleanup(srv.Close)
-	c := github.NewClient("o", "r")
-	c.BaseURL = srv.URL
-	return c
-}
-
 // toggleFixture 는 가짜 저장소, 임시 로컬 사본 폴더, 임시 홈에 놓인 항목 하나로 목록 모델을 만든다.
 func toggleFixture(t *testing.T, files map[string]string) (m dotfileList, target string) {
 	t.Helper()
@@ -114,7 +81,7 @@ func toggleFixture(t *testing.T, files map[string]string) (m dotfileList, target
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = newDotfileList(fakeRepo(t, files), copies, "")
+	m = newDotfileList(githubtest.NewClient(t, files), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	return next.(dotfileList), target

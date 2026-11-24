@@ -146,7 +146,7 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "esc":
-			return m, backToMenu
+			return m, ui.BackToMenu
 		case "up", "k":
 			m.cursor = ui.TreeNextVisible(m.items, m.collapsed, m.cursor, -1)
 		case "down", "j":

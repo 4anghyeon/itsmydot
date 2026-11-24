@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/link"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
@@ -473,7 +474,7 @@ func TestToggleLoadedBy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := newDotfileList(fakeRepo(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := newDotfileList(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	m = next.(dotfileList)
@@ -533,7 +534,7 @@ func TestToggleLoadedBySymlink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := newDotfileList(fakeRepo(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := newDotfileList(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	m = next.(dotfileList)

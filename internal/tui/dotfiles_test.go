@@ -6,6 +6,8 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func TestCursorMovesWithinBounds(t *testing.T) {
@@ -42,7 +44,7 @@ func TestQuitAndBackToMenu(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("esc should return a command")
 	}
-	if _, ok := cmd().(backToMenuMsg); !ok {
+	if _, ok := cmd().(ui.BackToMenuMsg); !ok {
 		t.Error("esc should go back to the entry menu")
 	}
 }

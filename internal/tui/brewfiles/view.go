@@ -1,4 +1,4 @@
-package tui
+package brewfiles
 
 import (
 	"fmt"
@@ -47,7 +47,7 @@ func brewMarkStyle(st ui.Styles, b brewMark) lipgloss.Style {
 
 // mark 는 i번째 줄의 체크박스 상태다.
 // 프로필 줄은 고른 하위 패키지가 있으면 [*], 하위 패키지가 모두 설치돼 있으면 [+]다.
-func (m brewfileList) mark(i int) brewMark {
+func (m List) mark(i int) brewMark {
 	it := m.items[i]
 	if !it.isProfile() {
 		switch {
@@ -77,7 +77,7 @@ const brewScrollbarMargin = 2
 //
 // 인라인 화면은 터미널보다 높아지면 렌더러가 위쪽 줄부터 버려서 제목과 목록 앞부분이 사라진다.
 // 그래서 터미널 높이를 알면 목록을 남는 높이만큼만 잘라 그린다.
-func (m brewfileList) View() tea.View {
+func (m List) View() tea.View {
 	st := ui.NewStyles(!m.light)
 	if !m.showsList() {
 		return tea.NewView(m.renderScreen(st, m.renderNoticeLines(st), -1, nil))
@@ -96,15 +96,25 @@ func (m brewfileList) View() tea.View {
 	return tea.NewView(m.renderScreen(st, list[offset:offset+height], selected-offset, scrollbar))
 }
 
+// Summary 는 설치된 패키지 수와 전체 수를 게이지와 함께 그린다. 화면 머리와 진입 메뉴 카드에 쓴다.
+// 목록을 보여 줄 수 없거나 패키지가 하나도 없으면 빈 문자열이다.
+func (m List) Summary(st ui.Styles) string {
+	installed, total := m.installedCount()
+	if !m.showsList() || total == 0 {
+		return ""
+	}
+	return st.Muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.RenderGauge(ui.Ratio(installed, total))
+}
+
 // showsList 는 패키지 목록을 보여 줄 수 있으면 true다. 아니면 목록 자리에 안내를 보여 준다.
-func (m brewfileList) showsList() bool {
+func (m List) showsList() bool {
 	return m.ready && !m.missing && m.loadErr == nil && len(m.items) > 0
 }
 
 // listHeight 는 목록 창에 쓸 줄 수다. 터미널 높이를 모르면 목록 전체 줄 수다.
 // 목록 아래 설명과 확인 질문, 상태 줄은 폭에 따라 줄바꿈되므로 목록을 뺀 화면을 실제로 그려서 남는 높이를 잰다.
 // 확인 질문이 떠도 화면이 넘치지 않도록 낮은 터미널에서는 커서 줄 하나까지 줄인다.
-func (m brewfileList) listHeight(st ui.Styles) int {
+func (m List) listHeight(st ui.Styles) int {
 	total := 0
 	for i := range m.items {
 		if ui.TreeVisible(m.items, m.collapsed, i) {
@@ -120,7 +130,7 @@ func (m brewfileList) listHeight(st ui.Styles) int {
 
 // followCursor 는 커서 줄이 목록 창 안에 들어오도록 옮긴 창의 맨 위 위치다.
 // 커서가 창 안에 있으면 그대로 두어 커서를 옮길 때마다 목록이 출렁이지 않게 한다.
-func (m brewfileList) followCursor() int {
+func (m List) followCursor() int {
 	if !m.showsList() {
 		return 0
 	}
@@ -130,7 +140,7 @@ func (m brewfileList) followCursor() int {
 }
 
 // renderNoticeLines 는 목록을 보여 줄 수 없을 때 목록 자리에 놓을 안내다.
-func (m brewfileList) renderNoticeLines(st ui.Styles) []string {
+func (m List) renderNoticeLines(st ui.Styles) []string {
 	switch {
 	case !m.ready:
 		return []string{" " + st.Muted.Render("Brewfile 불러오는 중이에요...")}
@@ -149,14 +159,12 @@ func (m brewfileList) renderNoticeLines(st ui.Styles) []string {
 
 // renderScreen 은 목록 창 list를 넣어 화면 전체를 그린다. selected는 list 안에서 커서가 있는 줄이고 없으면 -1이다.
 // scrollbar가 있으면 list의 각 줄 오른쪽 끝에 그 칸을 붙인다.
-func (m brewfileList) renderScreen(st ui.Styles, list []string, selected int, scrollbar []string) string {
+func (m List) renderScreen(st ui.Styles, list []string, selected int, scrollbar []string) string {
 	list = slices.Clone(list)
 
-	right := ""
+	right := m.Summary(st)
 	var lower []string
 	if m.showsList() {
-		installed, total := m.installedCount()
-		right = st.Muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.RenderGauge(ui.Ratio(installed, total))
 		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 화면 높이가 출렁이지 않게 한다.
 		lower = append(lower, " "+st.RenderDescription(m.items[m.cursor].description(), m.width))
 	}
@@ -213,7 +221,7 @@ func (m brewfileList) renderScreen(st ui.Styles, list []string, selected int, sc
 //	  ├── [+] zsh      brew
 //	  ├── [*] raycast  cask
 //	  └── [ ] switch   cask
-func (m brewfileList) renderBrewLines(st ui.Styles) (lines []string, selected int) {
+func (m List) renderBrewLines(st ui.Styles) (lines []string, selected int) {
 	rows := make([]ui.ListRow, 0, len(m.items))
 	for i, it := range m.items {
 		if !ui.TreeVisible(m.items, m.collapsed, i) {
@@ -246,7 +254,7 @@ func (m brewfileList) renderBrewLines(st ui.Styles) (lines []string, selected in
 }
 
 // renderInstallConfirmLines 는 설치 확인 질문과 고른 패키지 이름, 번호 선택지를 한 줄씩 만든다.
-func (m brewfileList) renderInstallConfirmLines(st ui.Styles) (lines, numbers []string) {
+func (m List) renderInstallConfirmLines(st ui.Styles) (lines, numbers []string) {
 	packages := m.pickedPackages()
 	names := make([]string, len(packages))
 	for i, p := range packages {
@@ -266,7 +274,7 @@ func (m brewfileList) renderInstallConfirmLines(st ui.Styles) (lines, numbers []
 // 설치 스크립트는 셸 설정을 고치지 않고 끝에 Next steps 명령만 보여 준다.
 // Apple Silicon Mac에서는 그 명령을 실행해야 새 셸에서 brew가 PATH에 잡히므로 함께 안내한다.
 // PATH 설정은 Homebrew 안내대로 각 Mac의 ~/.zprofile에 두고 itsmydot은 관리하지 않는다.
-func (m brewfileList) renderMissingLines(st ui.Styles) []string {
+func (m List) renderMissingLines(st ui.Styles) []string {
 	return []string{
 		" " + st.Question.Render("Homebrew가 필요해요"),
 		"",

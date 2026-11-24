@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
@@ -34,7 +35,7 @@ func previewFixture(t *testing.T, files map[string]string, localCopy string, ext
 		hashes[source] = github.BlobHash([]byte(content))
 	}
 
-	m := newDotfileList(fakeRepo(t, files), copies, "")
+	m := newDotfileList(githubtest.NewClient(t, files), copies, "")
 	m.home = "/home/me"
 	items := append([]item{{entry: e, copyPath: copyPath, state: ui.Synced}}, extra...)
 	next, _ := m.Update(entriesLoadedMsg{items: items, hashes: hashes})

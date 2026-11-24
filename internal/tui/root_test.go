@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
@@ -38,7 +39,7 @@ func updateRoot(m Model, msg tea.Msg) Model {
 
 func rootFixture(t *testing.T) Model {
 	t.Helper()
-	client := fakeRepo(t, map[string]string{
+	client := githubtest.NewClient(t, map[string]string{
 		"manifest.yaml":        "entries:\n  - name: gitconfig\n    source: files/git/.gitconfig\n    target: ~/.gitconfig\n",
 		"files/git/.gitconfig": "x",
 	})
@@ -143,7 +144,23 @@ func TestRootForwardsResultsWhileOnMenu(t *testing.T) {
 	m := rootFixture(t)
 	m = updateRoot(m, tea.WindowSizeMsg{Width: 70, Height: 20})
 	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("gitconfig", "/home/me/.gitconfig")}}})
-	if !m.dotfiles.ready || m.dotfiles.width != 70 || m.brewfiles.width != 70 {
-		t.Errorf("messages should reach both lists: ready=%v widths=%d,%d", m.dotfiles.ready, m.dotfiles.width, m.brewfiles.width)
+	// brewfiles 화면은 터미널 폭을 받아야 구분선을 그 폭만큼 긋는다.
+	brewfiles := ansi.Strip(m.brewfiles.View().Content)
+	if !m.dotfiles.ready || m.dotfiles.width != 70 || !strings.Contains(brewfiles, strings.Repeat("─", 70)) {
+		t.Errorf("messages should reach both lists: ready=%v width=%d\n%s", m.dotfiles.ready, m.dotfiles.width, brewfiles)
+	}
+}
+
+// 진입 메뉴에서 brewfiles에 처음 들어갈 때만 불러온다.
+func TestRootLoadsBrewfilesOnce(t *testing.T) {
+	m := rootFixture(t)
+	m, cmd := pressRoot(t, m, "2")
+	if m.screen != brewfilesScreen || cmd == nil {
+		t.Fatalf("2 should enter brewfiles and load (screen=%d)", m.screen)
+	}
+	m, back := pressRoot(t, m, "esc")
+	m = updateRoot(m, back())
+	if _, cmd = pressRoot(t, m, "2"); cmd != nil {
+		t.Error("entering brewfiles again should not reload")
 	}
 }

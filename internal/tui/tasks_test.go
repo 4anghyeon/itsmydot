@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/github/githubtest"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
@@ -66,7 +67,7 @@ func TestLoadEntries(t *testing.T) {
 func TestLoadEntriesMarksOutdated(t *testing.T) {
 	home := t.TempDir()
 	copies := localcopy.New(t.TempDir())
-	client := fakeRepo(t, map[string]string{
+	client := githubtest.NewClient(t, map[string]string{
 		"manifest.yaml": "entries:\n" +
 			"  - {name: changed, source: files/a, target: " + filepath.Join(home, ".a") + "}\n" +
 			"  - {name: same, source: files/b, target: " + filepath.Join(home, ".b") + "}\n" +

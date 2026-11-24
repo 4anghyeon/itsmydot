@@ -1,4 +1,5 @@
-package tui
+// Package brewfiles 는 진입 메뉴의 brewfiles 화면이다. manifest에 적힌 프로필별 Brewfile을 보여 주고 고른 패키지를 Homebrew로 설치한다.
+package brewfiles
 
 import (
 	"context"
@@ -43,8 +44,8 @@ func (it brewItem) description() string {
 	return it.pkg.Description
 }
 
-// brewfileList 는 brewfiles 메뉴의 목록 화면이다. 프로필별 Homebrew 패키지와 설치 상태를 보여 주고 고른 패키지를 한 번에 설치한다.
-type brewfileList struct {
+// List 는 brewfiles 메뉴의 목록 화면이다. 프로필별 Homebrew 패키지와 설치 상태를 보여 주고 고른 패키지를 한 번에 설치한다.
+type List struct {
 	client  *github.Client
 	find    func() (homebrew.Runner, error) // brew를 찾는다. 테스트에서는 가짜 Runner를 돌려준다
 	runner  homebrew.Runner
@@ -78,9 +79,9 @@ type brewfileList struct {
 	ui.StatusLine
 }
 
-// newBrewfileList 는 처음 목록 상태를 만든다. 실제 불러오기는 [brewfileList.Init] 에서 시작한다.
-func newBrewfileList(client *github.Client, version string) brewfileList {
-	return brewfileList{client: client, find: findBrew, version: version}
+// New 는 처음 목록 상태를 만든다. 실제 불러오기는 [List.Init] 에서 시작한다.
+func New(client *github.Client, version string) List {
+	return List{client: client, find: findBrew, version: version}
 }
 
 // findBrew 는 [homebrew.Find] 를 Runner로 감싼다. 찾지 못했을 때 nil 포인터가 든 인터페이스를 돌려주지 않게 한다.
@@ -112,7 +113,7 @@ type brewInstalledCheckedMsg struct {
 }
 
 // Init 은 brew를 찾고 Brewfile과 설치 상태 불러오기를 시작한다. 진입 메뉴에서 brewfiles를 처음 고를 때 한 번만 부른다.
-func (m brewfileList) Init() tea.Cmd {
+func (m List) Init() tea.Cmd {
 	client, find := m.client, m.find
 	return func() tea.Msg {
 		return loadBrewfiles(context.Background(), client, find)
@@ -158,7 +159,7 @@ func loadBrewfiles(ctx context.Context, client *github.Client, find func() (home
 }
 
 // Update 는 불러오기와 설치 결과, 키 입력을 화면 상태에 반영한다.
-func (m brewfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m List) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -180,7 +181,7 @@ func (m brewfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey 는 목록과 확인 질문의 키 입력을 처리한다.
 // 불러오는 중이거나 목록을 보여 줄 수 없을 때와 설치 상태를 다시 확인하는 중에는 나가는 키만 받는다.
-func (m brewfileList) handleKey(key string) (brewfileList, tea.Cmd) {
+func (m List) handleKey(key string) (List, tea.Cmd) {
 	if m.confirming {
 		return m.handleConfirmKey(key)
 	}
@@ -188,7 +189,7 @@ func (m brewfileList) handleKey(key string) (brewfileList, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "esc":
-		return m, backToMenu
+		return m, ui.BackToMenu
 	}
 	if !m.ready || m.missing || m.loadErr != nil || len(m.items) == 0 || m.checking {
 		return m, nil
@@ -218,7 +219,7 @@ func (m brewfileList) handleKey(key string) (brewfileList, tea.Cmd) {
 }
 
 // handleConfirmKey 는 설치 확인 질문의 키 입력을 처리한다. 1번은 설치, 2번과 esc는 취소다.
-func (m brewfileList) handleConfirmKey(key string) (brewfileList, tea.Cmd) {
+func (m List) handleConfirmKey(key string) (List, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
@@ -243,7 +244,7 @@ var brewConfirmOptions = []string{"설치", "취소"}
 
 // togglePick 은 커서가 있는 패키지를 고르거나 고르기를 취소한다. 설치된 패키지는 고를 수 없다.
 // 프로필 줄에서 누르면 설치 안 된 하위 패키지를 모두 고르고, 이미 모두 골라 두었으면 모두 취소한다.
-func (m brewfileList) togglePick() brewfileList {
+func (m List) togglePick() List {
 	it := m.items[m.cursor]
 	var keys []string
 	if it.isProfile() {
@@ -282,7 +283,7 @@ func (m brewfileList) togglePick() brewfileList {
 }
 
 // pickedPackages 는 고른 패키지를 목록 순서대로 한 번씩 모은다. 여러 프로필에 같은 패키지가 있어도 한 번만 넣는다.
-func (m brewfileList) pickedPackages() []brewfile.Package {
+func (m List) pickedPackages() []brewfile.Package {
 	var packages []brewfile.Package
 	seen := make(map[string]bool)
 	for _, it := range m.items {
@@ -298,7 +299,7 @@ func (m brewfileList) pickedPackages() []brewfile.Package {
 
 // startInstall 은 고른 줄만 모은 임시 Brewfile을 만들고 brew bundle에 터미널을 넘긴다.
 // 설치하는 동안 brew가 진행 상황을 직접 보여 주고 sudo 비밀번호도 brew 화면에서 받는다.
-func (m brewfileList) startInstall() (brewfileList, tea.Cmd) {
+func (m List) startInstall() (List, tea.Cmd) {
 	packages := m.pickedPackages()
 	path, err := writeInstallBrewfile(m.tempDir, packages)
 	if err != nil {
@@ -342,7 +343,7 @@ func writeInstallBrewfile(dir string, packages []brewfile.Package) (string, erro
 }
 
 // checkInstalled 는 설치가 끝난 뒤 설치 상태를 백그라운드로 다시 확인한다.
-func (m brewfileList) checkInstalled() (brewfileList, tea.Cmd) {
+func (m List) checkInstalled() (List, tea.Cmd) {
 	m.checking = true
 	m = m.notify(ui.StatusBusy, "설치 상태를 확인하는 중이에요...")
 	runner := m.runner
@@ -354,7 +355,7 @@ func (m brewfileList) checkInstalled() (brewfileList, tea.Cmd) {
 
 // applyInstalled 는 다시 확인한 설치 상태를 반영하고 이번에 설치하지 못한 패키지 수를 상태 줄에 알린다.
 // 설치된 패키지는 고르기에서 빼고 실패한 패키지는 고른 채로 남겨 두어 바로 다시 설치해 볼 수 있게 한다.
-func (m brewfileList) applyInstalled(msg brewInstalledCheckedMsg) brewfileList {
+func (m List) applyInstalled(msg brewInstalledCheckedMsg) List {
 	m.checking = false
 	if msg.err != nil {
 		return m.notify(ui.StatusFailed, "설치 상태를 확인하지 못했어요 ("+ui.ErrorReason(msg.err, "")+")")
@@ -387,7 +388,7 @@ func (m brewfileList) applyInstalled(msg brewInstalledCheckedMsg) brewfileList {
 }
 
 // installedCount 는 목록에 있는 패키지 중 설치된 것의 수와 전체 수다. 여러 프로필에 있는 같은 패키지는 한 번만 센다.
-func (m brewfileList) installedCount() (installed, total int) {
+func (m List) installedCount() (installed, total int) {
 	seen := make(map[string]bool)
 	for _, it := range m.items {
 		key := it.pkg.Key()
@@ -404,13 +405,13 @@ func (m brewfileList) installedCount() (installed, total int) {
 }
 
 // notify 는 상태 줄에 text를 띄운 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m brewfileList) notify(tone ui.StatusTone, text string) brewfileList {
+func (m List) notify(tone ui.StatusTone, text string) List {
 	m.StatusLine = ui.NewStatusLine(tone, text)
 	return m
 }
 
 // countStatusKey 는 목록에서 누른 키를 상태 줄에 센 목록 모델을 돌려준다.
-func (m brewfileList) countStatusKey() brewfileList {
+func (m List) countStatusKey() List {
 	m.StatusLine = m.StatusLine.CountKey()
 	return m
 }
