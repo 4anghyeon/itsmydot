@@ -299,6 +299,7 @@ func (side diffStyles) renderContent(line diff.Line, x, width int) string {
 }
 
 // renderScrollbarCell 은 본문 오른쪽 스크롤 막대의 row번째 칸이다. 지금 보이는 범위는 █, 나머지는 ░로 그린다.
+// 터미널 창의 회색 스크롤 막대와 헷갈리지 않게 █는 강조색으로 칠한다.
 func (st styles) renderScrollbarCell(row, height, offset, total int) string {
 	thumb := max(height*height/total, 1)
 	start := 0
@@ -306,7 +307,7 @@ func (st styles) renderScrollbarCell(row, height, offset, total int) string {
 		start = (offset*(height-thumb) + (total-height)/2) / (total - height)
 	}
 	if row >= start && row < start+thumb {
-		return st.muted.Render("█")
+		return lipgloss.NewStyle().Foreground(st.palette.accent).Render("█")
 	}
 	return st.muted.Render("░")
 }

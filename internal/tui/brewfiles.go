@@ -51,10 +51,12 @@ type brewfileList struct {
 
 	version string
 	width   int  // 터미널 폭. 모르면 0이다
+	height  int  // 터미널 높이. 모르면 0이고 이때는 목록을 자르지 않고 모두 그린다
 	light   bool // 터미널 배경이 밝으면 true
 
 	items     []brewItem
 	cursor    int
+	offset    int             // 목록 창의 맨 위에 보이는 줄. 접힌 줄을 뺀 보이는 줄 기준이다
 	collapsed map[string]bool // 접힌 프로필의 이름. 바꿀 때는 [withCollapsed] 로 새 map을 만든다
 	installed homebrew.Installed
 
@@ -160,7 +162,8 @@ func loadBrewfiles(ctx context.Context, client *github.Client, find func() (home
 func (m brewfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
+		m.width, m.height = msg.Width, msg.Height
+		m.offset = m.followCursor()
 	case tea.BackgroundColorMsg:
 		m.light = !msg.IsDark()
 	case brewfilesLoadedMsg:
@@ -203,13 +206,15 @@ func (m brewfileList) handleKey(key string) (brewfileList, tea.Cmd) {
 	case "right", "l":
 		m.collapsed = treeExpand(m.items, m.collapsed, m.cursor)
 	case "space":
-		return m.togglePick(), nil
+		m = m.togglePick()
 	case "enter":
 		if len(m.pickedPackages()) == 0 {
-			return m.notify(statusInfo, "설치할 패키지를 space로 먼저 골라 주세요"), nil
+			m = m.notify(statusInfo, "설치할 패키지를 space로 먼저 골라 주세요")
+		} else {
+			m.confirming, m.choice = true, 0
 		}
-		m.confirming, m.choice = true, 0
 	}
+	m.offset = m.followCursor()
 	return m, nil
 }
 

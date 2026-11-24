@@ -67,39 +67,110 @@ func (m brewfileList) mark(i int) brewMark {
 	return brewNotInstalled
 }
 
+// brewScrollbarMargin 은 목록 스크롤 막대와 화면 오른쪽 끝 사이의 칸 수다.
+// 맨 끝 칸에 붙이면 터미널 창의 스크롤 막대와 겹쳐 보인다.
+const brewScrollbarMargin = 2
+
 // View 는 프로필별 패키지 목록과 그 아래에 커서 줄의 설명이나 설치 확인 질문, 상태 줄을 그린다.
 // Homebrew가 없으면 목록 대신 설치 방법을 안내한다.
+//
+// 인라인 화면은 터미널보다 높아지면 렌더러가 위쪽 줄부터 버려서 제목과 목록 앞부분이 사라진다.
+// 그래서 터미널 높이를 알면 목록을 남는 높이만큼만 잘라 그린다.
 func (m brewfileList) View() tea.View {
 	st := newStyles(!m.light)
-
-	right := ""
-	if m.ready && !m.missing && m.loadErr == nil && len(m.items) > 0 {
-		installed, total := m.installedCount()
-		right = st.muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.renderGauge(ratio(installed, total))
+	if !m.showsList() {
+		return tea.NewView(m.renderScreen(st, m.renderNoticeLines(st), -1, nil))
 	}
 
-	var list, lower []string
-	selected := -1
+	list, selected := m.renderBrewLines(st)
+	height := m.listHeight(st)
+	if height >= len(list) {
+		return tea.NewView(m.renderScreen(st, list, selected, nil))
+	}
+	offset := clampListOffset(m.offset, selected, height, len(list))
+	scrollbar := make([]string, height)
+	for i := range scrollbar {
+		scrollbar[i] = st.renderScrollbarCell(i, height, offset, len(list))
+	}
+	return tea.NewView(m.renderScreen(st, list[offset:offset+height], selected-offset, scrollbar))
+}
+
+// showsList 는 패키지 목록을 보여 줄 수 있으면 true다. 아니면 목록 자리에 안내를 보여 준다.
+func (m brewfileList) showsList() bool {
+	return m.ready && !m.missing && m.loadErr == nil && len(m.items) > 0
+}
+
+// listHeight 는 목록 창에 쓸 줄 수다. 터미널 높이를 모르면 목록 전체 줄 수다.
+// 목록 아래 설명과 확인 질문, 상태 줄은 폭에 따라 줄바꿈되므로 목록을 뺀 화면을 실제로 그려서 남는 높이를 잰다.
+// 확인 질문이 떠도 화면이 넘치지 않도록 낮은 터미널에서는 커서 줄 하나까지 줄인다.
+func (m brewfileList) listHeight(st styles) int {
+	total := 0
+	for i := range m.items {
+		if treeVisible(m.items, m.collapsed, i) {
+			total++
+		}
+	}
+	if m.height <= 0 {
+		return total
+	}
+	rest := lipgloss.Height(m.renderScreen(st, nil, -1, nil))
+	return max(m.height-rest, 1)
+}
+
+// followCursor 는 커서 줄이 목록 창 안에 들어오도록 옮긴 창의 맨 위 위치다.
+// 커서가 창 안에 있으면 그대로 두어 커서를 옮길 때마다 목록이 출렁이지 않게 한다.
+func (m brewfileList) followCursor() int {
+	if !m.showsList() {
+		return 0
+	}
+	st := newStyles(!m.light)
+	list, selected := m.renderBrewLines(st)
+	return clampListOffset(m.offset, selected, m.listHeight(st), len(list))
+}
+
+// clampListOffset 은 창의 맨 위 위치 offset을 selected 줄이 보이고 total줄 안에서 창이 꽉 차는 범위로 옮긴다.
+func clampListOffset(offset, selected, height, total int) int {
+	if selected >= 0 {
+		offset = min(offset, selected)
+		offset = max(offset, selected-height+1)
+	}
+	return min(max(offset, 0), max(total-height, 0))
+}
+
+// renderNoticeLines 는 목록을 보여 줄 수 없을 때 목록 자리에 놓을 안내다.
+func (m brewfileList) renderNoticeLines(st styles) []string {
 	switch {
 	case !m.ready:
-		list = append(list, " "+st.muted.Render("Brewfile 불러오는 중이에요..."))
+		return []string{" " + st.muted.Render("Brewfile 불러오는 중이에요...")}
 	case m.missing:
-		list = m.renderMissingLines(st)
+		return m.renderMissingLines(st)
 	case m.loadErr != nil:
-		list = append(list, " "+st.stateStyle(errored).Render("Brewfile을 불러오지 못했어요. "+errorReason(m.loadErr, "")))
+		lines := []string{" " + st.stateStyle(errored).Render("Brewfile을 불러오지 못했어요. "+errorReason(m.loadErr, ""))}
 		for line := range strings.SplitSeq(m.loadErr.Error(), "\n") {
-			list = append(list, " "+st.stateStyle(errored).Render(line))
+			lines = append(lines, " "+st.stateStyle(errored).Render(line))
 		}
-	case len(m.items) == 0:
-		list = append(list, " "+st.muted.Render("등록된 Brewfile이 없어요"))
+		return lines
 	default:
-		list, selected = m.renderBrewLines(st)
+		return []string{" " + st.muted.Render("등록된 Brewfile이 없어요")}
+	}
+}
+
+// renderScreen 은 목록 창 list를 넣어 화면 전체를 그린다. selected는 list 안에서 커서가 있는 줄이고 없으면 -1이다.
+// scrollbar가 있으면 list의 각 줄 오른쪽 끝에 그 칸을 붙인다.
+func (m brewfileList) renderScreen(st styles, list []string, selected int, scrollbar []string) string {
+	list = slices.Clone(list)
+
+	right := ""
+	var lower []string
+	if m.showsList() {
+		installed, total := m.installedCount()
+		right = st.muted.Render(fmt.Sprintf("설치됨 %d/%d ", installed, total)) + st.renderGauge(ratio(installed, total))
 		// 설명이 없어도 줄은 남겨서 커서를 옮길 때 화면 높이가 출렁이지 않게 한다.
 		lower = append(lower, " "+st.renderDescription(m.items[m.cursor].description(), m.width))
 	}
 
 	footer := st.renderHelp(m.width, "방향키", "이동", "space", "고르기", "enter", "설치", "esc", "진입 메뉴")
-	if !m.ready || m.missing || m.loadErr != nil || len(m.items) == 0 {
+	if !m.showsList() {
 		footer = st.renderHelp(m.width, "esc", "진입 메뉴")
 	}
 	status := m.status
@@ -115,14 +186,33 @@ func (m brewfileList) View() tea.View {
 		marker, tone = toneMarker(m.statusTone, syncing.marker())
 	}
 
-	width := st.pageWidth(m.width, right, append(slices.Concat(list, lower), " "+marker+" "+status)...)
-	if selected >= 0 {
-		// 선택한 줄은 배경을 목록 끝까지 칠한다.
-		list[selected] += lipgloss.NewStyle().Background(st.selection).Render(strings.Repeat(" ", max(width-lipgloss.Width(list[selected]), 0)))
+	// 스크롤 막대는 목록과 한 칸 띄우고 화면 오른쪽 끝과도 brewScrollbarMargin칸 띄운다.
+	scrollbarWidth := 0
+	if scrollbar != nil {
+		scrollbarWidth = 2 + brewScrollbarMargin
+	}
+	measured := slices.Concat(lower, []string{" " + marker + " " + status})
+	for _, line := range list {
+		measured = append(measured, line+strings.Repeat(" ", scrollbarWidth))
+	}
+	width := st.pageWidth(m.width, right, measured...)
+	rowWidth := width - scrollbarWidth
+	for i := range list {
+		padding := strings.Repeat(" ", max(rowWidth-lipgloss.Width(list[i]), 0))
+		if i == selected {
+			// 선택한 줄은 배경을 목록 끝까지 칠한다.
+			padding = lipgloss.NewStyle().Background(st.selection).Render(padding)
+		}
+		if i == selected || scrollbar != nil {
+			list[i] += padding
+		}
+		if scrollbar != nil {
+			list[i] += " " + scrollbar[i] + strings.Repeat(" ", brewScrollbarMargin)
+		}
 	}
 	lines := append(append(list, "", st.renderRule(width)), lower...)
 	lines = append(lines, "", st.renderStatusLine(width, marker, st.stateColor(tone), status))
-	return tea.NewView(st.renderPage(width, m.version, right, lines, footer))
+	return st.renderPage(width, m.version, right, lines, footer)
 }
 
 // renderBrewLines 는 프로필과 패키지를 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다.
