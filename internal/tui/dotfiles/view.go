@@ -74,7 +74,6 @@ func (m List) View() tea.View {
 		column = listWidth
 	}
 	if selected >= 0 {
-		// 선택한 줄은 배경을 목록 칸 끝까지 칠한다.
 		list[selected] += lipgloss.NewStyle().Background(st.Selection).Render(strings.Repeat(" ", max(column-lipgloss.Width(list[selected]), 0)))
 	}
 	// 설명이나 질문은 구분선 바로 아래에 붙여서 목록과 멀어지지 않게 한다.

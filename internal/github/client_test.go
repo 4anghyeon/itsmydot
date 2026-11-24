@@ -138,7 +138,7 @@ func TestBlobHash(t *testing.T) {
 	}
 }
 
-// FileHashes 는 트리 전체에서 파일(blob)만 경로별로 모은다.
+// FileHashes 는 트리 전체에서 blob인 파일만 경로별로 모은다.
 func TestFileHashes(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/owner/repo/git/trees/HEAD" || r.URL.Query().Get("recursive") != "1" {

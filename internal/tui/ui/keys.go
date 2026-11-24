@@ -17,7 +17,7 @@ var dubeolsik = map[rune]rune{
 	'ㅃ': 'Q', 'ㅉ': 'W', 'ㄸ': 'E', 'ㄲ': 'R', 'ㅆ': 'T', 'ㅒ': 'O', 'ㅖ': 'P',
 }
 
-// NormalizeKey 는 키 입력을 단축키 이름("q", "y", "space" 등)으로 바꾼다.
+// NormalizeKey 는 키 입력을 q, y, space 같은 단축키 이름으로 바꾼다.
 // 두벌식 자모가 들어오면 같은 자리의 영문 키로 바꾼다.
 func NormalizeKey(msg tea.KeyPressMsg) string {
 	name := msg.String()

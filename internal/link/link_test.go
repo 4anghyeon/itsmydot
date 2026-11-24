@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// setup 은 임시 폴더 안에 가짜 홈(home)과 로컬 사본 파일(copyPath)을 만든다.
+// setup 은 임시 폴더 안에 가짜 홈 폴더 home과 로컬 사본 파일 copyPath를 만든다.
 // 실제 $HOME은 건드리지 않는다.
 func setup(t *testing.T) (home, copyPath string) {
 	t.Helper()

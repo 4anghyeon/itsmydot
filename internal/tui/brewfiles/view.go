@@ -200,7 +200,6 @@ func (m List) renderScreen(st ui.Styles, list []string, selected int, scrollbar 
 	for i := range list {
 		padding := strings.Repeat(" ", max(rowWidth-lipgloss.Width(list[i]), 0))
 		if i == selected {
-			// 선택한 줄은 배경을 목록 끝까지 칠한다.
 			padding = lipgloss.NewStyle().Background(st.Selection).Render(padding)
 		}
 		if i == selected || scrollbar != nil {

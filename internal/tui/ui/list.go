@@ -16,7 +16,7 @@ type ListRow struct {
 	MarkerStyle  lipgloss.Style
 	Name         string        // 가장 긴 이름에 맞춰 뒤를 공백으로 채운다
 	Detail       string        // 이름 뒤에 흐린 색으로 붙는 경로 같은 정보
-	Tail         []ListSegment // detail 뒤에 차례로 붙는 표시
+	Tail         []ListSegment // Detail 뒤에 차례로 붙는 표시
 	Current      bool          // 커서가 있는 줄이면 true
 }
 
@@ -27,7 +27,7 @@ type ListSegment struct {
 }
 
 // RenderRows 는 rows를 한 줄씩 그리고 커서가 있는 줄의 위치를 함께 돌려준다. 커서가 있는 줄이 없으면 -1이다.
-// detail 칸이 맞도록 접기 표시와 가지의 폭을 이름 폭에 넣어 센다.
+// Detail 칸이 맞도록 접기 표시와 가지의 폭을 이름 폭에 넣어 센다.
 func (st Styles) RenderRows(rows []ListRow) (lines []string, selected int) {
 	width := 0
 	for _, row := range rows {

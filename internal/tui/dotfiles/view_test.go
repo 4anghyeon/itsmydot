@@ -133,7 +133,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 	}
 }
 
-// 넓은 터미널에서도 게이지는 headerMaxWidth 칸에서 끝나고 상태 줄과 도움말 줄 사이는 한 줄 띄운다.
+// 넓은 터미널에서도 게이지는 [ui.HeaderMaxWidth] 칸에서 끝나고 상태 줄과 도움말 줄 사이는 한 줄 띄운다.
 func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 24})
