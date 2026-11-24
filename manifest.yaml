@@ -41,24 +41,31 @@ entries:
     source: files/git/.gitconfig
     target: ~/.gitconfig
     description: git 전역 설정
+
+agentfiles:
   - name: claude
     source: files/claude/CLAUDE.md
     target: ~/.claude/CLAUDE.md
     description: Claude Code 전역 지침
+  - name: rules
+    description: 파일 종류별로 불러오는 Claude Code 규칙
     children:
-      - name: rules-typescript
+      - name: typescript
         source: files/claude/rules/typescript.md
         target: ~/.claude/rules/typescript.md
         description: JS와 TS 파일을 다룰 때 불러오는 규칙
-      - name: rules-react
+      - name: react
         source: files/claude/rules/react.md
         target: ~/.claude/rules/react.md
         description: JSX와 TSX 파일을 다룰 때 불러오는 React 규칙
-      - name: rules-go
+      - name: go
         source: files/claude/rules/go.md
         target: ~/.claude/rules/go.md
         description: Go 파일을 다룰 때 불러오는 규칙
-      - name: skill-comment-cleanup
+  - name: skills
+    description: Claude Code 스킬
+    children:
+      - name: comment-cleanup
         source: files/claude/skills/comment-cleanup/SKILL.md
         target: ~/.claude/skills/comment-cleanup/SKILL.md
         description: 주석을 덜어내는 스킬

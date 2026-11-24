@@ -189,7 +189,7 @@ func TestExpandHome(t *testing.T) {
 	}
 }
 
-// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 하고 Brewfile의 source는 저장소에 있어야 한다.
+// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 하고 모든 source는 저장소에 있어야 한다.
 func TestRepoManifest(t *testing.T) {
 	m, err := Load("../../manifest.yaml")
 	if err != nil {
@@ -198,6 +198,18 @@ func TestRepoManifest(t *testing.T) {
 	for _, b := range m.Brewfiles {
 		if _, err := os.Stat(filepath.Join("../..", b.Source)); err != nil {
 			t.Errorf("brewfile %s source missing: %v", b.Name, err)
+		}
+	}
+	for _, entries := range [][]Entry{m.Entries, m.Agentfiles} {
+		for _, e := range entries {
+			for _, item := range append([]Entry{e}, e.Children...) {
+				if item.IsFolder() {
+					continue
+				}
+				if _, err := os.Stat(filepath.Join("../..", item.Source)); err != nil {
+					t.Errorf("entry %s source missing: %v", item.Name, err)
+				}
+			}
 		}
 	}
 }

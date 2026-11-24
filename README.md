@@ -22,6 +22,7 @@
 - 로컬 사본과 저장소 최신본의 차이 보기
 - 관련 파일을 그룹으로 묶어 접고 펼치기
 - 프로필별 Homebrew 패키지의 설치 상태 확인과 골라서 한 번에 설치
+- Claude Code 지침과 규칙, 스킬 같은 코딩 에이전트 파일을 dotfile과 따로 연결
 
 ## 설치
 
@@ -45,7 +46,11 @@ go install github.com/4anghyeon/itsmydot/cmd/itsmydot@latest
 itsmydot
 ```
 
-실행하면 진입 메뉴에서 `1. dotfiles`와 `2. brewfiles` 중 하나를 고릅니다. 번호를 누르거나 방향키로 옮긴 뒤 <kbd>enter</kbd>를 누르면 그 목록으로 들어갑니다.
+실행하면 진입 메뉴에서 `1. dotfiles`, `2. brewfiles`, `3. agentfiles` 중 하나를 고릅니다. 번호를 누르거나 방향키로 옮긴 뒤 <kbd>enter</kbd>를 누르면 그 목록으로 들어갑니다. 목록에서 <kbd>esc</kbd>를 누르면 진입 메뉴로 돌아옵니다.
+
+포크해서 사용할 때는 [`cmd/itsmydot/main.go`](cmd/itsmydot/main.go)의 `repoOwner`, `repoName`을 자신의 저장소에 맞게 바꿉니다.
+
+## dotfiles
 
 dotfiles 목록에서 dotfile을 고르고 <kbd>space</kbd>로 연결하거나 해제합니다.
 
@@ -69,24 +74,7 @@ dotfiles 목록에서 dotfile을 고르고 <kbd>space</kbd>로 연결하거나 �
 | `^` | 저장소에 업데이트 있음 |
 | `v` `>` | 펼친 그룹 / 접힌 그룹 |
 
-brewfiles 목록은 프로필(base, dev, personal)별 Homebrew 패키지와 설치 상태를 보여 줍니다. 설치 상태는 처음 들어갈 때 `brew list`와 `brew tap`으로 확인합니다.
-
-| 키 | 동작 |
-|---|---|
-| <kbd>↑</kbd> <kbd>↓</kbd> | 항목 이동 |
-| <kbd>←</kbd> <kbd>→</kbd> | 프로필 접기 / 펼치기 |
-| <kbd>space</kbd> | 설치 안 된 패키지 고르기 / 취소. 프로필 줄에서는 설치 안 된 하위 패키지 전체 |
-| <kbd>enter</kbd> | 고른 패키지를 `brew bundle`로 한 번에 설치 |
-| <kbd>esc</kbd> | 질문 닫기 / 진입 메뉴로 돌아가기 |
-
-| 표시 | 상태 |
-|---|---|
-| `[+]` | 설치됨 |
-| `[ ]` | 설치 안 됨 |
-| `[*]` | 설치하려고 고름 |
-
-
-## 동작 방식
+### 동작 방식
 
 `manifest.yaml`에 정의된 파일을 저장소에서 `~/.itsmydot/`로 가져온 뒤, `target` 경로에 로컬 사본을 가리키는 심볼릭 링크를 만듭니다.
 
@@ -104,7 +92,7 @@ flowchart LR
 
 동기화 방향은 저장소에서 로컬 사본으로 향하는 단방향입니다. 설정을 수정할 때는 저장소의 원본 파일을 편집하세요. 로컬 사본이나 대상 경로에서 한 변경은 저장소에 자동으로 반영되지 않습니다.
 
-## dotfile 추가
+### dotfile 추가
 
 `files/` 아래에 파일을 두고 `manifest.yaml`에 항목을 추가합니다.
 
@@ -125,7 +113,25 @@ entries:
     loaded_by: ~/.zshrc             # 불러오는 줄을 넣을 파일 (선택)
 ```
 
-## Homebrew 패키지 추가
+## brewfiles
+
+brewfiles 목록은 프로필(base, dev, personal)별 Homebrew 패키지와 설치 상태를 보여 줍니다. 설치 상태는 처음 들어갈 때 `brew list`와 `brew tap`으로 확인합니다.
+
+| 키 | 동작 |
+|---|---|
+| <kbd>↑</kbd> <kbd>↓</kbd> | 항목 이동 |
+| <kbd>←</kbd> <kbd>→</kbd> | 프로필 접기 / 펼치기 |
+| <kbd>space</kbd> | 설치 안 된 패키지 고르기 / 취소. 프로필 줄에서는 설치 안 된 하위 패키지 전체 |
+| <kbd>enter</kbd> | 고른 패키지를 `brew bundle`로 한 번에 설치 |
+| <kbd>esc</kbd> | 질문 닫기 / 진입 메뉴로 돌아가기 |
+
+| 표시 | 상태 |
+|---|---|
+| `[+]` | 설치됨 |
+| `[ ]` | 설치 안 됨 |
+| `[*]` | 설치하려고 고름 |
+
+### Homebrew 패키지 추가
 
 `files/brew/` 아래의 Brewfile에 `tap`, `brew`, `cask` 줄을 추가합니다. 줄 끝 주석이 목록의 설명이 되고, 없으면 바로 위 `# --- 섹션 ---` 주석을 씁니다.
 
@@ -144,4 +150,20 @@ brewfiles:
     description: 개발용 CLI 도구와 터미널, 에디터  # 설명 (선택)
 ```
 
-포크해서 사용할 때는 [`cmd/itsmydot/main.go`](cmd/itsmydot/main.go)의 `repoOwner`, `repoName`을 자신의 저장소에 맞게 바꿉니다.
+## agentfiles
+
+agentfiles 목록은 Claude Code의 지침과 규칙, 스킬 같은 코딩 에이전트 파일을 보여 줍니다. 연결 방식과 키, 표시는 [dotfiles](#dotfiles)와 같습니다. rules나 skills처럼 하위 항목만 묶는 폴더 줄은 하위 항목이 모두 연결되면 `[+]`로 표시되고, 연결은 하위 항목을 하나씩 고릅니다.
+
+### 에이전트 파일 추가
+
+`manifest.yaml`의 `agentfiles`에 `entries`와 같은 형식으로 항목을 적습니다. 이름은 섹션 안에서만 겹치지 않으면 됩니다. `source`와 `target` 없이 `children`만 적으면 하위 항목을 묶는 폴더가 됩니다.
+
+```yaml
+agentfiles:
+  - name: skills                  # 폴더 이름
+    description: Claude Code 스킬  # 설명 (선택)
+    children:
+      - name: comment-cleanup
+        source: files/claude/skills/comment-cleanup/SKILL.md
+        target: ~/.claude/skills/comment-cleanup/SKILL.md
+```
