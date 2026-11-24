@@ -1,4 +1,4 @@
-package tui
+package ui
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/rcfile"
 )
 
-// errorReason 은 에러를 화면에 보여 줄 사유 문장으로 바꾼다. 원래 에러 내용은 항목 메뉴에서 따로 보여 준다.
+// ErrorReason 은 에러를 화면에 보여 줄 사유 문장으로 바꾼다. 원래 에러 내용은 항목 메뉴에서 따로 보여 준다.
 // home은 권한 에러의 경로를 ~로 줄이는 데 쓴다.
-func errorReason(err error, home string) string {
+func ErrorReason(err error, home string) string {
 	var rateLimit *github.RateLimitError
 	var invalid *manifest.InvalidError
 	var netErr net.Error
@@ -40,10 +40,10 @@ func errorReason(err error, home string) string {
 	case errors.As(err, &exitErr):
 		return "brew 명령이 실패했어요"
 	case errors.Is(err, rcfile.ErrSymlink):
-		return tildify(errorPath(err), home) + " 가 심볼릭 링크라서 고치지 않았어요"
+		return Tildify(errorPath(err), home) + " 가 심볼릭 링크라서 고치지 않았어요"
 	case errors.Is(err, fs.ErrPermission):
 		if path := errorPath(err); path != "" {
-			return tildify(path, home) + " 파일에 접근할 권한이 없어요"
+			return Tildify(path, home) + " 파일에 접근할 권한이 없어요"
 		}
 		return "파일에 접근할 권한이 없어요"
 	default:

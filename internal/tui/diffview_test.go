@@ -7,11 +7,13 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // 터미널 높이에 맞춰 본문을 자르고 방향키와 pgdn, end로 스크롤한다. 맨 위에서 더 올라가지는 않는다.
 func TestDiffScroll(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	// 빈 파일에 30줄을 추가하면 머리줄까지 31줄이다.
 	var text strings.Builder
 	for i := 1; i <= 30; i++ {
@@ -71,7 +73,7 @@ func scrollbarColumn(view string) string {
 
 // 좌우 방향키로 긴 줄을 밀면 내용만 밀리고 줄 번호는 그 자리에 남는다. 끝을 넘어서 밀리지는 않는다.
 func TestDiffHorizontalScroll(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	long := "export PATH=" + strings.Repeat("/usr/local/bin:", 4) + "END"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "short\n", long+"\n"))
@@ -95,7 +97,7 @@ func TestDiffHorizontalScroll(t *testing.T) {
 
 // 지운 줄과 추가한 줄은 줄 끝까지 배경을 칠하고 줄 번호 칸과 바뀐 단어는 더 진하게 칠한다. @@ 줄은 회색 띠로 그린다.
 func TestDiffRowColors(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "same\nexport EDITOR=vim\n", "same\nexport EDITOR=nvim\n"))
 	m = next.(dotfileList)
@@ -129,7 +131,7 @@ func TestDiffRowColors(t *testing.T) {
 
 // 파일 끝 줄바꿈이 없는 줄 바로 아래에 git과 같은 안내 줄을 붙인다.
 func TestDiffNoNewlineRow(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "a\nlast", "a\nlast\n"))
 	v := viewText(next.(dotfileList))

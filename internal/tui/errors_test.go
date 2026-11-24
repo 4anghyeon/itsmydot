@@ -13,6 +13,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // timeoutError 는 http.Client의 Timeout이 지났을 때 url.Error 안에 들어 있는 에러를 흉내 낸다.
@@ -42,7 +43,7 @@ func TestErrorReason(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := errorReason(tt.err, "/home/me"); got != tt.want {
+			if got := ui.ErrorReason(tt.err, "/home/me"); got != tt.want {
 				t.Errorf("errorReason = %q, want %q", got, tt.want)
 			}
 		})
@@ -65,7 +66,7 @@ func TestViewShowsManifestProblems(t *testing.T) {
 func TestMenuShowsOriginalError(t *testing.T) {
 	m := loadedModel(item{
 		entry: entry("gitconfig", "/home/me/.gitconfig"),
-		state: errored,
+		state: ui.Errored,
 		err:   fmt.Errorf("fetch files/gitconfig: %w", github.ErrNotFound),
 	})
 	if v := viewText(m); strings.Contains(v, "fetch files/gitconfig") || !strings.Contains(v, "(저장소에 파일이 없어요)") {

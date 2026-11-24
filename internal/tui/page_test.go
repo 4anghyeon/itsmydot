@@ -8,6 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func TestRenderGauge(t *testing.T) {
@@ -16,27 +18,27 @@ func TestRenderGauge(t *testing.T) {
 		filled int
 	}{
 		{0, 0},
-		{0.5, gaugeWidth / 2},
-		{1, gaugeWidth},
-		{0.01, 1},         // 하나라도 연결돼 있으면 최소 한 칸
-		{1.2, gaugeWidth}, // 범위를 넘어도 막대 길이는 그대로
+		{0.5, ui.GaugeWidth / 2},
+		{1, ui.GaugeWidth},
+		{0.01, 1},            // 하나라도 연결돼 있으면 최소 한 칸
+		{1.2, ui.GaugeWidth}, // 범위를 넘어도 막대 길이는 그대로
 		{-0.1, 0},
 	}
 	for _, tt := range tests {
-		g := ansi.Strip(newStyles(true).renderGauge(tt.ratio))
+		g := ansi.Strip(ui.NewStyles(true).RenderGauge(tt.ratio))
 		if got := strings.Count(g, "█"); got != tt.filled {
 			t.Errorf("gauge(%v) filled = %d, want %d", tt.ratio, got, tt.filled)
 		}
-		if w := lipgloss.Width(g); w != gaugeWidth {
-			t.Errorf("gauge(%v) width = %d, want %d", tt.ratio, w, gaugeWidth)
+		if w := lipgloss.Width(g); w != ui.GaugeWidth {
+			t.Errorf("gauge(%v) width = %d, want %d", tt.ratio, w, ui.GaugeWidth)
 		}
 	}
 }
 
 func TestHeaderShowsSyncedCount(t *testing.T) {
 	m := loadedModel(
-		item{entry: entry("a", "/home/me/.a"), state: synced},
-		item{entry: entry("b", "/home/me/.b"), state: conflict},
+		item{entry: entry("a", "/home/me/.a"), state: ui.Synced},
+		item{entry: entry("b", "/home/me/.b"), state: ui.Conflict},
 		item{entry: entry("c", "/home/me/.c")},
 	)
 	if v := viewText(m); !strings.Contains(v, "연결됨 1/3") {
@@ -48,7 +50,7 @@ func TestHeaderShowsSyncedCount(t *testing.T) {
 func TestViewFitsTerminalWidth(t *testing.T) {
 	m := loadedModel(item{
 		entry: entry("gitconfig", "/home/me/.gitconfig"),
-		state: errored,
+		state: ui.Errored,
 		err:   errors.New(strings.Repeat("very long network error ", 10)),
 	})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
@@ -63,14 +65,14 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 
 // 넓은 터미널에서도 게이지는 headerMaxWidth 칸에서 끝나고 상태 줄과 도움말 줄 사이는 한 줄 띄운다.
 func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
-	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
+	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 24})
 	m = next.(dotfileList)
-	m.status, m.statusTone = "끝났어요", statusDone
+	m.Status, m.StatusTone = "끝났어요", ui.StatusDone
 
 	lines := strings.Split(viewText(m), "\n")
-	if w := ansi.StringWidth(lines[1]); w != headerMaxWidth {
-		t.Errorf("header is %d cells wide, want %d: %q", w, headerMaxWidth, lines[1])
+	if w := ansi.StringWidth(lines[1]); w != ui.HeaderMaxWidth {
+		t.Errorf("header is %d cells wide, want %d: %q", w, ui.HeaderMaxWidth, lines[1])
 	}
 	if w := ansi.StringWidth(lines[3]); w != 200 {
 		t.Errorf("rule is %d cells wide, want 200", w)
@@ -95,15 +97,15 @@ func TestViewShowsVersion(t *testing.T) {
 
 // 알림이 없으면 상태 줄 자리를 빈 줄로 남기고 배경은 칠하지 않는다.
 func TestEmptyStatusLineHasNoBackground(t *testing.T) {
-	st := newStyles(true)
-	if got := st.renderStatusLine(40, "", st.muted.GetForeground(), ""); got != "" {
+	st := ui.NewStyles(true)
+	if got := st.RenderStatusLine(40, "", st.Muted.GetForeground(), ""); got != "" {
 		t.Errorf("empty status line = %q, want no painted cells", got)
 	}
 }
 
 // 아래 도움말 줄이 터미널보다 길면 키와 설명 묶음 사이에서 줄을 나눈다.
 func TestHelpLineWraps(t *testing.T) {
-	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced})
+	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
 	m = next.(dotfileList)
 

@@ -11,6 +11,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // previewFixture 는 가짜 저장소 files와 임시 로컬 사본 폴더로 gitconfig 항목과 extra 항목을 띄운다.
@@ -35,7 +36,7 @@ func previewFixture(t *testing.T, files map[string]string, localCopy string, ext
 
 	m := newDotfileList(fakeRepo(t, files), copies, "")
 	m.home = "/home/me"
-	items := append([]item{{entry: e, copyPath: copyPath, state: synced}}, extra...)
+	items := append([]item{{entry: e, copyPath: copyPath, state: ui.Synced}}, extra...)
 	next, _ := m.Update(entriesLoadedMsg{items: items, hashes: hashes})
 	return next.(dotfileList)
 }

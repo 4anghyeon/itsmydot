@@ -1,4 +1,6 @@
-package tui
+// Package ui 는 itsmydot의 목록 화면들이 같이 쓰는 부품이다.
+// 화면 틀과 색, 목록 줄과 트리 접기, 스크롤, 상태 줄, 번호 선택지, 키 이름 바꾸기를 담는다.
+package ui
 
 import (
 	"image/color"
@@ -10,36 +12,36 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// gaugeWidth 는 진행 게이지의 칸 수다.
-const gaugeWidth = 16
+// GaugeWidth 는 진행 게이지의 칸 수다.
+const GaugeWidth = 16
 
-// headerMaxWidth 는 맨 위 줄에서 right를 놓는 가장 먼 칸이다.
+// HeaderMaxWidth 는 맨 위 줄에서 right를 놓는 가장 먼 칸이다.
 // 넓은 터미널에서 게이지가 제목에서 너무 멀어지지 않게 한다. 구분선과 상태 줄은 그대로 터미널 끝까지 그린다.
-const headerMaxWidth = 80
+const HeaderMaxWidth = 80
 
 // mascotWidth 는 캐릭터가 차지하는 폭이다. 왼쪽 여백 한 칸과 두 눈 사이를 합쳤다.
 const mascotWidth = 6
 
-// renderGauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
+// RenderGauge 는 ratio만큼 채운 진행 막대를 그린다. ratio는 0과 1 사이로 자른다.
 // 채운 칸은 목록의 연결 표시와 같은 초록이라 색만 봐도 연결된 비율인 걸 알 수 있다.
-func (st styles) renderGauge(ratio float64) string {
+func (st Styles) RenderGauge(ratio float64) string {
 	ratio = min(max(ratio, 0), 1)
-	filled := int(math.Round(ratio * gaugeWidth))
-	if ratio > animationSettleThreshold && filled == 0 {
+	filled := int(math.Round(ratio * GaugeWidth))
+	if ratio > AnimationSettleThreshold && filled == 0 {
 		filled = 1 // 하나라도 연결돼 있으면 빈 막대로 보이지 않게 한다
 	}
 
-	return st.stateStyle(synced).Render(strings.Repeat("█", filled)) +
-		st.muted.Render(strings.Repeat("░", gaugeWidth-filled))
+	return st.StateStyle(Synced).Render(strings.Repeat("█", filled)) +
+		st.Muted.Render(strings.Repeat("░", GaugeWidth-filled))
 }
 
-// pageWidth 는 화면 폭이다. 터미널 폭을 알면 그 폭을 다 쓰고 모르면 제목 줄과 lines 중 가장 긴 줄에 맞춘다.
+// PageWidth 는 화면 폭이다. 터미널 폭을 알면 그 폭을 다 쓰고 모르면 제목 줄과 lines 중 가장 긴 줄에 맞춘다.
 // 화면 폭을 터미널에 맞춰 고정해서 메뉴를 열거나 상태 메시지가 바뀌어도 구분선 길이가 출렁이지 않는다.
-func (st styles) pageWidth(terminal int, right string, lines ...string) int {
+func (st Styles) PageWidth(terminal int, right string, lines ...string) int {
 	if terminal > 0 {
 		return terminal
 	}
-	width := mascotWidth + 2 + lipgloss.Width(st.title.Render("itsmydot")) + 2 + lipgloss.Width(right)
+	width := mascotWidth + 2 + lipgloss.Width(st.Title.Render("itsmydot")) + 2 + lipgloss.Width(right)
 	for _, line := range lines {
 		width = max(width, lipgloss.Width(line))
 	}
@@ -51,7 +53,7 @@ func (st styles) pageWidth(terminal int, right string, lines ...string) int {
 //	.   .
 //	  /
 //	  ~
-func (st styles) renderMascot() [3]string {
+func (st Styles) renderMascot() [3]string {
 	return [3]string{
 		" " + st.mascotFace.Render(".   ."),
 		"   " + st.mascotFace.Render("/") + "  ",
@@ -59,23 +61,23 @@ func (st styles) renderMascot() [3]string {
 	}
 }
 
-// renderPage 는 모든 화면이 같이 쓰는 틀이다. 캐릭터와 제목, right를 놓은 머리 아래에 구분선과 lines, footer를 차례로 붙인다.
+// RenderPage 는 모든 화면이 같이 쓰는 틀이다. 캐릭터와 제목, right를 놓은 머리 아래에 구분선과 lines, footer를 차례로 붙인다.
 // 좁은 터미널에서는 right를 제목 아래 줄로 내리고 폭 width를 넘는 줄은 줄바꿈한다.
-func (st styles) renderPage(width int, version, right string, lines []string, footer string) string {
+func (st Styles) RenderPage(width int, version, right string, lines []string, footer string) string {
 	face := st.renderMascot()
-	title := st.title.Render("itsmydot")
+	title := st.Title.Render("itsmydot")
 	header := []string{face[0], face[1] + "  " + title, face[2]}
 	if version != "" {
-		header[2] += "  " + st.muted.Render(version)
+		header[2] += "  " + st.Muted.Render(version)
 	}
-	gap := min(width, headerMaxWidth) - mascotWidth - 2 - lipgloss.Width(title) - lipgloss.Width(right)
+	gap := min(width, HeaderMaxWidth) - mascotWidth - 2 - lipgloss.Width(title) - lipgloss.Width(right)
 	if gap >= 2 {
 		header[1] += strings.Repeat(" ", gap) + right
 	} else if right != "" {
 		header[2] += "  " + right
 	}
 
-	out := slices.Concat(header[:], []string{st.renderRule(width), ""}, lines)
+	out := slices.Concat(header[:], []string{st.RenderRule(width), ""}, lines)
 	for i, line := range out {
 		if lipgloss.Width(line) > width {
 			out[i] = ansi.Wrap(line, width, " ")
@@ -84,18 +86,18 @@ func (st styles) renderPage(width int, version, right string, lines []string, fo
 	return strings.Join(out, "\n") + "\n\n " + footer + "\n"
 }
 
-// renderRule 은 화면 폭만큼 긋는 가로 구분선이다.
-func (st styles) renderRule(width int) string {
-	return st.muted.Render(strings.Repeat("─", width))
+// RenderRule 은 화면 폭만큼 긋는 가로 구분선이다.
+func (st Styles) RenderRule(width int) string {
+	return st.Muted.Render(strings.Repeat("─", width))
 }
 
-// renderStatusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
+// RenderStatusLine 은 맨 아래 상태 줄을 폭 width 전체에 배경을 칠해 그린다. marker가 있으면 글 앞에 color로 붙인다.
 // 글이 없으면 칠하지 않은 빈 줄을 돌려준다. 자리는 남겨 두어 메시지가 생길 때 화면 높이가 바뀌지 않는다.
-func (st styles) renderStatusLine(width int, marker string, color color.Color, text string) string {
+func (st Styles) RenderStatusLine(width int, marker string, color color.Color, text string) string {
 	if text == "" {
 		return ""
 	}
-	bar := lipgloss.NewStyle().Background(st.palette.statusBar)
+	bar := lipgloss.NewStyle().Background(st.Palette.statusBar)
 	indent := 1
 	if marker != "" {
 		indent += lipgloss.Width(marker) + 1
@@ -112,14 +114,14 @@ func (st styles) renderStatusLine(width int, marker string, color color.Color, t
 	return strings.Join(lines, "\n")
 }
 
-// renderHelp 는 키와 설명을 번갈아 받아 맨 아래 도움말 줄로 이어 붙인다.
+// RenderHelp 는 키와 설명을 번갈아 받아 맨 아래 도움말 줄로 이어 붙인다.
 // 터미널 폭 width를 넘으면 키와 설명 묶음 사이에서 줄을 나눈다. width가 0이면 나누지 않는다.
-func (st styles) renderHelp(width int, pairs ...string) string {
+func (st Styles) RenderHelp(width int, pairs ...string) string {
 	const gap = "   "
 	var lines []string
 	line := ""
 	for i := 0; i+1 < len(pairs); i += 2 {
-		part := st.key.Render(pairs[i]) + " " + st.muted.Render(pairs[i+1])
+		part := st.Key.Render(pairs[i]) + " " + st.Muted.Render(pairs[i+1])
 		switch {
 		case line == "":
 			line = part
@@ -133,10 +135,13 @@ func (st styles) renderHelp(width int, pairs ...string) string {
 	return strings.Join(append(lines, line), "\n ")
 }
 
-// ratio 는 part가 total에서 차지하는 비율이다. total이 0이면 0이다.
-func ratio(part, total int) float64 {
+// Ratio 는 part가 total에서 차지하는 비율이다. total이 0이면 0이다.
+func Ratio(part, total int) float64 {
 	if total == 0 {
 		return 0
 	}
 	return float64(part) / float64(total)
 }
+
+// AnimationSettleThreshold 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
+const AnimationSettleThreshold = 0.005

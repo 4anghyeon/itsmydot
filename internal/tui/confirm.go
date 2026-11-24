@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // confirmKind 는 어떤 확인 질문을 띄웠는지 나타낸다.
@@ -28,7 +30,7 @@ func (m dotfileList) confirmPrompt() (question string, options []string) {
 		return "", []string{"취소"}
 	}
 	it := m.items[i]
-	target := tildify(it.entry.Target, m.home)
+	target := ui.Tildify(it.entry.Target, m.home)
 
 	// 켜진 하위 항목이 있으면 그룹 파일을 끌 때 함께 꺼진다는 걸 미리 알린다.
 	childrenNote := ""
@@ -46,7 +48,7 @@ func (m dotfileList) confirmPrompt() (question string, options []string) {
 			[]string{"지금 설정은 남겨 두고 연결만 끊기 (추천)", "연결을 끊고 파일도 지우기", "취소"}
 	case confirmAction:
 		question := it.entry.Name + "  " + target
-		if it.state == synced {
+		if it.state == ui.Synced {
 			return question, []string{"최신으로 받기", "차이 보기", "연결 끊기", "닫기"}
 		}
 		return question, []string{"연결", "닫기"}
@@ -60,14 +62,14 @@ func (m dotfileList) confirmPrompt() (question string, options []string) {
 		question := fmt.Sprintf("%s  %s 파일을 연결할까요?", it.entry.Name, target)
 		if it.parent != "" && slices.Contains(m.pendingNames, it.parent) {
 			parent := m.items[m.indexOf(it.parent)]
-			question += fmt.Sprintf(" 그룹 파일 %s  %s 도 함께 연결해요.", parent.entry.Name, tildify(parent.entry.Target, m.home))
+			question += fmt.Sprintf(" 그룹 파일 %s  %s 도 함께 연결해요.", parent.entry.Name, ui.Tildify(parent.entry.Target, m.home))
 		}
 		return question, []string{"연결", "취소"}
 	default:
 		var conflicted []string
 		for _, name := range m.pendingNames {
-			if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
-				conflicted = append(conflicted, tildify(m.items[j].entry.Target, m.home))
+			if j := m.indexOf(name); j >= 0 && m.items[j].state == ui.Conflict {
+				conflicted = append(conflicted, ui.Tildify(m.items[j].entry.Target, m.home))
 			}
 		}
 		question := fmt.Sprintf("%s 에 이미 파일이 있어요. 기존 파일을 백업한 뒤 연결할까요?", strings.Join(conflicted, ", "))
@@ -89,7 +91,7 @@ func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 		key = strconv.Itoa(len(options)) // 마지막 선택지는 항상 취소다
 	}
 	var picked int
-	m.choice, picked = moveChoice(key, m.choice, len(options))
+	m.choice, picked = ui.MoveChoice(key, m.choice, len(options))
 	if picked == 0 {
 		return m, nil
 	}
@@ -107,7 +109,7 @@ func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 	}
 	if picked == len(options) {
 		// 질문 전에 떠 있던 알림은 지금과 상관없어서 함께 지운다.
-		m = m.notify(statusInfo, "")
+		m = m.notify(ui.StatusInfo, "")
 		return m, nil
 	}
 
@@ -136,7 +138,7 @@ func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 		return m.unlink(i).startAnimation()
 	case confirmAction:
 		// 메뉴를 여는 동안 커서는 움직이지 않으므로 커서가 곧 메뉴를 연 항목이다.
-		if m.items[i].state == synced {
+		if m.items[i].state == ui.Synced {
 			switch picked {
 			case 1: // 최신으로 받기
 				return m.updateCopy(i)
@@ -151,7 +153,7 @@ func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 
 // openMenu 는 커서가 있는 항목에서 할 수 있는 일을 번호 메뉴로 띄운다. 받는 중인 항목에서는 열지 않는다.
 func (m dotfileList) openMenu() dotfileList {
-	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == syncing {
+	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == ui.Syncing {
 		return m
 	}
 	m.confirmingName, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
@@ -160,25 +162,25 @@ func (m dotfileList) openMenu() dotfileList {
 
 // renderConfirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
 // 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
-func (m dotfileList) renderConfirmLines(st styles) (lines, numbers []string) {
+func (m dotfileList) renderConfirmLines(st ui.Styles) (lines, numbers []string) {
 	question, options := m.confirmPrompt()
-	title := st.question.Render(question)
+	title := st.Question.Render(question)
 	if m.confirmKind == confirmAction {
 		title = m.renderMenuTitle(st)
 		// 사유 문장만으로는 원인을 알기 어려울 때를 위해 원래 에러를 메뉴에서만 보여 준다.
-		if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == errored && m.items[i].err != nil {
-			title += "\n" + st.muted.Render(m.items[i].err.Error())
+		if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == ui.Errored && m.items[i].err != nil {
+			title += "\n" + st.Muted.Render(m.items[i].err.Error())
 		}
 	}
 	for line := range strings.SplitSeq(title, "\n") {
 		lines = append(lines, " "+line)
 	}
 	lines = append(lines, "")
-	optionLines, numbers := st.renderOptions(options, m.choice)
+	optionLines, numbers := st.RenderOptions(options, m.choice)
 	lines = append(lines, optionLines...)
 	switch {
 	case m.comparingName != "":
-		lines = append(lines, "", " "+st.stateStyle(syncing).Render(m.renderMarker(syncing))+" "+m.confirmNote)
+		lines = append(lines, "", " "+st.StateStyle(ui.Syncing).Render(m.renderMarker(ui.Syncing))+" "+m.confirmNote)
 	case m.confirmNote != "":
 		lines = append(lines, "", " "+m.confirmNote)
 	}
@@ -186,6 +188,6 @@ func (m dotfileList) renderConfirmLines(st styles) (lines, numbers []string) {
 }
 
 // renderMenuTitle 은 항목 메뉴의 제목이다.
-func (m dotfileList) renderMenuTitle(st styles) string {
+func (m dotfileList) renderMenuTitle(st ui.Styles) string {
 	return m.renderItemTitle(st, m.indexOf(m.confirmingName))
 }

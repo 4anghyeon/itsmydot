@@ -13,6 +13,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/homebrew"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // brewItem 은 brewfiles 목록의 한 줄이다. 프로필 줄은 profile만 채우고 패키지 줄은 pkg와 프로필 이름인 parent를 채운다.
@@ -22,14 +23,14 @@ type brewItem struct {
 	parent  string
 }
 
-func (it brewItem) nodeName() string {
+func (it brewItem) NodeName() string {
 	if it.parent == "" {
 		return it.profile.Name
 	}
 	return it.pkg.Name
 }
 
-func (it brewItem) parentName() string { return it.parent }
+func (it brewItem) ParentName() string { return it.parent }
 
 // isProfile 은 프로필 줄이면 true다.
 func (it brewItem) isProfile() bool { return it.parent == "" }
@@ -57,7 +58,7 @@ type brewfileList struct {
 	items     []brewItem
 	cursor    int
 	offset    int             // 목록 창의 맨 위에 보이는 줄. 접힌 줄을 뺀 보이는 줄 기준이다
-	collapsed map[string]bool // 접힌 프로필의 이름. 바꿀 때는 [withCollapsed] 로 새 map을 만든다
+	collapsed map[string]bool // 접힌 프로필의 이름. 바꿀 때는 [ui.TreeCollapse] 와 [ui.TreeExpand] 가 새 map을 만든다
 	installed homebrew.Installed
 
 	// picked 는 설치하려고 고른 패키지의 [brewfile.Package.Key] 다. 바꿀 때는 새 map을 만든다.
@@ -74,7 +75,7 @@ type brewfileList struct {
 	// installing 은 마지막으로 설치를 시작한 패키지의 Key다. 설치가 끝나면 설치 상태를 다시 보고 실패한 수를 센다.
 	installing []string
 
-	statusLine
+	ui.StatusLine
 }
 
 // newBrewfileList 는 처음 목록 상태를 만든다. 실제 불러오기는 [brewfileList.Init] 에서 시작한다.
@@ -172,7 +173,7 @@ func (m brewfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case brewInstalledCheckedMsg:
 		return m.applyInstalled(msg), nil
 	case tea.KeyPressMsg:
-		return m.handleKey(normalizeKey(msg))
+		return m.handleKey(ui.NormalizeKey(msg))
 	}
 	return m, nil
 }
@@ -196,18 +197,18 @@ func (m brewfileList) handleKey(key string) (brewfileList, tea.Cmd) {
 	m = m.countStatusKey()
 	switch key {
 	case "up", "k":
-		m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, -1)
+		m.cursor = ui.TreeNextVisible(m.items, m.collapsed, m.cursor, -1)
 	case "down", "j":
-		m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, 1)
+		m.cursor = ui.TreeNextVisible(m.items, m.collapsed, m.cursor, 1)
 	case "left", "h":
-		m.cursor, m.collapsed = treeCollapse(m.items, m.collapsed, m.cursor)
+		m.cursor, m.collapsed = ui.TreeCollapse(m.items, m.collapsed, m.cursor)
 	case "right", "l":
-		m.collapsed = treeExpand(m.items, m.collapsed, m.cursor)
+		m.collapsed = ui.TreeExpand(m.items, m.collapsed, m.cursor)
 	case "space":
 		m = m.togglePick()
 	case "enter":
 		if len(m.pickedPackages()) == 0 {
-			m = m.notify(statusInfo, "설치할 패키지를 space로 먼저 골라 주세요")
+			m = m.notify(ui.StatusInfo, "설치할 패키지를 space로 먼저 골라 주세요")
 		} else {
 			m.confirming, m.choice = true, 0
 		}
@@ -226,7 +227,7 @@ func (m brewfileList) handleConfirmKey(key string) (brewfileList, tea.Cmd) {
 		key = "2"
 	}
 	var picked int
-	m.choice, picked = moveChoice(key, m.choice, len(options))
+	m.choice, picked = ui.MoveChoice(key, m.choice, len(options))
 	if picked == 0 {
 		return m, nil
 	}
@@ -246,17 +247,17 @@ func (m brewfileList) togglePick() brewfileList {
 	it := m.items[m.cursor]
 	var keys []string
 	if it.isProfile() {
-		for _, j := range treeChildren(m.items, m.cursor) {
+		for _, j := range ui.TreeChildren(m.items, m.cursor) {
 			if p := m.items[j].pkg; !m.installed.Has(p) {
 				keys = append(keys, p.Key())
 			}
 		}
 		if len(keys) == 0 {
-			return m.notify(statusInfo, it.profile.Name+" 패키지는 모두 설치돼 있어요")
+			return m.notify(ui.StatusInfo, it.profile.Name+" 패키지는 모두 설치돼 있어요")
 		}
 	} else {
 		if m.installed.Has(it.pkg) {
-			return m.notify(statusInfo, it.pkg.Name+" 이미 설치돼 있어요")
+			return m.notify(ui.StatusInfo, it.pkg.Name+" 이미 설치돼 있어요")
 		}
 		keys = []string{it.pkg.Key()}
 	}
@@ -301,13 +302,13 @@ func (m brewfileList) startInstall() (brewfileList, tea.Cmd) {
 	packages := m.pickedPackages()
 	path, err := writeInstallBrewfile(m.tempDir, packages)
 	if err != nil {
-		return m.notify(statusFailed, "설치할 Brewfile을 만들지 못했어요 ("+errorReason(err, "")+")"), nil
+		return m.notify(ui.StatusFailed, "설치할 Brewfile을 만들지 못했어요 ("+ui.ErrorReason(err, "")+")"), nil
 	}
 	m.installing = make([]string, len(packages))
 	for i, p := range packages {
 		m.installing[i] = p.Key()
 	}
-	m = m.notify(statusInfo, "")
+	m = m.notify(ui.StatusInfo, "")
 	return m, tea.ExecProcess(m.runner.InstallCommand(path), func(error) tea.Msg {
 		_ = os.Remove(path) // 지우지 못해도 임시 폴더에 남을 뿐이다
 		return brewInstallFinishedMsg{}
@@ -343,7 +344,7 @@ func writeInstallBrewfile(dir string, packages []brewfile.Package) (string, erro
 // checkInstalled 는 설치가 끝난 뒤 설치 상태를 백그라운드로 다시 확인한다.
 func (m brewfileList) checkInstalled() (brewfileList, tea.Cmd) {
 	m.checking = true
-	m = m.notify(statusBusy, "설치 상태를 확인하는 중이에요...")
+	m = m.notify(ui.StatusBusy, "설치 상태를 확인하는 중이에요...")
 	runner := m.runner
 	return m, func() tea.Msg {
 		installed, err := runner.Installed(context.Background())
@@ -356,7 +357,7 @@ func (m brewfileList) checkInstalled() (brewfileList, tea.Cmd) {
 func (m brewfileList) applyInstalled(msg brewInstalledCheckedMsg) brewfileList {
 	m.checking = false
 	if msg.err != nil {
-		return m.notify(statusFailed, "설치 상태를 확인하지 못했어요 ("+errorReason(msg.err, "")+")")
+		return m.notify(ui.StatusFailed, "설치 상태를 확인하지 못했어요 ("+ui.ErrorReason(msg.err, "")+")")
 	}
 	m.installed = msg.installed
 
@@ -377,11 +378,11 @@ func (m brewfileList) applyInstalled(msg brewInstalledCheckedMsg) brewfileList {
 
 	switch {
 	case failed == 0:
-		return m.notify(statusDone, fmt.Sprintf("%d개 패키지를 설치했어요", total))
+		return m.notify(ui.StatusDone, fmt.Sprintf("%d개 패키지를 설치했어요", total))
 	case failed == total:
-		return m.notify(statusFailed, fmt.Sprintf("%d개 패키지를 설치하지 못했어요. 고른 채로 남겨 뒀어요", total))
+		return m.notify(ui.StatusFailed, fmt.Sprintf("%d개 패키지를 설치하지 못했어요. 고른 채로 남겨 뒀어요", total))
 	default:
-		return m.notify(statusFailed, fmt.Sprintf("%d개 중 %d개 패키지를 설치하지 못했어요. 실패한 패키지는 고른 채로 남겨 뒀어요", total, failed))
+		return m.notify(ui.StatusFailed, fmt.Sprintf("%d개 중 %d개 패키지를 설치하지 못했어요. 실패한 패키지는 고른 채로 남겨 뒀어요", total, failed))
 	}
 }
 
@@ -403,13 +404,13 @@ func (m brewfileList) installedCount() (installed, total int) {
 }
 
 // notify 는 상태 줄에 text를 띄운 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m brewfileList) notify(tone statusTone, text string) brewfileList {
-	m.statusLine = newStatusLine(tone, text)
+func (m brewfileList) notify(tone ui.StatusTone, text string) brewfileList {
+	m.StatusLine = ui.NewStatusLine(tone, text)
 	return m
 }
 
 // countStatusKey 는 목록에서 누른 키를 상태 줄에 센 목록 모델을 돌려준다.
 func (m brewfileList) countStatusKey() brewfileList {
-	m.statusLine = m.statusLine.countKey()
+	m.StatusLine = m.StatusLine.CountKey()
 	return m
 }

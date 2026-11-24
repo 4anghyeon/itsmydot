@@ -11,6 +11,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // loadEntries가 manifest를 받아 항목마다 상태를 제대로 판단하는지 가짜 서버와 임시 폴더로 확인한다.
@@ -47,7 +48,7 @@ func TestLoadEntries(t *testing.T) {
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
-	want := []itemState{synced, notSynced, conflict}
+	want := []ui.ItemState{ui.Synced, ui.NotSynced, ui.Conflict}
 	if len(msg.items) != len(want) {
 		t.Fatalf("got %d items, want %d", len(msg.items), len(want))
 	}
@@ -128,7 +129,7 @@ func TestLoadEntriesWithoutHashes(t *testing.T) {
 	if msg.err != nil || len(msg.items) != 1 {
 		t.Fatalf("items = %d err = %v", len(msg.items), msg.err)
 	}
-	if msg.items[0].state != synced || msg.items[0].outdated {
+	if msg.items[0].state != ui.Synced || msg.items[0].outdated {
 		t.Errorf("state = %d outdated = %v, want synced without the mark", msg.items[0].state, msg.items[0].outdated)
 	}
 }

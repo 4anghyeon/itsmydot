@@ -11,14 +11,15 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // item 은 목록의 한 줄이다.
 type item struct {
 	entry    manifest.Entry
 	copyPath string // 로컬 사본 경로. symlink가 가리켜야 하는 곳이다
-	state    itemState
-	err      error  // state가 errored일 때의 원인
+	state    ui.ItemState
+	err      error  // state가 ui.Errored일 때의 원인
 	parent   string // 하위 항목이면 그룹 이름. 하위 항목은 items에서 그룹 바로 뒤에 이어 붙는다
 	outdated bool   // 연결된 항목의 로컬 사본이 시작할 때 본 저장소 파일과 다르면 true
 
@@ -40,12 +41,12 @@ type dotfileList struct {
 	ready   bool  // manifest를 다 불러왔으면 true
 	loadErr error // manifest 자체를 못 불러왔을 때의 에러
 
-	statusLine
+	ui.StatusLine
 
 	// hashes 는 시작할 때 받은 저장소 파일의 blob 해시다. 정리한 source 경로가 키이고 받지 못했으면 nil이다.
 	hashes map[string]string
 
-	// collapsed 는 접힌 그룹의 이름이다. 바꿀 때는 [withCollapsed] 로 새 map을 만든다.
+	// collapsed 는 접힌 그룹의 이름이다. 바꿀 때는 [ui.TreeCollapse] 와 [ui.TreeExpand] 가 새 map을 만든다.
 	collapsed map[string]bool
 
 	// confirmingName 은 확인 질문의 답을 기다리는 항목의 이름이다. 없으면 빈 문자열이다.
@@ -76,7 +77,7 @@ type dotfileList struct {
 // newDotfileList 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [dotfileList.Init] 에서 시작한다.
 func newDotfileList(client *github.Client, copies *localcopy.Dir, version string) dotfileList {
 	home, _ := os.UserHomeDir() // 실패하면 manifest.Parse도 실패해서 목록이 뜨지 않는다
-	return dotfileList{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(syncSpinner))}
+	return dotfileList{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(ui.SyncSpinner))}
 }
 
 // Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 dotfiles를 처음 고를 때 한 번만 부른다.
@@ -119,7 +120,7 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// 받는 중인 항목이 없으면 다음 tick을 예약하지 않아 스피너가 멈춘다. startSync가 다시 돌린다.
-		if m.comparingName == "" && !m.preview.loading && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == syncing }) {
+		if m.comparingName == "" && !m.preview.loading && !slices.ContainsFunc(m.items, func(it item) bool { return it.state == ui.Syncing }) {
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -127,7 +128,7 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyPressMsg:
-		key := normalizeKey(msg)
+		key := ui.NormalizeKey(msg)
 		if m.helpOpen {
 			return m.handleHelpKey(key)
 		}
@@ -147,9 +148,9 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return m, backToMenu
 		case "up", "k":
-			m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, -1)
+			m.cursor = ui.TreeNextVisible(m.items, m.collapsed, m.cursor, -1)
 		case "down", "j":
-			m.cursor = treeNextVisible(m.items, m.collapsed, m.cursor, 1)
+			m.cursor = ui.TreeNextVisible(m.items, m.collapsed, m.cursor, 1)
 		case "left", "h":
 			m = m.collapse()
 		case "right", "l":
@@ -165,4 +166,16 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// notify 는 상태 줄에 text를 띄운 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
+func (m dotfileList) notify(tone ui.StatusTone, text string) dotfileList {
+	m.StatusLine = ui.NewStatusLine(tone, text)
+	return m
+}
+
+// countStatusKey 는 목록에서 누른 키를 상태 줄에 센 목록 모델을 돌려준다.
+func (m dotfileList) countStatusKey() dotfileList {
+	m.StatusLine = m.StatusLine.CountKey()
+	return m
 }

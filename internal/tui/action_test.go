@@ -11,6 +11,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/link"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func TestToggleOnAndOff(t *testing.T) {
@@ -27,12 +28,12 @@ func TestToggleOnAndOff(t *testing.T) {
 
 	// 1번을 고르면 syncing이 되고 작업이 끝나면 synced가 된다.
 	m, cmd = press(t, m, "1")
-	if m.items[0].state != syncing {
+	if m.items[0].state != ui.Syncing {
 		t.Fatalf("state = %d, want syncing", m.items[0].state)
 	}
 	m, _ = press(t, m, "space") // syncing 중에는 무시
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("state = %d, want synced (err %v)", m.items[0].state, m.items[0].err)
 	}
 	assertContent(t, target, "[user]\n")
@@ -43,10 +44,10 @@ func TestToggleOnAndOff(t *testing.T) {
 		t.Fatalf("want unlink prompt, got cmd=%v confirming=%q kind=%d", cmd != nil, m.confirmingName, m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
-	if !strings.Contains(m.status, "에 남아 있어요") || m.statusTone != statusUnlinked {
-		t.Errorf("status = %q tone = %d, want where the content remains with the unlinked marker", m.status, m.statusTone)
+	if !strings.Contains(m.Status, "에 남아 있어요") || m.StatusTone != ui.StatusUnlinked {
+		t.Errorf("status = %q tone = %d, want where the content remains with the unlinked marker", m.Status, m.StatusTone)
 	}
-	if m.items[0].state != notSynced {
+	if m.items[0].state != ui.NotSynced {
 		t.Errorf("state = %d, want notSynced", m.items[0].state)
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
@@ -68,17 +69,17 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 	assertContent(t, target, "mine")
 
 	m, cmd = press(t, m, "1")
-	if m.confirmingName != "" || m.items[0].state != syncing {
+	if m.confirmingName != "" || m.items[0].state != ui.Syncing {
 		t.Fatalf("after 1: confirming=%q state=%d", m.confirmingName, m.items[0].state)
 	}
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("state = %d, want synced (err %v)", m.items[0].state, m.items[0].err)
 	}
 	assertContent(t, target, "from repo")
 	assertContent(t, target+".itsmydot.bak", "mine")
-	if !strings.Contains(m.status, "백업") {
-		t.Errorf("status = %q, want backup notice", m.status)
+	if !strings.Contains(m.Status, "백업") {
+		t.Errorf("status = %q, want backup notice", m.Status)
 	}
 
 	// 백업이 있으면 끄기 전에 묻고, 답하면 원래 파일을 되돌린다.
@@ -88,7 +89,7 @@ func TestToggleBacksUpAndRestores(t *testing.T) {
 	}
 	assertSymlink(t, target, true)
 	m, _ = press(t, m, "1")
-	if m.items[0].state != conflict {
+	if m.items[0].state != ui.Conflict {
 		t.Errorf("state = %d, want conflict (original file restored)", m.items[0].state)
 	}
 	assertContent(t, target, "mine")
@@ -107,11 +108,11 @@ func TestConfirmCancel(t *testing.T) {
 			if cmd != nil || m.confirmingName != "" {
 				t.Fatalf("want cancelled, got cmd=%v confirming=%q", cmd != nil, m.confirmingName)
 			}
-			if m.items[0].state != conflict {
+			if m.items[0].state != ui.Conflict {
 				t.Errorf("state = %d, want conflict", m.items[0].state)
 			}
-			if m.status != "" {
-				t.Errorf("status = %q", m.status)
+			if m.Status != "" {
+				t.Errorf("status = %q", m.Status)
 			}
 			assertContent(t, target, "mine")
 			if _, err := os.Lstat(target + ".itsmydot.bak"); !os.IsNotExist(err) {
@@ -128,8 +129,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 			m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 			m, _ = press(t, m, "space")
 			m, cmd := press(t, m, key)
-			if cmd != nil || m.confirmingName != "" || m.items[0].state != notSynced || m.status != "" {
-				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirmingName, m.items[0].state, m.status)
+			if cmd != nil || m.confirmingName != "" || m.items[0].state != ui.NotSynced || m.Status != "" {
+				t.Fatalf("cmd=%v confirming=%q state=%d status=%q", cmd != nil, m.confirmingName, m.items[0].state, m.Status)
 			}
 			if _, err := os.Lstat(target); !os.IsNotExist(err) {
 				t.Errorf("target should be untouched, got err %v", err)
@@ -149,8 +150,8 @@ func TestToggleConfirmCancel(t *testing.T) {
 				t.Fatalf("kind = %d, want confirmTurnOff", m.confirmKind)
 			}
 			m, _ = press(t, m, key)
-			if m.confirmingName != "" || m.items[0].state != synced || m.status != "" {
-				t.Fatalf("confirming=%q state=%d status=%q", m.confirmingName, m.items[0].state, m.status)
+			if m.confirmingName != "" || m.items[0].state != ui.Synced || m.Status != "" {
+				t.Fatalf("confirming=%q state=%d status=%q", m.confirmingName, m.items[0].state, m.Status)
 			}
 			assertSymlink(t, target, true)
 		})
@@ -195,7 +196,7 @@ func TestToggleFetchError(t *testing.T) {
 
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != errored || m.items[0].err == nil {
+	if m.items[0].state != ui.Errored || m.items[0].err == nil {
 		t.Fatalf("state = %d err = %v, want errored", m.items[0].state, m.items[0].err)
 	}
 	if _, err := os.Lstat(target); !os.IsNotExist(err) {
@@ -210,7 +211,7 @@ func TestToggleFetchError(t *testing.T) {
 func TestToggleDoesNotMutatePreviousModel(t *testing.T) {
 	before, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 	_, _ = confirmToggle(t, before)
-	if before.items[0].state != notSynced {
+	if before.items[0].state != ui.NotSynced {
 		t.Errorf("previous model changed: state = %d", before.items[0].state)
 	}
 }
@@ -242,7 +243,7 @@ func TestUnlinkWithoutBackupKeepsContent(t *testing.T) {
 		t.Error("target should be a regular file now")
 	}
 	assertContent(t, target, "from repo")
-	if m.items[0].state != conflict {
+	if m.items[0].state != ui.Conflict {
 		t.Errorf("state = %d, want conflict (a regular file is left)", m.items[0].state)
 	}
 }
@@ -254,8 +255,8 @@ func TestUnlinkWithoutBackupCancel(t *testing.T) {
 			m, target := linkedFixture(t)
 			m, _ = press(t, m, "space")
 			m, _ = press(t, m, key)
-			if m.confirmingName != "" || m.status != "" {
-				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirmingName, m.status)
+			if m.confirmingName != "" || m.Status != "" {
+				t.Fatalf("want cancelled, got confirming=%q status=%q", m.confirmingName, m.Status)
 			}
 			info, err := os.Lstat(target)
 			if err != nil || info.Mode()&os.ModeSymlink == 0 {
@@ -317,8 +318,8 @@ func TestConfirmSpaceSelects(t *testing.T) {
 	m, _ = press(t, m, "down")
 	m, _ = press(t, m, "down") // 3. 취소
 	m, cmd := press(t, m, "space")
-	if cmd != nil || m.confirmingName != "" || m.status != "" {
-		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
+	if cmd != nil || m.confirmingName != "" || m.Status != "" {
+		t.Fatalf("space on 3 should cancel: cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.Status)
 	}
 	assertContent(t, target, "mine")
 
@@ -346,15 +347,15 @@ func TestMenuUpdateCopy(t *testing.T) {
 	}
 
 	m, cmd = press(t, m, "1")
-	if m.items[0].state != syncing {
+	if m.items[0].state != ui.Syncing {
 		t.Fatalf("state = %d, want syncing", m.items[0].state)
 	}
-	if m.status != "gitconfig 최신본을 받는 중이에요..." {
-		t.Errorf("status = %q", m.status)
+	if m.Status != "gitconfig 최신본을 받는 중이에요..." {
+		t.Errorf("status = %q", m.Status)
 	}
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced || m.status != "gitconfig 사본을 최신으로 바꿨어요" {
-		t.Fatalf("state = %d status = %q", m.items[0].state, m.status)
+	if m.items[0].state != ui.Synced || m.Status != "gitconfig 사본을 최신으로 바꿨어요" {
+		t.Fatalf("state = %d status = %q", m.items[0].state, m.Status)
 	}
 	assertContent(t, target, "v2")
 	if _, err := os.Lstat(target + ".itsmydot.bak"); !os.IsNotExist(err) {
@@ -373,8 +374,8 @@ func TestMenuUpdateCopyFetchError(t *testing.T) {
 	m, _ = press(t, m, "enter")
 	m, cmd = press(t, m, "1")
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced || !strings.Contains(m.status, "최신본을 받지 못해서 이전 사본을 그대로 써요") {
-		t.Fatalf("state = %d status = %q", m.items[0].state, m.status)
+	if m.items[0].state != ui.Synced || !strings.Contains(m.Status, "최신본을 받지 못해서 이전 사본을 그대로 써요") {
+		t.Fatalf("state = %d status = %q", m.items[0].state, m.Status)
 	}
 	assertContent(t, target, "v1")
 }
@@ -387,8 +388,8 @@ func TestMenuUpdateCopyWhenNoLongerLinked(t *testing.T) {
 		t.Fatal(err)
 	}
 	m, cmd := press(t, m, "1")
-	if cmd != nil || m.items[0].state != notSynced || !strings.Contains(m.status, "연결이 풀려 있어서 받지 않았어요") {
-		t.Fatalf("cmd=%v state=%d status=%q", cmd != nil, m.items[0].state, m.status)
+	if cmd != nil || m.items[0].state != ui.NotSynced || !strings.Contains(m.Status, "연결이 풀려 있어서 받지 않았어요") {
+		t.Fatalf("cmd=%v state=%d status=%q", cmd != nil, m.items[0].state, m.Status)
 	}
 }
 
@@ -408,7 +409,7 @@ func TestMenuTurnOn(t *testing.T) {
 	}
 	m, cmd = press(t, m, "1")
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("state = %d, want synced", m.items[0].state)
 	}
 	assertContent(t, target, "from repo")
@@ -429,8 +430,8 @@ func TestMenuCancelAndSyncing(t *testing.T) {
 	m, _ := toggleFixture(t, map[string]string{"files/git/.gitconfig": "x"})
 	m, _ = press(t, m, "enter")
 	m, cmd := press(t, m, "esc")
-	if cmd != nil || m.confirmingName != "" || m.status != "" {
-		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.status)
+	if cmd != nil || m.confirmingName != "" || m.Status != "" {
+		t.Fatalf("cmd=%v confirming=%q status=%q", cmd != nil, m.confirmingName, m.Status)
 	}
 
 	m, _ = confirmToggle(t, m)
@@ -479,12 +480,12 @@ func TestToggleLoadedBy(t *testing.T) {
 
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("state = %d, want synced (err %v)", m.items[0].state, m.items[0].err)
 	}
 	assertContent(t, zshrc, "export A=1\n"+line+"\n")
-	if !strings.Contains(m.status, "~/.zshrc 끝에 불러오는 줄을 넣었어요") {
-		t.Errorf("status = %q, want line notice", m.status)
+	if !strings.Contains(m.Status, "~/.zshrc 끝에 불러오는 줄을 넣었어요") {
+		t.Errorf("status = %q, want line notice", m.Status)
 	}
 
 	// 다른 도구가 ~/.zshrc를 통째로 바꿔 줄이 사라지면 연결되지 않은 것으로 보고 다시 켜면 줄을 넣는다.
@@ -504,13 +505,13 @@ func TestToggleLoadedBy(t *testing.T) {
 		t.Fatalf("confirmKind = %d, want confirmUnlinkWithoutBackup", m.confirmKind)
 	}
 	m, _ = press(t, m, "2")
-	if m.items[0].state != notSynced {
+	if m.items[0].state != ui.NotSynced {
 		t.Fatalf("state = %d, want notSynced (err %v)", m.items[0].state, m.items[0].err)
 	}
 	assertSymlink(t, target, false)
 	assertContent(t, zshrc, "export B=2\n")
-	if !strings.Contains(m.status, "~/.zshrc 에서 불러오는 줄도 지웠어요") {
-		t.Errorf("status = %q, want line removal notice", m.status)
+	if !strings.Contains(m.Status, "~/.zshrc 에서 불러오는 줄도 지웠어요") {
+		t.Errorf("status = %q, want line removal notice", m.Status)
 	}
 }
 
@@ -539,11 +540,11 @@ func TestToggleLoadedBySymlink(t *testing.T) {
 
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != errored {
+	if m.items[0].state != ui.Errored {
 		t.Fatalf("state = %d, want errored", m.items[0].state)
 	}
-	if !strings.Contains(m.status, "~/.zshrc 가 심볼릭 링크라서 고치지 않았어요") {
-		t.Errorf("status = %q, want symlink reason", m.status)
+	if !strings.Contains(m.Status, "~/.zshrc 가 심볼릭 링크라서 고치지 않았어요") {
+		t.Errorf("status = %q, want symlink reason", m.Status)
 	}
 	assertContent(t, original, "export A=1\n")
 }

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"image/color"
 	"slices"
 	"strconv"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/diff"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // diffScreen 은 비교 보기 화면의 내용과 스크롤 위치다.
@@ -48,22 +48,6 @@ type diffLayout struct {
 	scrollbar     bool // 한 화면에 다 들어가지 않으면 true
 }
 
-// diffStyles 는 비교 보기에서 지운 줄이나 추가한 줄 한쪽을 그리는 스타일이다.
-// 글자 색은 터미널 기본색을 두고 배경만 칠한다. 빨간 배경에 빨간 글자는 읽기 어렵다.
-type diffStyles struct {
-	line, number, word, marker lipgloss.Style
-}
-
-// newDiffStyles 는 tones로 칠하는 diffStyles를 만든다. marker는 +나 - 표시라서 줄 배경 위에 mark 색 글자로 그린다.
-func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
-	return diffStyles{
-		line:   lipgloss.NewStyle().Background(tones.line),
-		number: lipgloss.NewStyle().Background(tones.number).Foreground(muted),
-		word:   lipgloss.NewStyle().Background(tones.word),
-		marker: lipgloss.NewStyle().Background(tones.line).Foreground(mark).Bold(true),
-	}
-}
-
 // diffMaxHeight 는 터미널 높이를 모를 때 비교 보기와 미리보기 본문을 보여 줄 최대 줄 수다.
 const diffMaxHeight = 20
 
@@ -82,8 +66,8 @@ func (m dotfileList) handleDiffKey(key string) (dotfileList, tea.Cmd) {
 		m.diffScreen = diffScreen{}
 		return m, nil
 	}
-	layout := m.computeDiffLayout(newStyles(!m.light))
-	y, x := scrollBy(key, m.diffScreen.yOffset, m.diffScreen.xOffset, layout.height, len(m.diffScreen.rows))
+	layout := m.computeDiffLayout(ui.NewStyles(!m.light))
+	y, x := ui.ScrollBy(key, m.diffScreen.yOffset, m.diffScreen.xOffset, layout.height, len(m.diffScreen.rows))
 	m.diffScreen.yOffset, m.diffScreen.xOffset = m.clampDiffOffsets(layout, y, x)
 	return m, nil
 }
@@ -96,7 +80,7 @@ func (m dotfileList) clampDiffOffsets(layout diffLayout, y, x int) (int, int) {
 }
 
 // computeDiffLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 도움말 줄을 빼고 남는 만큼을 쓴다.
-func (m dotfileList) computeDiffLayout(st styles) diffLayout {
+func (m dotfileList) computeDiffLayout(st ui.Styles) diffLayout {
 	rows := m.diffScreen.rows
 	title := m.renderDiffTitle(st)
 	layout := diffLayout{height: min(len(rows), diffMaxHeight)}
@@ -156,27 +140,27 @@ func expandTabs(text string) string {
 }
 
 // renderDiffTitle 은 비교 보기 화면에서 어떤 항목을 비교하는지 보여 주는 제목이다.
-func (m dotfileList) renderDiffTitle(st styles) string {
+func (m dotfileList) renderDiffTitle(st ui.Styles) string {
 	return m.renderItemTitle(st, m.indexOf(m.diffScreen.name))
 }
 
 // diffView 는 목록 대신 비교 보기 화면을 그린다.
-func (m dotfileList) diffView(st styles) tea.View {
+func (m dotfileList) diffView(st ui.Styles) tea.View {
 	rows := m.diffScreen.rows
 	layout := m.computeDiffLayout(st)
 	y, x := m.clampDiffOffsets(layout, m.diffScreen.yOffset, m.diffScreen.xOffset)
 
 	body := make([]string, 0, layout.height)
 	for i, row := range rows[y : y+layout.height] {
-		line := st.renderDiffRow(row, layout, x)
+		line := renderDiffRow(st, row, layout, x)
 		if layout.scrollbar {
 			padding := max(layout.width-2-lipgloss.Width(line), 0)
-			line += strings.Repeat(" ", padding) + " " + st.renderScrollbarCell(i, layout.height, y, len(rows))
+			line += strings.Repeat(" ", padding) + " " + st.RenderScrollbarCell(i, layout.height, y, len(rows))
 		}
 		body = append(body, line)
 	}
 
-	right := st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(rows)))
+	right := st.Muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(rows)))
 	lines := make([]string, 0, len(body)+3)
 	for line := range strings.SplitSeq(m.renderDiffTitle(st), "\n") {
 		lines = append(lines, " "+line)
@@ -185,8 +169,8 @@ func (m dotfileList) diffView(st styles) tea.View {
 	for _, line := range body {
 		lines = append(lines, " "+line)
 	}
-	footer := st.renderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
-	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, lines...), m.version, right, lines, footer))
+	footer := st.RenderHelp(m.width, "방향키", "스크롤", "pgup/pgdn", "한 쪽씩", "esc", "닫기")
+	return tea.NewView(st.RenderPage(st.PageWidth(m.width, right, lines...), m.version, right, lines, footer))
 }
 
 // renderDiffRow 는 화면 한 줄을 줄 번호와 함께 그린다. 가로로 밀 때는 내용만 밀고 줄 번호는 그 자리에 둔다.
@@ -194,20 +178,20 @@ func (m dotfileList) diffView(st styles) tea.View {
 //	1 1     [user]
 //	2    -      name = me
 //	  2  +      name = you
-func (st styles) renderDiffRow(row diffRow, layout diffLayout, x int) string {
+func renderDiffRow(st ui.Styles, row diffRow, layout diffLayout, x int) string {
 	switch row.kind {
 	case hunkRow:
 		text := ansi.Truncate(strings.Repeat(" ", diffHunkIndent(layout.numberWidth))+row.header, layout.rowWidth, "")
-		return st.diffHunk.Render(text + strings.Repeat(" ", max(layout.rowWidth-lipgloss.Width(text), 0)))
+		return st.DiffHunk.Render(text + strings.Repeat(" ", max(layout.rowWidth-lipgloss.Width(text), 0)))
 	case noNewlineRow:
-		return strings.Repeat(" ", diffPrefixWidth(layout.numberWidth)) + st.muted.Render(ansi.Cut(noNewlineText, x, x+layout.contentWidth))
+		return strings.Repeat(" ", diffPrefixWidth(layout.numberWidth)) + st.Muted.Render(ansi.Cut(noNewlineText, x, x+layout.contentWidth))
 	default:
-		return st.renderDiffLine(row.line, layout, x)
+		return renderDiffLine(st, row.line, layout, x)
 	}
 }
 
 // renderDiffLine 은 diff 한 줄을 그린다. 문맥 줄은 배경 없이 그리고 지운 줄과 추가한 줄은 각자의 배경으로 칠한다.
-func (st styles) renderDiffLine(line diff.Line, layout diffLayout, x int) string {
+func renderDiffLine(st ui.Styles, line diff.Line, layout diffLayout, x int) string {
 	number := func(n int) string {
 		if n == 0 {
 			return strings.Repeat(" ", layout.numberWidth)
@@ -216,33 +200,33 @@ func (st styles) renderDiffLine(line diff.Line, layout diffLayout, x int) string
 	}
 	numbers := number(line.BeforeNumber) + " " + number(line.AfterNumber)
 
-	var side diffStyles
+	var side ui.DiffStyles
 	var marker string
 	switch line.Kind {
 	case diff.Removed:
-		side, marker = st.diffRemoved, "-"
+		side, marker = st.DiffRemoved, "-"
 	case diff.Added:
-		side, marker = st.diffAdded, "+"
+		side, marker = st.DiffAdded, "+"
 	default:
-		return st.muted.Render(numbers) + "     " + ansi.Cut(expandTabs(line.Text), x, x+layout.contentWidth)
+		return st.Muted.Render(numbers) + "     " + ansi.Cut(expandTabs(line.Text), x, x+layout.contentWidth)
 	}
-	rendered := side.number.Render(numbers+" ") + side.line.Render(" ") + side.marker.Render(marker) + side.line.Render("  ") +
-		side.renderContent(line, x, layout.contentWidth)
-	return rendered + side.line.Render(strings.Repeat(" ", max(layout.rowWidth-lipgloss.Width(rendered), 0)))
+	rendered := side.Number.Render(numbers+" ") + side.Line.Render(" ") + side.Marker.Render(marker) + side.Line.Render("  ") +
+		renderContent(side, line, x, layout.contentWidth)
+	return rendered + side.Line.Render(strings.Repeat(" ", max(layout.rowWidth-lipgloss.Width(rendered), 0)))
 }
 
 // renderContent 는 내용 칸에 보이는 부분만 잘라 그린다. 바뀐 단어는 word 배경으로, 나머지는 line 배경으로 칠한다.
 // 탭은 펼친 칸마다 원래 탭과 같은 배경을 칠한다. 폭이 두 칸인 글자가 칸 경계에 걸치면 반쪽만 그릴 수 없어서 뺀다.
-func (side diffStyles) renderContent(line diff.Line, x, width int) string {
+func renderContent(side ui.DiffStyles, line diff.Line, x, width int) string {
 	var out, segment strings.Builder
 	highlighted := false
 	flush := func() {
 		if segment.Len() == 0 {
 			return
 		}
-		style := side.line
+		style := side.Line
 		if highlighted {
-			style = side.word
+			style = side.Word
 		}
 		out.WriteString(style.Render(segment.String()))
 		segment.Reset()

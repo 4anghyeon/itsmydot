@@ -6,6 +6,8 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func TestToggleAnimation(t *testing.T) {
@@ -58,19 +60,19 @@ func TestToggleAnimation(t *testing.T) {
 }
 
 func TestFlashingColor(t *testing.T) {
-	st := newStyles(true)
+	st := ui.NewStyles(true)
 	same := func(a, b lipgloss.Style) bool {
 		ar, ag, ab, _ := a.GetForeground().RGBA()
 		br, bg, bb, _ := b.GetForeground().RGBA()
 		return ar == br && ag == bg && ab == bb
 	}
-	if !same(st.flashStyle(synced, 0), st.stateStyle(synced)) {
+	if !same(st.FlashStyle(ui.Synced, 0), st.StateStyle(ui.Synced)) {
 		t.Error("flash 0 should be the state color")
 	}
-	if !same(st.flashStyle(synced, 1), lipgloss.NewStyle().Foreground(st.palette.accent)) {
+	if !same(st.FlashStyle(ui.Synced, 1), lipgloss.NewStyle().Foreground(st.Palette.Accent)) {
 		t.Error("flash 1 should be the accent color")
 	}
-	if same(st.flashStyle(synced, 0.5), st.stateStyle(synced)) {
+	if same(st.FlashStyle(ui.Synced, 0.5), st.StateStyle(ui.Synced)) {
 		t.Error("flash 0.5 should be in between")
 	}
 }

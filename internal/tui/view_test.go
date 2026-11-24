@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func TestView(t *testing.T) {
@@ -24,10 +25,10 @@ func TestView(t *testing.T) {
 	}
 
 	m := loadedModel(
-		item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced},
-		item{entry: entry("zshrc", "/home/me/.zshrc"), state: conflict},
-		item{entry: entry("vimrc", "/home/me/.vimrc"), state: errored, err: github.ErrNotFound},
-		item{entry: entry("tmux", "/home/me/.tmux.conf"), state: syncing},
+		item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Conflict},
+		item{entry: entry("vimrc", "/home/me/.vimrc"), state: ui.Errored, err: github.ErrNotFound},
+		item{entry: entry("tmux", "/home/me/.tmux.conf"), state: ui.Syncing},
 	)
 	v := viewText(m)
 	for _, want := range []string{
@@ -63,12 +64,12 @@ func TestViewShowsCursorDescription(t *testing.T) {
 }
 
 func TestRenderDescriptionWrapsUnderBar(t *testing.T) {
-	st := newStyles(true)
-	got := ansi.Strip(st.renderDescription("one two three", 13))
+	st := ui.NewStyles(true)
+	got := ansi.Strip(st.RenderDescription("one two three", 13))
 	if want := "┃ one two\n  three"; got != want {
 		t.Errorf("descriptionBlock = %q, want %q", got, want)
 	}
-	if got := st.renderDescription("", 13); got != "" {
+	if got := st.RenderDescription("", 13); got != "" {
 		t.Errorf("empty description = %q", got)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/4anghyeon/itsmydot/internal/diff"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // compareFixture 는 사본 내용이 local인 연결된 항목을 만들고 저장소 내용을 remote로 바꾼 뒤 메뉴에서 비교 보기를 고른다.
@@ -18,7 +19,7 @@ func compareFixture(t *testing.T, local, remote string) (dotfileList, tea.Cmd, s
 	m, target := toggleFixture(t, files)
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("setup: state = %d (err %v)", m.items[0].state, m.items[0].err)
 	}
 
@@ -38,7 +39,7 @@ func TestMenuCompareOpensDiff(t *testing.T) {
 
 	m = runCmd(t, m, cmd)
 	if m.diffScreen.name != "gitconfig" || m.comparingName != "" {
-		t.Fatalf("diff = %q comparing = %q status = %q", m.diffScreen.name, m.comparingName, m.status)
+		t.Fatalf("diff = %q comparing = %q status = %q", m.diffScreen.name, m.comparingName, m.Status)
 	}
 	v := viewText(m)
 	for _, want := range []string{
@@ -79,8 +80,8 @@ func TestMenuCompareWithoutDiff(t *testing.T) {
 	for _, tt := range tests {
 		m, cmd, _ := compareFixture(t, "same\n", tt.remote)
 		m = runCmd(t, m, cmd)
-		if m.diffScreen.name != "" || m.comparingName != "" || m.status != tt.status {
-			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diffScreen.name, m.comparingName, m.status)
+		if m.diffScreen.name != "" || m.comparingName != "" || m.Status != tt.status {
+			t.Errorf("%s: diff = %q comparing = %q status = %q", tt.name, m.diffScreen.name, m.comparingName, m.Status)
 		}
 	}
 }
@@ -95,14 +96,14 @@ func TestMenuCompareFetchError(t *testing.T) {
 	m, _ = press(t, m, "enter")
 	m, cmd = press(t, m, "2")
 	m = runCmd(t, m, cmd)
-	if m.diffScreen.name != "" || !strings.HasPrefix(m.status, "gitconfig 파일을 비교하지 못했어요 (저장소에 파일이 없어요)") {
-		t.Fatalf("diff = %q status = %q", m.diffScreen.name, m.status)
+	if m.diffScreen.name != "" || !strings.HasPrefix(m.Status, "gitconfig 파일을 비교하지 못했어요 (저장소에 파일이 없어요)") {
+		t.Fatalf("diff = %q status = %q", m.diffScreen.name, m.Status)
 	}
 }
 
 // 받는 사이에 다른 항목의 비교를 시작했으면 먼저 시작한 쪽의 결과는 버린다.
 func TestCompareIgnoresStaleResult(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "gitconfig", "a\n", "b\n"))
 	m = next.(dotfileList)
@@ -113,8 +114,8 @@ func TestCompareIgnoresStaleResult(t *testing.T) {
 
 // 비교할 파일을 받는 동안에는 받는 중인 항목이 없어도 스피너가 계속 돈다.
 func TestSpinnerTicksWhileComparing(t *testing.T) {
-	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced})
-	m.spinner = spinner.New(spinner.WithSpinner(syncSpinner))
+	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
+	m.spinner = spinner.New(spinner.WithSpinner(ui.SyncSpinner))
 	if _, cmd := m.Update(spinner.TickMsg{}); cmd != nil {
 		t.Fatal("spinner should stop when nothing is loading")
 	}
@@ -175,7 +176,7 @@ func TestConflictPromptCompare(t *testing.T) {
 
 	m, cmd = press(t, m, "1")
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("state = %d, want synced after backup and link", m.items[0].state)
 	}
 	assertContent(t, target, "from repo\n")
@@ -214,14 +215,14 @@ func TestConflictPromptCompareAfterAnswer(t *testing.T) {
 // 하위 항목을 켜다가 그룹 파일만 걸렸으면 그룹 파일을 비교한다.
 func TestConflictedIndexPrefersPromptItem(t *testing.T) {
 	m := loadedModel(
-		item{entry: entry("zshrc", "/home/me/.zshrc"), state: conflict},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Conflict},
 		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc"},
 	)
 	m.confirmingName, m.pendingNames = "env", []string{"zshrc", "env"}
 	if i := m.conflictedIndex(); i != 0 {
 		t.Errorf("conflictedIndex = %d, want the group file", i)
 	}
-	m.items[1].state = conflict
+	m.items[1].state = ui.Conflict
 	if i := m.conflictedIndex(); i != 1 {
 		t.Errorf("conflictedIndex = %d, want the prompt item", i)
 	}

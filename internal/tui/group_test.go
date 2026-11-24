@@ -9,6 +9,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 목록 모델을 만든다. 가짜 저장소에는 세 파일이 모두 있다.
@@ -51,7 +52,7 @@ func turnOnEnv(t *testing.T, m dotfileList) dotfileList {
 	m, _ = press(t, m, "down")
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced || m.items[1].state != synced {
+	if m.items[0].state != ui.Synced || m.items[1].state != ui.Synced {
 		t.Fatalf("setup: zshrc=%d env=%d, want both synced", m.items[0].state, m.items[1].state)
 	}
 	return m
@@ -68,9 +69,9 @@ func assertSymlink(t *testing.T, path string, want bool) {
 
 func TestGroupView(t *testing.T) {
 	m := loadedModel(
-		item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: synced},
-		item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced},
-		item{entry: entry("env", "/home/me/.config/zsh/00-env.zsh"), parent: "zshrc", state: synced},
+		item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced},
+		item{entry: entry("env", "/home/me/.config/zsh/00-env.zsh"), parent: "zshrc", state: ui.Synced},
 		item{entry: entry("android", "/home/me/.config/zsh/40-android.zsh"), parent: "zshrc"},
 	)
 	v := viewText(m)
@@ -136,14 +137,14 @@ func TestChildTurnsOnGroup(t *testing.T) {
 		}
 	}
 	m, cmd := press(t, m, "1")
-	if m.items[0].state != syncing || m.items[1].state != syncing {
+	if m.items[0].state != ui.Syncing || m.items[1].state != ui.Syncing {
 		t.Fatalf("zshrc=%d env=%d, want both syncing", m.items[0].state, m.items[1].state)
 	}
-	if m.items[2].state != notSynced {
+	if m.items[2].state != ui.NotSynced {
 		t.Errorf("git should stay off, got %d", m.items[2].state)
 	}
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced || m.items[1].state != synced {
+	if m.items[0].state != ui.Synced || m.items[1].state != ui.Synced {
 		t.Fatalf("zshrc=%d env=%d, want both synced", m.items[0].state, m.items[1].state)
 	}
 	assertContent(t, filepath.Join(home, ".config/zsh/00-env.zsh"), "export EDITOR=vim\n")
@@ -155,11 +156,11 @@ func TestChildTurnsOnGroup(t *testing.T) {
 		t.Errorf("group is already on, prompt should not mention it:\n%s", v)
 	}
 	m, cmd = press(t, m, "1")
-	if m.items[0].state != synced || m.items[2].state != syncing {
+	if m.items[0].state != ui.Synced || m.items[2].state != ui.Syncing {
 		t.Fatalf("zshrc=%d git=%d, want synced and syncing", m.items[0].state, m.items[2].state)
 	}
 	m = runCmd(t, m, cmd)
-	if m.items[2].state != synced {
+	if m.items[2].state != ui.Synced {
 		t.Errorf("git = %d, want synced", m.items[2].state)
 	}
 }
@@ -186,12 +187,12 @@ func TestChildTurnOnAsksOnceForGroupConflict(t *testing.T) {
 
 	m, cmd = press(t, m, "1")
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced || m.items[1].state != synced {
+	if m.items[0].state != ui.Synced || m.items[1].state != ui.Synced {
 		t.Fatalf("zshrc=%d env=%d, want both synced", m.items[0].state, m.items[1].state)
 	}
 	assertContent(t, zshrc+".itsmydot.bak", "mine")
-	if want := "zshrc 파일을 연결했어요. 기존 파일은 ~/.zshrc.itsmydot.bak 에 백업했어요 / env 파일을 연결했어요"; m.status != want {
-		t.Errorf("status = %q, want %q", m.status, want)
+	if want := "zshrc 파일을 연결했어요. 기존 파일은 ~/.zshrc.itsmydot.bak 에 백업했어요 / env 파일을 연결했어요"; m.Status != want {
+		t.Errorf("status = %q, want %q", m.Status, want)
 	}
 }
 
@@ -210,11 +211,11 @@ func TestGroupUnlinkWithoutBackupTurnsOffChildren(t *testing.T) {
 	}
 
 	m, _ = press(t, m, "2")
-	if m.items[0].state != notSynced || m.items[1].state != notSynced {
+	if m.items[0].state != ui.NotSynced || m.items[1].state != ui.NotSynced {
 		t.Fatalf("zshrc=%d env=%d, want both off", m.items[0].state, m.items[1].state)
 	}
-	if !strings.Contains(m.status, "하위 항목 1개도 함께 연결을 끊었어요") {
-		t.Errorf("status = %q", m.status)
+	if !strings.Contains(m.Status, "하위 항목 1개도 함께 연결을 끊었어요") {
+		t.Errorf("status = %q", m.Status)
 	}
 	if _, err := os.Lstat(filepath.Join(home, ".config/zsh/00-env.zsh")); !os.IsNotExist(err) {
 		t.Errorf("child symlink should be removed, got err %v", err)
@@ -249,7 +250,7 @@ func TestGroupUnlinkWithBackupAsksFirst(t *testing.T) {
 
 	m, _ = press(t, m, "space")
 	m, _ = press(t, m, "1")
-	if m.items[0].state != conflict || m.items[1].state != notSynced {
+	if m.items[0].state != ui.Conflict || m.items[1].state != ui.NotSynced {
 		t.Fatalf("zshrc=%d env=%d, want restored backup and child off", m.items[0].state, m.items[1].state)
 	}
 	assertContent(t, zshrc, "mine")
@@ -283,9 +284,9 @@ func TestLoadEntriesWithChildren(t *testing.T) {
 // 접힌 그룹은 하위 항목의 업데이트를 그룹 줄에 모아 보여 준다. 연결되지 않은 항목에는 표시하지 않는다.
 func TestOutdatedMarkInGroup(t *testing.T) {
 	m := loadedModel(
-		item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced, outdated: true},
-		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced, outdated: true},
-		item{entry: entry("git", "/home/me/.config/zsh/git.zsh"), parent: "zshrc", state: synced, outdated: true},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced, outdated: true},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: ui.Synced, outdated: true},
+		item{entry: entry("git", "/home/me/.config/zsh/git.zsh"), parent: "zshrc", state: ui.Synced, outdated: true},
 		item{entry: entry("android", "/home/me/.config/zsh/android.zsh"), parent: "zshrc", outdated: true},
 	)
 	v := viewText(m)
@@ -312,9 +313,9 @@ func TestGroupCountColor(t *testing.T) {
 	m := loadedModel(
 		item{entry: entry("gitconfig", "/home/me/.gitconfig")},
 		item{entry: entry("zshrc", "/home/me/.zshrc")},
-		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: ui.Synced},
 	)
-	if want := newStyles(true).count.Render("1/1"); !strings.Contains(m.View().Content, want) {
+	if want := ui.NewStyles(true).Count.Render("1/1"); !strings.Contains(m.View().Content, want) {
 		t.Errorf("group count should be drawn in the count color %q", want)
 	}
 }

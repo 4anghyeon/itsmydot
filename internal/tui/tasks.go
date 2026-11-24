@@ -11,6 +11,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
 	"github.com/4anghyeon/itsmydot/internal/rcfile"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // entriesLoadedMsg 는 manifest를 불러와 각 항목의 상태까지 확인한 결과다.
@@ -70,7 +71,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 }
 
 // checkItem 은 항목 하나의 로컬 사본 경로와 지금 상태를 확인해 목록의 한 줄을 만든다.
-// 확인에 실패해도 나머지 항목은 보여 주도록 그 항목만 errored로 표시한다.
+// 확인에 실패해도 나머지 항목은 보여 주도록 그 항목만 ui.Errored로 표시한다.
 func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes map[string]string, home string) item {
 	e.Children = nil
 	it := item{entry: e, parent: parent}
@@ -82,9 +83,9 @@ func checkItem(e manifest.Entry, parent string, copies *localcopy.Dir, hashes ma
 		it.state = fromLinkState(s)
 	}
 	if err != nil {
-		it.state, it.err = errored, err
+		it.state, it.err = ui.Errored, err
 	}
-	if it.state == synced {
+	if it.state == ui.Synced {
 		it.outdated = differsFromRepo(it.copyPath, e.Source, hashes)
 	}
 	return it
@@ -172,14 +173,14 @@ func fetchCopy(ctx context.Context, client *github.Client, copies *localcopy.Dir
 }
 
 // fromLinkState 는 link 패키지의 디스크 상태를 화면 상태로 바꾼다.
-func fromLinkState(s link.State) itemState {
+func fromLinkState(s link.State) ui.ItemState {
 	switch s {
 	case link.Synced:
-		return synced
+		return ui.Synced
 	case link.Conflict:
-		return conflict
+		return ui.Conflict
 	default:
-		return notSynced
+		return ui.NotSynced
 	}
 }
 

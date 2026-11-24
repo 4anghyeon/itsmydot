@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // pressRoot 는 루트 모델에 키 하나를 누른 것처럼 Update를 호출한다.
@@ -98,8 +99,8 @@ func TestEntryMenuRemembersChoice(t *testing.T) {
 func TestMenuCards(t *testing.T) {
 	m := rootFixture(t)
 	m = updateRoot(m, tea.WindowSizeMsg{Width: 70, Height: 24})
-	st := newStyles(true)
-	accent := lipgloss.NewStyle().Foreground(st.palette.accent).Render("╭")
+	st := ui.NewStyles(true)
+	accent := lipgloss.NewStyle().Foreground(st.Palette.Accent).Render("╭")
 	accentCode := accent[:strings.Index(accent, "╭")]
 
 	first, second := m.renderMenuCard(st, 0, 68), m.renderMenuCard(st, 1, 68)
@@ -116,7 +117,7 @@ func TestMenuCards(t *testing.T) {
 	if strings.Contains(ansi.Strip(first), "연결됨") {
 		t.Error("summary should not show before loading")
 	}
-	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("a", "/home/me/.a"), state: synced}, {entry: entry("b", "/home/me/.b")}}})
+	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("a", "/home/me/.a"), state: ui.Synced}, {entry: entry("b", "/home/me/.b")}}})
 	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "연결됨 1/2") {
 		t.Errorf("dotfiles card should show the synced count:\n%s", v)
 	}

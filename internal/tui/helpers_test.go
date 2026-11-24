@@ -17,6 +17,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // press 는 키 하나를 누른 것처럼 Update를 호출하고 새 목록 모델을 돌려준다.
@@ -136,7 +137,7 @@ func linkedFixture(t *testing.T) (dotfileList, string) {
 	m, target := toggleFixture(t, map[string]string{"files/git/.gitconfig": "from repo"})
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
-	if m.items[0].state != synced {
+	if m.items[0].state != ui.Synced {
 		t.Fatalf("setup: state = %d (err %v)", m.items[0].state, m.items[0].err)
 	}
 	return m, target

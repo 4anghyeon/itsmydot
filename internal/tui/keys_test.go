@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 func hangul(r rune) tea.KeyPressMsg {
@@ -29,7 +31,7 @@ func TestNormalizeKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := normalizeKey(tt.msg); got != tt.want {
+			if got := ui.NormalizeKey(tt.msg); got != tt.want {
 				t.Errorf("normalizeKey = %q, want %q", got, tt.want)
 			}
 		})

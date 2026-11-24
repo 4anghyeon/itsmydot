@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/4anghyeon/itsmydot/internal/diff"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // startCompare 는 i번째 항목의 로컬 사본과 비교할 저장소 최신본을 백그라운드로 받는다.
@@ -15,7 +16,7 @@ import (
 func (m dotfileList) startCompare(i int) (dotfileList, tea.Cmd) {
 	it := m.items[i]
 	m.comparingName = it.entry.Name
-	m = m.notify(statusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
+	m = m.notify(ui.StatusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
 	entry, copyPath, client := it.entry, it.copyPath, m.client
 	load := func() tea.Msg {
 		return compareWithRepo(context.Background(), client, entry, copyPath)
@@ -44,11 +45,11 @@ func (m dotfileList) startTargetCompare() (dotfileList, tea.Cmd) {
 
 // conflictedIndex 는 충돌 질문에서 비교할 항목의 위치다. 걸린 항목이 없으면 -1이다.
 func (m dotfileList) conflictedIndex() int {
-	if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == conflict {
+	if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == ui.Conflict {
 		return i
 	}
 	for _, name := range m.pendingNames {
-		if j := m.indexOf(name); j >= 0 && m.items[j].state == conflict {
+		if j := m.indexOf(name); j >= 0 && m.items[j].state == ui.Conflict {
 			return j
 		}
 	}
@@ -69,14 +70,14 @@ func (m dotfileList) applyDiff(msg diffLoadedMsg) dotfileList {
 		same = msg.name + " 지금 파일과 저장소 파일이 같아요"
 	}
 	var note string
-	tone := statusInfo
+	tone := ui.StatusInfo
 	switch {
 	case errors.Is(msg.err, diff.ErrBinary):
 		note = msg.name + " 파일은 텍스트가 아니라서 비교할 수 없어요"
 	case errors.Is(msg.err, diff.ErrTooLarge):
 		note = fmt.Sprintf("%s 파일이 %dMB보다 커서 비교할 수 없어요", msg.name, diff.MaxSize>>20)
 	case msg.err != nil:
-		note, tone = msg.name+" 파일을 비교하지 못했어요 ("+errorReason(msg.err, m.home)+")", statusFailed
+		note, tone = msg.name+" 파일을 비교하지 못했어요 ("+ui.ErrorReason(msg.err, m.home)+")", ui.StatusFailed
 	case len(msg.hunks) == 0:
 		note = same
 	default:

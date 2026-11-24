@@ -14,6 +14,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/brewfile"
 	"github.com/4anghyeon/itsmydot/internal/homebrew"
 	"github.com/4anghyeon/itsmydot/internal/manifest"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // fakeRunner 는 정해진 설치 상태를 돌려주고 설치 명령에 넘긴 Brewfile 내용을 기록하는 가짜 brew다.
@@ -153,8 +154,8 @@ func TestBrewPick(t *testing.T) {
 
 	// 설치된 패키지는 고를 수 없다.
 	m, _ = pressBrew(t, m, "down", "space")
-	if len(m.picked) != 0 || !strings.Contains(m.status, "이미 설치돼 있어요") {
-		t.Errorf("installed package picked: %v %q", m.picked, m.status)
+	if len(m.picked) != 0 || !strings.Contains(m.Status, "이미 설치돼 있어요") {
+		t.Errorf("installed package picked: %v %q", m.picked, m.Status)
 	}
 
 	// 고르면 [*]이고 다시 누르면 취소된다. 다른 프로필에 있는 같은 패키지도 함께 고른 것으로 보인다.
@@ -183,8 +184,8 @@ func TestBrewPick(t *testing.T) {
 
 	// 고른 게 없으면 enter는 질문 대신 안내를 띄운다.
 	m, _ = pressBrew(t, m, "enter")
-	if m.confirming || !strings.Contains(m.status, "먼저 골라") {
-		t.Errorf("enter without picks: confirming=%v status=%q", m.confirming, m.status)
+	if m.confirming || !strings.Contains(m.Status, "먼저 골라") {
+		t.Errorf("enter without picks: confirming=%v status=%q", m.confirming, m.Status)
 	}
 }
 
@@ -240,8 +241,8 @@ func TestBrewInstall(t *testing.T) {
 		t.Fatalf("finished install should re-check (checking=%v)", m.checking)
 	}
 	m = updateBrew(m, check())
-	if m.status != "3개 중 1개 패키지를 설치하지 못했어요. 실패한 패키지는 고른 채로 남겨 뒀어요" || m.statusTone != statusFailed {
-		t.Errorf("status = %q (tone %d)", m.status, m.statusTone)
+	if m.Status != "3개 중 1개 패키지를 설치하지 못했어요. 실패한 패키지는 고른 채로 남겨 뒀어요" || m.StatusTone != ui.StatusFailed {
+		t.Errorf("status = %q (tone %d)", m.Status, m.StatusTone)
 	}
 	if !samePackages(m, []string{"switch"}) {
 		t.Errorf("only the failed package should stay picked: %v", m.picked)
@@ -253,8 +254,8 @@ func TestBrewInstall(t *testing.T) {
 	// 모두 설치되면 성공으로 알린다.
 	m.installing = []string{m.pickedPackages()[0].Key()}
 	m = updateBrew(m, brewInstalledCheckedMsg{installed: homebrew.Installed{Casks: map[string]bool{"switch": true}}})
-	if m.status != "1개 패키지를 설치했어요" || len(m.picked) != 0 {
-		t.Errorf("all installed: status=%q picked=%v", m.status, m.picked)
+	if m.Status != "1개 패키지를 설치했어요" || len(m.picked) != 0 {
+		t.Errorf("all installed: status=%q picked=%v", m.Status, m.picked)
 	}
 }
 

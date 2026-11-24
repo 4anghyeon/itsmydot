@@ -9,11 +9,13 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // 배경색을 감지한 결과에 따라 어두운 배경용이나 밝은 배경용 색을 쓴다. 감지 전에는 어두운 배경용을 쓴다.
 func TestBackgroundSelectsPalette(t *testing.T) {
-	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: synced})
+	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: ui.Synced})
 	darkGreen, lightGreen := "38;2;74;222;128", "38;2;21;128;61" // #4ADE80, #15803D
 
 	if v := m.View().Content; !strings.Contains(v, darkGreen) {
@@ -29,7 +31,7 @@ func TestBackgroundSelectsPalette(t *testing.T) {
 
 // 업데이트 표시는 주황색 글자로 그린다. 배경 밝기에 따라 색도 바뀐다.
 func TestUpdateMarkColors(t *testing.T) {
-	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: synced, outdated: true})
+	m := loadedModel(item{entry: entry("a", "/home/me/.a"), state: ui.Synced, outdated: true})
 	darkOrange := "38;2;251;146;60" // #FB923C
 	lightOrange := "38;2;194;65;12" // #C2410C
 
@@ -47,8 +49,8 @@ func TestRenderMenuTitle(t *testing.T) {
 	blue, pink := "38;2;96;165;250", "38;2;244;114;182" // #60A5FA, #F472B6
 	m := loadedModel(
 		item{entry: entry("gitconfig", "/home/me/.gitconfig")},
-		item{entry: entry("zshrc", "/home/me/.zshrc"), state: synced},
-		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: synced},
+		item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced},
+		item{entry: entry("env", "/home/me/.config/zsh/env.zsh"), parent: "zshrc", state: ui.Synced},
 		item{entry: entry("git", "/home/me/.config/zsh/git.zsh"), parent: "zshrc"},
 	)
 
@@ -66,7 +68,7 @@ func TestRenderMenuTitle(t *testing.T) {
 		mm := m
 		mm.cursor = tt.cursor
 		mm, _ = press(t, mm, "enter")
-		title := mm.renderMenuTitle(newStyles(true))
+		title := mm.renderMenuTitle(ui.NewStyles(true))
 		if got := ansi.Strip(title); got != tt.text {
 			t.Errorf("cursor %d: title = %q, want %q", tt.cursor, got, tt.text)
 		}
@@ -87,11 +89,11 @@ func TestRenderMenuTitle(t *testing.T) {
 // 비교 보기 배경은 256색 터미널에서도 바뀌지 않도록 256색표에 있는 색만 쓴다.
 // 옅은 분홍이나 초록은 256색으로 바뀌면서 노랑이나 하늘색이 된다.
 func TestDiffTonesSurviveANSI256(t *testing.T) {
-	for name, p := range map[string]palette{"dark": darkPalette, "light": lightPalette} {
+	for name, p := range map[string]ui.Palette{"dark": ui.DarkPalette, "light": ui.LightPalette} {
 		tones := []color.Color{
-			p.diffRemoved.line, p.diffRemoved.number, p.diffRemoved.word,
-			p.diffAdded.line, p.diffAdded.number, p.diffAdded.word,
-			p.diffHunk,
+			p.DiffRemoved.Line, p.DiffRemoved.Number, p.DiffRemoved.Word,
+			p.DiffAdded.Line, p.DiffAdded.Number, p.DiffAdded.Word,
+			p.DiffHunk,
 		}
 		for _, c := range tones {
 			converted := colorprofile.ANSI256.Convert(c)

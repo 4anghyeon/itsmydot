@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/harmonica"
+
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // 토글하면 두 가지가 움직인다. 진행 게이지는 새 비율까지 스프링처럼 늘거나 줄고
@@ -22,9 +24,6 @@ var (
 	flashSpring = harmonica.NewSpring(harmonica.FPS(animationFPS), 6, 1)
 )
 
-// animationSettleThreshold 은 이보다 가까워지면 목표에 도달한 것으로 보고 멈추는 기준이다.
-const animationSettleThreshold = 0.005
-
 // animationTickMsg 는 애니메이션 한 프레임을 진행하라는 메시지다.
 type animationTickMsg struct{}
 
@@ -36,7 +35,7 @@ func animationTick() tea.Cmd {
 func (m dotfileList) syncedCount() int {
 	count := 0
 	for _, it := range m.items {
-		if it.state == synced {
+		if it.state == ui.Synced {
 			count++
 		}
 	}
@@ -94,5 +93,5 @@ func (m dotfileList) stepAnimation() (dotfileList, tea.Cmd) {
 }
 
 func settled(position, velocity, target float64) bool {
-	return math.Abs(position-target) < animationSettleThreshold && math.Abs(velocity) < animationSettleThreshold
+	return math.Abs(position-target) < ui.AnimationSettleThreshold && math.Abs(velocity) < ui.AnimationSettleThreshold
 }

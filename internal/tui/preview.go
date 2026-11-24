@@ -16,6 +16,7 @@ import (
 
 	"github.com/4anghyeon/itsmydot/internal/diff"
 	"github.com/4anghyeon/itsmydot/internal/github"
+	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
 // previewScreen 은 미리보기 창의 내용과 스크롤 위치다.
@@ -111,7 +112,7 @@ func (m dotfileList) showPreview(data []byte, err error) dotfileList {
 	case errors.Is(err, diff.ErrTooLarge):
 		m.preview.note = fmt.Sprintf("파일이 %dMB보다 커서 미리 볼 수 없어요", diff.MaxSize>>20)
 	case err != nil:
-		m.preview.note, m.preview.failed = "저장소 파일을 받지 못했어요 ("+errorReason(err, m.home)+")", true
+		m.preview.note, m.preview.failed = "저장소 파일을 받지 못했어요 ("+ui.ErrorReason(err, m.home)+")", true
 	case len(data) == 0:
 		m.preview.note = "빈 파일이에요"
 	default:
@@ -132,8 +133,8 @@ func (m dotfileList) handlePreviewKey(key string) (dotfileList, tea.Cmd) {
 	case "enter":
 		return m.openPreviewDiff(), nil
 	}
-	layout := m.computePreviewLayout(newStyles(!m.light))
-	y, x := scrollBy(key, m.preview.yOffset, m.preview.xOffset, layout.height, len(m.preview.lines))
+	layout := m.computePreviewLayout(ui.NewStyles(!m.light))
+	y, x := ui.ScrollBy(key, m.preview.yOffset, m.preview.xOffset, layout.height, len(m.preview.lines))
 	m.preview.yOffset, m.preview.xOffset = m.clampPreviewOffsets(layout, y, x)
 	return m, nil
 }
@@ -142,7 +143,7 @@ func (m dotfileList) handlePreviewKey(key string) (dotfileList, tea.Cmd) {
 // 목록에 업데이트 있음으로 표시된 항목이고 저장소 파일을 텍스트로 받아 둔 때만 연다.
 func (m dotfileList) previewDiffAvailable() bool {
 	i := m.indexOf(m.preview.name)
-	return i >= 0 && m.items[i].state == synced && m.items[i].outdated && m.preview.fromRepo && len(m.preview.lines) > 0
+	return i >= 0 && m.items[i].state == ui.Synced && m.items[i].outdated && m.preview.fromRepo && len(m.preview.lines) > 0
 }
 
 // openPreviewDiff 는 로컬 사본과 미리보기로 받아 둔 저장소 파일의 차이를 비교 보기 화면으로 연다.
@@ -173,7 +174,7 @@ func (m dotfileList) clampPreviewOffsets(layout previewLayout, y, x int) (int, i
 
 // computePreviewLayout 은 본문 폭과 높이를 정한다. 터미널 크기를 알면 머리와 제목, 안내, 도움말 줄을 빼고 남는 만큼을 쓴다.
 // 목록 옆에 붙일 때도 위아래로 빼는 줄은 같고 폭만 목록 칸과 구분선을 뺀 만큼이다.
-func (m dotfileList) computePreviewLayout(st styles) previewLayout {
+func (m dotfileList) computePreviewLayout(st ui.Styles) previewLayout {
 	lines := m.preview.lines
 	layout := previewLayout{height: min(len(lines), diffMaxHeight)}
 	if m.height > 0 {
@@ -213,74 +214,74 @@ func previewPrefixWidth(numberWidth int) int {
 }
 
 // renderPreviewTitle 은 미리보기 창에서 어떤 항목의 어느 쪽 파일을 보여 주는지 알리는 제목이다.
-func (m dotfileList) renderPreviewTitle(st styles) string {
+func (m dotfileList) renderPreviewTitle(st ui.Styles) string {
 	origin := "로컬 사본"
 	if m.preview.fromRepo {
 		origin = "저장소 파일"
 	}
-	return m.renderItemTitle(st, m.indexOf(m.preview.name)) + "  " + st.muted.Render(origin)
+	return m.renderItemTitle(st, m.indexOf(m.preview.name)) + "  " + st.Muted.Render(origin)
 }
 
 // renderPreviewLines 는 미리보기 창의 제목과 본문, 읽기 전용 안내를 한 줄씩 만든다.
 // 받는 중이거나 내용 대신 안내를 보여 줄 때는 본문 자리에 한 줄만 둔다.
-func (m dotfileList) renderPreviewLines(st styles, layout previewLayout) []string {
+func (m dotfileList) renderPreviewLines(st ui.Styles, layout previewLayout) []string {
 	lines := strings.Split(m.renderPreviewTitle(st), "\n")
 	lines = append(lines, "")
 
 	p := m.preview
 	switch {
 	case p.loading:
-		lines = append(lines, st.stateStyle(syncing).Render(m.renderMarker(syncing))+" 저장소 파일을 받는 중이에요...")
+		lines = append(lines, st.StateStyle(ui.Syncing).Render(m.renderMarker(ui.Syncing))+" 저장소 파일을 받는 중이에요...")
 	case p.failed:
-		lines = append(lines, st.stateStyle(errored).Render(p.note))
+		lines = append(lines, st.StateStyle(ui.Errored).Render(p.note))
 	case p.note != "":
-		lines = append(lines, st.muted.Render(p.note))
+		lines = append(lines, st.Muted.Render(p.note))
 	default:
 		y, x := m.clampPreviewOffsets(layout, p.yOffset, p.xOffset)
 		for i, text := range p.lines[y : y+layout.height] {
-			line := st.muted.Render(fmt.Sprintf("%*d", layout.numberWidth, y+i+1)) + "  " + ansi.Cut(expandTabs(text), x, x+layout.contentWidth)
+			line := st.Muted.Render(fmt.Sprintf("%*d", layout.numberWidth, y+i+1)) + "  " + ansi.Cut(expandTabs(text), x, x+layout.contentWidth)
 			if layout.scrollbar {
 				padding := max(layout.width-2-lipgloss.Width(line), 0)
-				line += strings.Repeat(" ", padding) + " " + st.renderScrollbarCell(i, layout.height, y, len(p.lines))
+				line += strings.Repeat(" ", padding) + " " + st.RenderScrollbarCell(i, layout.height, y, len(p.lines))
 			}
 			lines = append(lines, line)
 		}
 	}
-	return append(lines, "", st.muted.Render(previewReadOnlyText))
+	return append(lines, "", st.Muted.Render(previewReadOnlyText))
 }
 
 // renderPreviewCounter 는 지금 보이는 마지막 줄과 전체 줄 수다. 내용 대신 안내를 보여 줄 때는 빈 문자열이다.
-func (m dotfileList) renderPreviewCounter(st styles, layout previewLayout) string {
+func (m dotfileList) renderPreviewCounter(st ui.Styles, layout previewLayout) string {
 	if len(m.preview.lines) == 0 {
 		return ""
 	}
 	y, _ := m.clampPreviewOffsets(layout, m.preview.yOffset, m.preview.xOffset)
-	return st.muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(m.preview.lines)))
+	return st.Muted.Render(fmt.Sprintf("%d/%d줄", y+layout.height, len(m.preview.lines)))
 }
 
 // renderPreviewHelp 는 미리보기 창이 떠 있을 때의 아래 도움말 줄이다. 차이 보기는 열 수 있을 때만 알린다.
-func (m dotfileList) renderPreviewHelp(st styles) string {
+func (m dotfileList) renderPreviewHelp(st ui.Styles) string {
 	pairs := []string{"방향키", "스크롤", "pgup/pgdn", "한 쪽씩"}
 	if m.previewDiffAvailable() {
 		pairs = append(pairs, "enter", "차이 보기")
 	}
-	return st.renderHelp(m.width, append(pairs, "tab/esc", "닫기")...)
+	return st.RenderHelp(m.width, append(pairs, "tab/esc", "닫기")...)
 }
 
 // previewView 는 목록 대신 미리보기 창을 화면 전체에 그린다.
-func (m dotfileList) previewView(st styles) tea.View {
+func (m dotfileList) previewView(st ui.Styles) tea.View {
 	layout := m.computePreviewLayout(st)
 	right := m.renderPreviewCounter(st, layout)
 	var lines []string
 	for _, line := range m.renderPreviewLines(st, layout) {
 		lines = append(lines, " "+line)
 	}
-	return tea.NewView(st.renderPage(st.pageWidth(m.width, right, lines...), m.version, right, lines, m.renderPreviewHelp(st)))
+	return tea.NewView(st.RenderPage(st.PageWidth(m.width, right, lines...), m.version, right, lines, m.renderPreviewHelp(st)))
 }
 
 // previewSplit 은 미리보기 창을 목록 오른쪽에 나눠 그릴지와 그때 목록 칸의 폭을 알려 준다.
 // 목록 칸은 가장 긴 항목 줄에 맞추고 남은 폭이 previewMinWidth 이상일 때만 나눈다. 터미널 폭을 모르면 나누지 않는다.
-func (m dotfileList) previewSplit(st styles) (listWidth int, split bool) {
+func (m dotfileList) previewSplit(st ui.Styles) (listWidth int, split bool) {
 	if m.preview.name == "" || m.width <= 0 {
 		return 0, false
 	}
@@ -293,7 +294,7 @@ func (m dotfileList) previewSplit(st styles) (listWidth int, split bool) {
 
 // joinPreview 는 목록 화면의 줄 left 오른쪽에 구분선을 두고 미리보기 창을 붙인다. 높이는 둘 중 긴 쪽에 맞춘다.
 // 화면 머리에는 목록의 게이지가 있으므로 줄 수는 창 제목 끝에 붙인다.
-func (m dotfileList) joinPreview(st styles, left []string, listWidth int) []string {
+func (m dotfileList) joinPreview(st ui.Styles, left []string, listWidth int) []string {
 	layout := m.computePreviewLayout(st)
 	right := m.renderPreviewLines(st, layout)
 	if counter := m.renderPreviewCounter(st, layout); counter != "" {
@@ -304,7 +305,7 @@ func (m dotfileList) joinPreview(st styles, left []string, listWidth int) []stri
 	// 설명과 상태 줄은 여러 줄이 한 문자열에 들어 있고 받기 실패 안내는 칸보다 길 수 있어서 화면 줄 단위로 다시 나눈다.
 	left = strings.Split(strings.Join(left, "\n"), "\n")
 	right = strings.Split(ansi.Wrap(strings.Join(right, "\n"), layout.width, " "), "\n")
-	separator := st.muted.Render(previewSeparator)
+	separator := st.Muted.Render(previewSeparator)
 	joined := make([]string, max(len(left), len(right)))
 	for i := range joined {
 		var l, r string
