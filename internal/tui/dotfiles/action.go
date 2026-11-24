@@ -21,6 +21,9 @@ func (m List) toggle() (List, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
+	if m.isFolder(m.cursor) {
+		return m.notifyFolder(), nil
+	}
 	m.items = slices.Clone(m.items)
 	it := &m.items[m.cursor]
 	if it.state == ui.Syncing {
@@ -58,11 +61,11 @@ func (m List) toggle() (List, tea.Cmd) {
 	return m.turnOn(m.cursor, state)
 }
 
-// turnOn 은 i번째 항목을 켠다. 하위 항목이면 꺼져 있는 그룹 파일도 함께 켠다.
+// turnOn 은 i번째 항목을 켠다. 하위 항목이면 꺼져 있는 그룹 파일도 함께 켠다. 폴더 그룹에는 켤 파일이 없다.
 // state는 i번째 항목의 디스크 상태다. m.items는 호출하기 전에 복사돼 있어야 한다.
 func (m List) turnOn(i int, state link.State) (List, tea.Cmd) {
 	indexes, states := []int{i}, []link.State{state}
-	if parent := m.items[i].parent; parent != "" {
+	if parent := m.items[i].parent; parent != "" && !m.isFolder(m.indexOf(parent)) {
 		groupIndex := m.indexOf(parent)
 		group := &m.items[groupIndex]
 		if group.state != ui.Syncing {
@@ -176,9 +179,9 @@ func (m List) updateCopy(i int) (List, tea.Cmd) {
 	it.state, it.err = ui.Syncing, nil
 	m = m.notify(ui.StatusBusy, it.entry.Name+" 최신본을 받는 중이에요...")
 	entry, client, copies := it.entry, m.client, m.copies
-	fetch := func() tea.Msg {
+	fetch := m.tag(func() tea.Msg {
 		return fetchCopy(context.Background(), client, copies, entry)
-	}
+	})
 	return m, tea.Batch(fetch, m.spinner.Tick)
 }
 
@@ -193,9 +196,9 @@ func (m List) startSync(indexes ...int) (List, tea.Cmd) {
 		it.state, it.err = ui.Syncing, nil
 		names = append(names, it.entry.Name)
 		entry, client, copies, home := it.entry, m.client, m.copies, m.home
-		cmds = append(cmds, func() tea.Msg {
+		cmds = append(cmds, m.tag(func() tea.Msg {
 			return syncEntry(context.Background(), client, copies, entry, home)
-		})
+		}))
 	}
 	m = m.notify(ui.StatusBusy, strings.Join(names, ", ")+" 받는 중이에요...")
 	return m, tea.Batch(append(cmds, m.spinner.Tick)...)

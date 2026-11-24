@@ -474,7 +474,7 @@ func TestToggleLoadedBy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "", EntriesSection)
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	m = next.(List)
@@ -534,7 +534,7 @@ func TestToggleLoadedBySymlink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "", EntriesSection)
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	m = next.(List)

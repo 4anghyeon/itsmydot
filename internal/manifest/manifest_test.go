@@ -92,6 +92,34 @@ brewfiles:
 	}
 }
 
+// agentfiles 섹션도 ~를 홈 디렉토리로 바꾸고 source와 target 없이 children만 있는 폴더 그룹을 받는다.
+func TestParseAgentfiles(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := Parse([]byte(`
+entries: [{name: go, source: x, target: y}]
+agentfiles:
+  - name: skills
+    description: 스킬
+    children:
+      - name: go
+        source: files/claude/skills/go/SKILL.md
+        target: ~/.claude/skills/go/SKILL.md
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(m.Agentfiles) != 1 || !m.Agentfiles[0].IsFolder() {
+		t.Fatalf("agentfiles = %+v, want one folder group", m.Agentfiles)
+	}
+	if want := filepath.Join(home, ".claude/skills/go/SKILL.md"); m.Agentfiles[0].Children[0].Target != want {
+		t.Errorf("child target = %q, want %q", m.Agentfiles[0].Children[0].Target, want)
+	}
+}
+
 func TestParseValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -115,6 +143,10 @@ func TestParseValidation(t *testing.T) {
 		{"duplicate brewfile", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: x}, {name: b, source: x}]}`, []string{"b 이름을 쓰는 Brewfile 항목이 이미 있어요"}},
 		{"escaping brewfile source", `{entries: [{name: a, source: x, target: y}], brewfiles: [{name: b, source: ../x}]}`, []string{"b Brewfile 항목의 source는 저장소 기준 경로여야"}},
 		{"loaded by itself", `entries: [{name: a, source: x, target: ~/.zshrc, loaded_by: ~/.zshrc}]`, []string{"a 항목의 loaded_by는 target과 다른 파일이어야 해요"}},
+		{"duplicate in agentfiles", `{entries: [{name: a, source: x, target: y}], agentfiles: [{name: b, source: x, target: y}, {name: g, children: [{name: b, source: x, target: y}]}]}`, []string{"b 이름을 쓰는 항목이 이미 있어요"}},
+		{"agentfiles missing name", `{entries: [{name: a, source: x, target: y}], agentfiles: [{source: x, target: y}]}`, []string{"agentfiles의 1번째 항목에 name이 없어요"}},
+		{"folder loaded by", `entries: [{name: g, loaded_by: ~/.zshrc, children: [{name: c, source: x, target: y}]}]`, []string{"g 항목은 폴더 그룹이라 loaded_by를 둘 수 없어요"}},
+		{"folder child", `entries: [{name: g, children: [{name: c}]}]`, []string{"c 항목에 source가 없어요", "c 항목에 target이 없어요"}},
 		{"nested children", `entries: [{name: g, source: x, target: y, children: [{name: c, source: x, target: y, children: [{name: d, source: x, target: y}]}]}]`, []string{"c 항목은 하위 항목을 한 단계까지만 둘 수 있어요"}},
 	}
 	for _, tt := range tests {
@@ -130,6 +162,14 @@ func TestParseValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// 섹션이 다르면 같은 이름을 써도 된다.
+func TestParseSameNameAcrossSections(t *testing.T) {
+	_, err := Parse([]byte(`{entries: [{name: go, source: x, target: y}], agentfiles: [{name: go, source: x, target: y}]}`))
+	if err != nil {
+		t.Errorf("Parse: %v", err)
 	}
 }
 
@@ -149,7 +189,7 @@ func TestExpandHome(t *testing.T) {
 	}
 }
 
-// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 하고 Brewfile의 source는 저장소에 있어야 한다.
+// 저장소에 있는 실제 manifest.yaml은 항상 파싱에 성공해야 하고 모든 source는 저장소에 있어야 한다.
 func TestRepoManifest(t *testing.T) {
 	m, err := Load("../../manifest.yaml")
 	if err != nil {
@@ -158,6 +198,18 @@ func TestRepoManifest(t *testing.T) {
 	for _, b := range m.Brewfiles {
 		if _, err := os.Stat(filepath.Join("../..", b.Source)); err != nil {
 			t.Errorf("brewfile %s source missing: %v", b.Name, err)
+		}
+	}
+	for _, entries := range [][]Entry{m.Entries, m.Agentfiles} {
+		for _, e := range entries {
+			for _, item := range append([]Entry{e}, e.Children...) {
+				if item.IsFolder() {
+					continue
+				}
+				if _, err := os.Stat(filepath.Join("../..", item.Source)); err != nil {
+					t.Errorf("entry %s source missing: %v", item.Name, err)
+				}
+			}
 		}
 	}
 }

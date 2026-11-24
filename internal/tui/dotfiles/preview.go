@@ -57,6 +57,9 @@ func (m List) openPreview() (List, tea.Cmd) {
 	if !m.ready || len(m.items) == 0 {
 		return m, nil
 	}
+	if m.isFolder(m.cursor) {
+		return m.notifyFolder(), nil
+	}
 	it := m.items[m.cursor]
 	m.preview = previewScreen{name: it.entry.Name}
 	if data, err := os.ReadFile(it.copyPath); err == nil && m.matchesRepo(it.entry.Source, data) {
@@ -70,10 +73,10 @@ func (m List) openPreview() (List, tea.Cmd) {
 	}
 	m.preview.loading = true
 	entry, client := it.entry, m.client
-	load := func() tea.Msg {
+	load := m.tag(func() tea.Msg {
 		data, err := client.Fetch(context.Background(), entry.Source)
 		return previewLoadedMsg{name: entry.Name, key: key, data: data, err: err}
-	}
+	})
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 

@@ -87,6 +87,7 @@ func (m List) View() tea.View {
 
 // renderItemLines 는 항목 목록을 한 줄씩 만들고 커서가 있는 줄의 위치를 함께 돌려준다. 접힌 그룹의 하위 항목은 뺀다.
 // 그룹 줄의 체크박스는 그룹 파일의 상태이고 켜진 하위 항목 수는 줄 끝에 따로 적는다.
+// 폴더 그룹은 그룹 파일이 없어서 체크박스에 하위 항목 상태를 모아 그린다.
 //
 //	    [+] gitconfig  ~/.gitconfig
 //	▌ v [+] zshrc      ~/.zshrc  1/2
@@ -99,11 +100,15 @@ func (m List) renderItemLines(st ui.Styles) (lines []string, selected int) {
 		if !m.visible(i) {
 			continue
 		}
+		state := it.state
+		if m.isFolder(i) {
+			state = m.folderState(i)
+		}
 		row := ui.ListRow{
 			Fold:        ui.TreeFoldMarker(m.items, m.collapsed, i),
 			Branch:      ui.TreeBranch(m.items, i),
-			Marker:      m.renderMarker(it.state),
-			MarkerStyle: st.FlashStyle(it.state, it.flash),
+			Marker:      m.renderMarker(state),
+			MarkerStyle: st.FlashStyle(state, it.flash),
 			Name:        it.entry.Name,
 			Detail:      ui.Tildify(it.entry.Target, m.home),
 			Current:     i == m.cursor,
@@ -161,8 +166,11 @@ func (m List) renderItemTitle(st ui.Styles, i int) string {
 	return line
 }
 
-// renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
+// renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다. 폴더 그룹은 경로가 없어서 이름만 쓴다.
 func (m List) renderGroupTitle(st ui.Styles, i int) string {
+	if m.isFolder(i) {
+		return st.GroupName.Render(m.items[i].entry.Name)
+	}
 	return st.GroupName.Render(m.items[i].entry.Name) + "  " + ui.Tildify(m.items[i].entry.Target, m.home)
 }
 
@@ -176,7 +184,7 @@ func (m List) renderSummary(st ui.Styles, ratio float64) string {
 	if !m.ready || m.loadErr != nil || len(m.items) == 0 {
 		return ""
 	}
-	return st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), len(m.items))) + st.RenderGauge(ratio)
+	return st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), m.fileCount())) + st.RenderGauge(ratio)
 }
 
 // Summary 는 진입 메뉴 카드에 붙이는 연결 비율이다. 화면 머리와 달리 움직이는 게이지 대신 지금 비율을 그대로 그린다.

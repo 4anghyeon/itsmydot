@@ -40,7 +40,9 @@ func updateRoot(m Model, msg tea.Msg) Model {
 func rootFixture(t *testing.T) Model {
 	t.Helper()
 	client := githubtest.NewClient(t, map[string]string{
-		"manifest.yaml":        "entries:\n  - name: gitconfig\n    source: files/git/.gitconfig\n    target: ~/.gitconfig\n",
+		"manifest.yaml": "entries:\n  - name: gitconfig\n    source: files/git/.gitconfig\n    target: ~/.gitconfig\n" +
+			"agentfiles:\n  - name: claude\n    source: files/claude/CLAUDE.md\n    target: ~/.claude/CLAUDE.md\n" +
+			"  - name: rules\n    children:\n      - name: go\n        source: files/claude/rules/go.md\n        target: ~/.claude/rules/go.md\n",
 		"files/git/.gitconfig": "x",
 	})
 	return New(client, localcopy.New(t.TempDir()), "")
@@ -53,7 +55,7 @@ func TestEntryMenu(t *testing.T) {
 	}
 
 	v := ansi.Strip(m.View().Content)
-	for _, want := range []string{"│ 1  dotfiles", "│ 2  brewfiles", "│    설정 파일을 이 컴퓨터에", "╭─", "╰─", "1/2 바로 선택", "esc 종료"} {
+	for _, want := range []string{"│ 1  dotfiles", "│ 2  brewfiles", "│ 3  agentfiles", "│    설정 파일을 이 컴퓨터에", "╭─", "╰─", "1/2/3 바로 선택", "esc 종료"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("menu missing %q:\n%s", want, v)
 		}
@@ -145,8 +147,8 @@ func TestRootForwardsResultsWhileOnMenu(t *testing.T) {
 	if v := ansi.Strip(m.View().Content); m.screen != menuScreen || !strings.Contains(v, "연결됨 0/1") {
 		t.Errorf("result should reach dotfiles while on the menu (screen=%d):\n%s", m.screen, v)
 	}
-	// 두 목록 화면 모두 터미널 폭을 받아야 구분선을 그 폭만큼 긋는다.
-	for name, v := range map[string]string{"dotfiles": m.dotfiles.View().Content, "brewfiles": m.brewfiles.View().Content} {
+	// 모든 목록 화면이 터미널 폭을 받아야 구분선을 그 폭만큼 긋는다.
+	for name, v := range map[string]string{"dotfiles": m.dotfiles.View().Content, "brewfiles": m.brewfiles.View().Content, "agentfiles": m.agentfiles.View().Content} {
 		if !strings.Contains(ansi.Strip(v), strings.Repeat("─", 70)) {
 			t.Errorf("%s should get the terminal width:\n%s", name, ansi.Strip(v))
 		}
@@ -173,5 +175,33 @@ func TestRootLoadsBrewfilesOnce(t *testing.T) {
 	m = updateRoot(m, back())
 	if _, cmd = pressRoot(t, m, "2"); cmd != nil {
 		t.Error("entering brewfiles again should not reload")
+	}
+}
+
+// agentfiles는 manifest의 agentfiles 섹션만 불러오고 카드에 그 섹션의 연결 비율을 보여 준다. 폴더 그룹은 세지 않는다.
+func TestRootLoadsAgentfiles(t *testing.T) {
+	m := rootFixture(t)
+	m, load := pressRoot(t, m, "3")
+	if m.screen != agentfilesScreen || load == nil {
+		t.Fatalf("3 should enter agentfiles and load (screen=%d)", m.screen)
+	}
+	m = updateRoot(m, load())
+	v := ansi.Strip(m.View().Content)
+	for _, want := range []string{"claude", "rules", "go", "연결됨 0/2"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("agentfiles missing %q:\n%s", want, v)
+		}
+	}
+	if strings.Contains(v, "gitconfig") {
+		t.Errorf("agentfiles should not show dotfiles entries:\n%s", v)
+	}
+
+	m, back := pressRoot(t, m, "esc")
+	m = updateRoot(m, back())
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "연결됨 0/2") {
+		t.Errorf("agentfiles card should show the synced count:\n%s", v)
+	}
+	if m.dotfiles.Summary(ui.NewStyles(true)) != "" {
+		t.Error("dotfiles should stay unloaded")
 	}
 }

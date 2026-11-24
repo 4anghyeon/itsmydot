@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/4anghyeon/itsmydot/internal/github"
@@ -45,7 +46,7 @@ func TestLoadEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg := loadEntries(context.Background(), client, copies, "")
+	msg := loadEntries(context.Background(), client, copies, "", EntriesSection)
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
@@ -90,7 +91,7 @@ func TestLoadEntriesMarksOutdated(t *testing.T) {
 		}
 	}
 
-	msg := loadEntries(context.Background(), client, copies, "")
+	msg := loadEntries(context.Background(), client, copies, "", EntriesSection)
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
@@ -126,11 +127,38 @@ func TestLoadEntriesWithoutHashes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	msg := loadEntries(context.Background(), client, copies, "")
+	msg := loadEntries(context.Background(), client, copies, "", EntriesSection)
 	if msg.err != nil || len(msg.items) != 1 {
 		t.Fatalf("items = %d err = %v", len(msg.items), msg.err)
 	}
 	if msg.items[0].state != ui.Synced || msg.items[0].outdated {
 		t.Errorf("state = %d outdated = %v, want synced without the mark", msg.items[0].state, msg.items[0].outdated)
+	}
+}
+
+// 목록은 자기 섹션의 항목만 불러오고 섹션이 다른 목록이 시작한 작업의 결과는 버린다.
+func TestSectionsLoadSeparately(t *testing.T) {
+	client := githubtest.NewClient(t, map[string]string{"manifest.yaml": `
+entries: [{name: go, source: files/zsh/go.zsh, target: /tmp/go.zsh}]
+agentfiles:
+  - name: rules
+    children: [{name: go, source: files/claude/rules/go.md, target: /tmp/go.md}]
+`})
+	copies := localcopy.New(t.TempDir())
+	dotfiles := New(client, copies, "", EntriesSection)
+	agentfiles := New(client, copies, "", AgentfilesSection)
+
+	msg := agentfiles.Init()()
+	next, _ := dotfiles.Update(msg)
+	if next.(List).ready {
+		t.Fatal("dotfiles list should ignore the agentfiles result")
+	}
+	next, _ = agentfiles.Update(msg)
+	var got []string
+	for _, it := range next.(List).items {
+		got = append(got, it.entry.Name+"<"+it.parent+">")
+	}
+	if want := "rules<> go<rules>"; strings.Join(got, " ") != want {
+		t.Errorf("agentfiles items = %s, want %s", strings.Join(got, " "), want)
 	}
 }

@@ -156,6 +156,9 @@ func (m List) openMenu() List {
 	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == ui.Syncing {
 		return m
 	}
+	if m.isFolder(m.cursor) {
+		return m.notifyFolder()
+	}
 	m.confirmingName, m.confirmKind, m.choice = m.items[m.cursor].entry.Name, confirmAction, 0
 	return m
 }

@@ -35,7 +35,7 @@ func previewFixture(t *testing.T, files map[string]string, localCopy string, ext
 		hashes[source] = github.BlobHash([]byte(content))
 	}
 
-	m := New(githubtest.NewClient(t, files), copies, "")
+	m := New(githubtest.NewClient(t, files), copies, "", EntriesSection)
 	m.home = "/home/me"
 	items := append([]item{{entry: e, copyPath: copyPath, state: ui.Synced}}, extra...)
 	next, _ := m.Update(entriesLoadedMsg{items: items, hashes: hashes})

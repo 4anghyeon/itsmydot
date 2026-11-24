@@ -1,4 +1,4 @@
-// Package tui 는 itsmydot의 터미널 화면이다. 진입 메뉴에서 dotfiles나 brewfiles를 고르면 그 목록 화면으로 들어간다.
+// Package tui 는 itsmydot의 터미널 화면이다. 진입 메뉴에서 dotfiles, brewfiles, agentfiles 중 하나를 고르면 그 목록 화면으로 들어간다.
 package tui
 
 import (
@@ -24,6 +24,7 @@ const (
 	menuScreen screen = iota
 	dotfilesScreen
 	brewfilesScreen
+	agentfilesScreen
 )
 
 // menuOption 은 진입 메뉴의 선택지 하나다.
@@ -37,12 +38,14 @@ type menuOption struct {
 var menuOptions = []menuOption{
 	{"dotfiles", "설정 파일을 이 컴퓨터에 연결하거나 연결을 끊어요", dotfilesScreen},
 	{"brewfiles", "Homebrew 패키지를 골라 설치해요", brewfilesScreen},
+	{"agentfiles", "코딩 에이전트의 지침과 규칙, 스킬을 연결해요", agentfilesScreen},
 }
 
-// Model 은 진입 메뉴와 두 목록 화면을 오가는 루트 모델이다. 메뉴와 화면 전환만 맡고 목록의 일은 각 목록 모델에 넘긴다.
+// Model 은 진입 메뉴와 목록 화면을 오가는 루트 모델이다. 메뉴와 화면 전환만 맡고 목록의 일은 각 목록 모델에 넘긴다.
 type Model struct {
-	dotfiles  dotfiles.List
-	brewfiles brewfiles.List
+	dotfiles   dotfiles.List
+	brewfiles  brewfiles.List
+	agentfiles dotfiles.List
 
 	screen screen
 	choice int // 진입 메뉴에서 커서가 있는 선택지. 목록에서 돌아오면 마지막에 고른 메뉴에 그대로 있다
@@ -58,18 +61,19 @@ type Model struct {
 // New 는 진입 메뉴부터 보여 주는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다.
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	return Model{
-		dotfiles:  dotfiles.New(client, copies, version),
-		brewfiles: brewfiles.New(client, version),
-		version:   version,
+		dotfiles:   dotfiles.New(client, copies, version, dotfiles.EntriesSection),
+		brewfiles:  brewfiles.New(client, version),
+		agentfiles: dotfiles.New(client, copies, version, dotfiles.AgentfilesSection),
+		version:    version,
 	}
 }
 
-// Init 은 색을 고르기 위해 터미널 배경색을 물어본다. manifest는 dotfiles 메뉴에 들어갈 때 받는다.
+// Init 은 색을 고르기 위해 터미널 배경색을 물어본다. manifest는 각 목록 메뉴에 처음 들어갈 때 받는다.
 func (m Model) Init() tea.Cmd {
 	return tea.RequestBackgroundColor
 }
 
-// Update 는 키 입력을 지금 보이는 화면에 넘기고 그 밖의 메시지는 두 목록에 모두 넘긴다.
+// Update 는 키 입력을 지금 보이는 화면에 넘기고 그 밖의 메시지는 모든 목록에 넘긴다.
 // 진입 메뉴로 돌아간 뒤에도 받는 중이던 작업의 결과가 목록에 반영돼야 하기 때문이다.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -82,6 +86,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case brewfilesScreen:
 			next, cmd := m.brewfiles.Update(msg)
 			m.brewfiles = next.(brewfiles.List)
+			return m, cmd
+		case agentfilesScreen:
+			next, cmd := m.agentfiles.Update(msg)
+			m.agentfiles = next.(dotfiles.List)
 			return m, cmd
 		case menuScreen:
 			return m.handleMenuKey(ui.NormalizeKey(msg))
@@ -99,7 +107,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.dotfiles = next.(dotfiles.List)
 	next, brewfilesCmd := m.brewfiles.Update(msg)
 	m.brewfiles = next.(brewfiles.List)
-	return m, tea.Batch(dotfilesCmd, brewfilesCmd)
+	next, agentfilesCmd := m.agentfiles.Update(msg)
+	m.agentfiles = next.(dotfiles.List)
+	return m, tea.Batch(dotfilesCmd, brewfilesCmd, agentfilesCmd)
 }
 
 // handleMenuKey 는 진입 메뉴의 키 입력을 처리한다. 고른 메뉴의 목록 화면으로 들어가고 esc는 종료다.
@@ -123,8 +133,12 @@ func (m Model) handleMenuKey(key string) (Model, tea.Cmd) {
 		m.started = make(map[screen]bool)
 	}
 	m.started[m.screen] = true
-	if m.screen == brewfilesScreen {
+	switch m.screen {
+	case brewfilesScreen:
 		return m, m.brewfiles.Init()
+	case agentfilesScreen:
+		return m, m.agentfiles.Init()
+	case dotfilesScreen, menuScreen:
 	}
 	return m, m.dotfiles.Init()
 }
@@ -136,6 +150,8 @@ func (m Model) View() tea.View {
 		return m.dotfiles.View()
 	case brewfilesScreen:
 		return m.brewfiles.View()
+	case agentfilesScreen:
+		return m.agentfiles.View()
 	case menuScreen:
 	}
 
@@ -206,6 +222,8 @@ func (m Model) renderMenuSummary(st ui.Styles, target screen) string {
 		return m.dotfiles.Summary(st)
 	case brewfilesScreen:
 		return m.brewfiles.Summary(st)
+	case agentfilesScreen:
+		return m.agentfiles.Summary(st)
 	case menuScreen:
 	}
 	return ""
