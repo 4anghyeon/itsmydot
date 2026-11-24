@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"strings"
@@ -68,7 +68,7 @@ func TestSpinner(t *testing.T) {
 		}
 	}
 	next, tickCmd := m.Update(tick)
-	m = next.(dotfileList)
+	m = next.(List)
 	if tickCmd == nil {
 		t.Error("spinner should keep ticking while syncing")
 	}
@@ -78,7 +78,7 @@ func TestSpinner(t *testing.T) {
 
 	// 받기가 끝나면 다음 tick을 예약하지 않는다.
 	next, _ = m.Update(done)
-	m = next.(dotfileList)
+	m = next.(List)
 	if _, tickCmd = m.Update(m.spinner.Tick()); tickCmd != nil {
 		t.Error("spinner should stop when nothing is syncing")
 	}

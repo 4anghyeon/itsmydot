@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"errors"

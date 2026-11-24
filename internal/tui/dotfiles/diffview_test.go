@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ func TestDiffScroll(t *testing.T) {
 	}
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "", text.String()))
-	next, _ = next.(dotfileList).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
-	m = next.(dotfileList)
+	next, _ = next.(List).Update(tea.WindowSizeMsg{Width: 80, Height: 18})
+	m = next.(List)
 
 	// 높이 18에서 캐릭터와 구분선, 도움말 10줄을 빼면 본문은 8줄이다.
 	// 아래에 더 있다는 걸 알 수 있게 오른쪽에 스크롤 막대가 붙고 맨 위에 있으니 막대 위쪽이 채워져 있다.
@@ -43,12 +43,12 @@ func TestDiffScroll(t *testing.T) {
 		t.Errorf("yOffset = %d, want 1", m.diffScreen.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
-	m = next.(dotfileList)
+	m = next.(List)
 	if m.diffScreen.yOffset != 9 {
 		t.Errorf("yOffset = %d, want 9 after pgdn", m.diffScreen.yOffset)
 	}
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
-	m = next.(dotfileList)
+	m = next.(List)
 	v = viewText(m)
 	if m.diffScreen.yOffset != 23 || !strings.Contains(v, "31/31줄") || !strings.Contains(v, "line 30") {
 		t.Errorf("yOffset = %d after end:\n%s", m.diffScreen.yOffset, v)
@@ -77,8 +77,8 @@ func TestDiffHorizontalScroll(t *testing.T) {
 	m.comparingName = "zshrc"
 	long := "export PATH=" + strings.Repeat("/usr/local/bin:", 4) + "END"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "short\n", long+"\n"))
-	next, _ = next.(dotfileList).Update(tea.WindowSizeMsg{Width: 40, Height: 30})
-	m = next.(dotfileList)
+	next, _ = next.(List).Update(tea.WindowSizeMsg{Width: 40, Height: 30})
+	m = next.(List)
 
 	if v := viewText(m); !strings.Contains(v, "  1  +  export PATH=/usr") || strings.Contains(v, "END") {
 		t.Fatalf("first view:\n%s", v)
@@ -100,7 +100,7 @@ func TestDiffRowColors(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "same\nexport EDITOR=vim\n", "same\nexport EDITOR=nvim\n"))
-	m = next.(dotfileList)
+	m = next.(List)
 
 	background := func(hex string) string {
 		var r, g, b int
@@ -134,7 +134,7 @@ func TestDiffNoNewlineRow(t *testing.T) {
 	m := loadedModel(item{entry: entry("zshrc", "/home/me/.zshrc"), state: ui.Synced})
 	m.comparingName = "zshrc"
 	next, _ := m.Update(diffLoaded(t, "zshrc", "a\nlast", "a\nlast\n"))
-	v := viewText(next.(dotfileList))
+	v := viewText(next.(List))
 	lines := strings.Split(v, "\n")
 	i := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "2    -  last") })
 	if i < 0 || i+2 >= len(lines) ||

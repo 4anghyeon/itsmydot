@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 // startCompare 는 i번째 항목의 로컬 사본과 비교할 저장소 최신본을 백그라운드로 받는다.
 // 업데이트 표시에 쓰는 해시만으로는 내용을 알 수 없어서 비교할 때마다 새로 받는다.
-func (m dotfileList) startCompare(i int) (dotfileList, tea.Cmd) {
+func (m List) startCompare(i int) (List, tea.Cmd) {
 	it := m.items[i]
 	m.comparingName = it.entry.Name
 	m = m.notify(ui.StatusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
@@ -26,7 +26,7 @@ func (m dotfileList) startCompare(i int) (dotfileList, tea.Cmd) {
 
 // startTargetCompare 는 충돌 질문에서 target 자리에 있는 지금 파일과 저장소 파일을 비교한다. 질문은 그대로 둔다.
 // 그룹 파일과 하위 파일이 함께 걸렸으면 질문을 띄운 항목을 보고, 그 항목이 충돌이 아니면 처음 걸린 항목을 본다.
-func (m dotfileList) startTargetCompare() (dotfileList, tea.Cmd) {
+func (m List) startTargetCompare() (List, tea.Cmd) {
 	i := m.conflictedIndex()
 	if i < 0 {
 		return m, nil
@@ -44,7 +44,7 @@ func (m dotfileList) startTargetCompare() (dotfileList, tea.Cmd) {
 }
 
 // conflictedIndex 는 충돌 질문에서 비교할 항목의 위치다. 걸린 항목이 없으면 -1이다.
-func (m dotfileList) conflictedIndex() int {
+func (m List) conflictedIndex() int {
 	if i := m.indexOf(m.confirmingName); i >= 0 && m.items[i].state == ui.Conflict {
 		return i
 	}
@@ -59,7 +59,7 @@ func (m dotfileList) conflictedIndex() int {
 // applyDiff 는 비교 결과로 비교 보기 화면을 연다. 차이가 없거나 비교할 수 없으면 화면 대신 한 줄로 알린다.
 // 메뉴에서 연 비교는 상태 메시지로, 충돌 질문에서 연 비교는 질문 아래에 알린다.
 // 받는 사이에 다른 비교를 시작했거나 질문이 닫혔으면 늦게 온 결과는 버린다.
-func (m dotfileList) applyDiff(msg diffLoadedMsg) dotfileList {
+func (m List) applyDiff(msg diffLoadedMsg) List {
 	if msg.name != m.comparingName {
 		return m
 	}

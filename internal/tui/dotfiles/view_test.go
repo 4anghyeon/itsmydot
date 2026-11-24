@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestView(t *testing.T) {
-	loading := viewText(dotfileList{})
+	loading := viewText(List{})
 	if !strings.Contains(loading, "불러오는 중") {
 		t.Errorf("loading view = %q", loading)
 	}
@@ -78,7 +78,7 @@ func TestRenderDescriptionWrapsUnderBar(t *testing.T) {
 func TestViewSelectedRowFillsWidth(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig")}, item{entry: entry("zshrc", "/home/me/.zshrc")})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
-	m = next.(dotfileList)
+	m = next.(List)
 
 	for line := range strings.SplitSeq(viewText(m), "\n") {
 		if strings.HasPrefix(line, "▌ [ ] gitconfig") {

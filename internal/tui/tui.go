@@ -2,7 +2,6 @@
 package tui
 
 import (
-	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/4anghyeon/itsmydot/internal/github"
 	"github.com/4anghyeon/itsmydot/internal/localcopy"
 	"github.com/4anghyeon/itsmydot/internal/tui/brewfiles"
+	"github.com/4anghyeon/itsmydot/internal/tui/dotfiles"
 	"github.com/4anghyeon/itsmydot/internal/tui/ui"
 )
 
@@ -41,7 +41,7 @@ var menuOptions = []menuOption{
 
 // Model 은 진입 메뉴와 두 목록 화면을 오가는 루트 모델이다. 메뉴와 화면 전환만 맡고 목록의 일은 각 목록 모델에 넘긴다.
 type Model struct {
-	dotfiles  dotfileList
+	dotfiles  dotfiles.List
 	brewfiles brewfiles.List
 
 	screen screen
@@ -58,7 +58,7 @@ type Model struct {
 // New 는 진입 메뉴부터 보여 주는 처음 화면 상태를 만든다. version은 제목 옆에 보여 줄 버전이다.
 func New(client *github.Client, copies *localcopy.Dir, version string) Model {
 	return Model{
-		dotfiles:  newDotfileList(client, copies, version),
+		dotfiles:  dotfiles.New(client, copies, version),
 		brewfiles: brewfiles.New(client, version),
 		version:   version,
 	}
@@ -77,7 +77,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.screen {
 		case dotfilesScreen:
 			next, cmd := m.dotfiles.Update(msg)
-			m.dotfiles = next.(dotfileList)
+			m.dotfiles = next.(dotfiles.List)
 			return m, cmd
 		case brewfilesScreen:
 			next, cmd := m.brewfiles.Update(msg)
@@ -96,7 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	next, dotfilesCmd := m.dotfiles.Update(msg)
-	m.dotfiles = next.(dotfileList)
+	m.dotfiles = next.(dotfiles.List)
 	next, brewfilesCmd := m.brewfiles.Update(msg)
 	m.brewfiles = next.(brewfiles.List)
 	return m, tea.Batch(dotfilesCmd, brewfilesCmd)
@@ -203,10 +203,7 @@ func (m Model) renderMenuCard(st ui.Styles, i, width int) string {
 func (m Model) renderMenuSummary(st ui.Styles, target screen) string {
 	switch target {
 	case dotfilesScreen:
-		if !m.dotfiles.ready || m.dotfiles.loadErr != nil || len(m.dotfiles.items) == 0 {
-			return ""
-		}
-		return st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.dotfiles.syncedCount(), len(m.dotfiles.items))) + st.RenderGauge(m.dotfiles.syncedRatio())
+		return m.dotfiles.Summary(st)
 	case brewfilesScreen:
 		return m.brewfiles.Summary(st)
 	case menuScreen:

@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"image/color"
@@ -23,7 +23,7 @@ func TestBackgroundSelectsPalette(t *testing.T) {
 	}
 
 	next, _ := m.Update(tea.BackgroundColorMsg{Color: lipgloss.Color("#FFFFFF")})
-	m = next.(dotfileList)
+	m = next.(List)
 	if v := m.View().Content; !strings.Contains(v, lightGreen) || strings.Contains(v, darkGreen) {
 		t.Errorf("white background: want light palette")
 	}
@@ -39,7 +39,7 @@ func TestUpdateMarkColors(t *testing.T) {
 		t.Errorf("dark background: want the mark color %s", darkOrange)
 	}
 	next, _ := m.Update(tea.BackgroundColorMsg{Color: lipgloss.Color("#FFFFFF")})
-	if v := next.(dotfileList).View().Content; !strings.Contains(v, lightOrange) {
+	if v := next.(List).View().Content; !strings.Contains(v, lightOrange) {
 		t.Errorf("white background: want the mark color %s", lightOrange)
 	}
 }

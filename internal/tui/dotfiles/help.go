@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 )
 
 // handleHelpKey 는 도움말 화면의 키 입력을 처리한다. ?나 esc, q로 닫으면 목록으로 돌아가고 다른 키는 무시한다.
-func (m dotfileList) handleHelpKey(key string) (dotfileList, tea.Cmd) {
+func (m List) handleHelpKey(key string) (List, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -22,7 +22,7 @@ func (m dotfileList) handleHelpKey(key string) (dotfileList, tea.Cmd) {
 }
 
 // helpView 는 목록 대신 전체 키와 상태 표시의 뜻, 로컬 사본이 놓이는 곳을 보여 준다.
-func (m dotfileList) helpView(st ui.Styles) tea.View {
+func (m List) helpView(st ui.Styles) tea.View {
 	pad := func(text string, width int) string {
 		return text + strings.Repeat(" ", max(width-lipgloss.Width(text), 0))
 	}

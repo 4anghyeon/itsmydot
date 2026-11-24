@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ const (
 )
 
 // confirmPrompt 는 확인 질문 문구와 선택지를 만든다. handleConfirmKey가 마지막 선택지를 취소로 보므로 순서를 지켜야 한다.
-func (m dotfileList) confirmPrompt() (question string, options []string) {
+func (m List) confirmPrompt() (question string, options []string) {
 	i := m.indexOf(m.confirmingName)
 	if i < 0 {
 		return "", []string{"취소"}
@@ -82,7 +82,7 @@ func (m dotfileList) confirmPrompt() (question string, options []string) {
 
 // handleConfirmKey 는 확인 질문에 대한 키 입력을 처리한다. 방향키와 enter나 space로 고르거나 번호로 바로 고르고 esc는 취소다.
 // 그 밖의 키는 무시해서 답하기 전에 다른 항목을 건드리지 않게 한다.
-func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
+func (m List) handleConfirmKey(key string) (List, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, tea.Quit
 	}
@@ -152,7 +152,7 @@ func (m dotfileList) handleConfirmKey(key string) (dotfileList, tea.Cmd) {
 }
 
 // openMenu 는 커서가 있는 항목에서 할 수 있는 일을 번호 메뉴로 띄운다. 받는 중인 항목에서는 열지 않는다.
-func (m dotfileList) openMenu() dotfileList {
+func (m List) openMenu() List {
 	if !m.ready || len(m.items) == 0 || m.items[m.cursor].state == ui.Syncing {
 		return m
 	}
@@ -162,7 +162,7 @@ func (m dotfileList) openMenu() dotfileList {
 
 // renderConfirmLines 는 확인 질문이나 메뉴를 질문, 번호 선택지, 진행 상황 순으로 한 줄씩 만든다.
 // 선택지 번호도 함께 돌려줘서 도움말 줄에 쓸 수 있게 한다.
-func (m dotfileList) renderConfirmLines(st ui.Styles) (lines, numbers []string) {
+func (m List) renderConfirmLines(st ui.Styles) (lines, numbers []string) {
 	question, options := m.confirmPrompt()
 	title := st.Question.Render(question)
 	if m.confirmKind == confirmAction {
@@ -188,6 +188,6 @@ func (m dotfileList) renderConfirmLines(st ui.Styles) (lines, numbers []string) 
 }
 
 // renderMenuTitle 은 항목 메뉴의 제목이다.
-func (m dotfileList) renderMenuTitle(st ui.Styles) string {
+func (m List) renderMenuTitle(st ui.Styles) string {
 	return m.renderItemTitle(st, m.indexOf(m.confirmingName))
 }

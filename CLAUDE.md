@@ -9,7 +9,7 @@ This public repo is both the `itsmydot` TUI and the store of the owner's dotfile
 
 ## TUI rules
 
-- Read keys only through `normalizeKey()`. The macOS Korean IME holds a lone jamo until the next keystroke, so important actions use keys it never holds (digits, esc, arrows, space, enter) — prompts are numbered, not y/n.
+- Read keys only through `ui.NormalizeKey()`. The macOS Korean IME holds a lone jamo until the next keystroke, so important actions use keys it never holds (digits, esc, arrows, space, enter) — prompts are numbered, not y/n.
 - Symbols in UI text are ASCII ("방향키", not ↑↓). Fonts lacking ✓ ↑ · or braille fall back to a CJK font that draws them two cells wide and breaks alignment. Box-drawing (`╭─│`) and block (`█░`) characters are fine.
 
 ## Conventions

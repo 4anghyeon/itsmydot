@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 // View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
 // 도움말이나 비교 보기 화면이 열려 있으면 그 화면을 그린다.
 // 미리보기 창은 터미널이 넓으면 목록 오른쪽에 붙이고 좁으면 목록 대신 화면 전체에 그린다.
-func (m dotfileList) View() tea.View {
+func (m List) View() tea.View {
 	st := ui.NewStyles(!m.light)
 	if m.helpOpen {
 		return m.helpView(st)
@@ -27,10 +27,7 @@ func (m dotfileList) View() tea.View {
 		return m.previewView(st)
 	}
 
-	right := ""
-	if m.ready && m.loadErr == nil && len(m.items) > 0 {
-		right = st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), len(m.items))) + st.RenderGauge(m.gauge)
-	}
+	right := m.renderSummary(st, m.gauge)
 
 	// 목록 옆에 미리보기 창을 붙이면 설명과 구분선, 상태 줄은 화면 대신 목록 칸 폭에 맞춘다.
 	textWidth := m.width
@@ -97,7 +94,7 @@ func (m dotfileList) View() tea.View {
 //	  ├── [+] env      ~/.config/zsh/env.zsh
 //	  └── [!] git      ~/.config/zsh/git.zsh   (다른 파일이 있음)
 //	  > [ ] claude     ~/.claude/CLAUDE.md  0/3
-func (m dotfileList) renderItemLines(st ui.Styles) (lines []string, selected int) {
+func (m List) renderItemLines(st ui.Styles) (lines []string, selected int) {
 	rows := make([]ui.ListRow, 0, len(m.items))
 	for i, it := range m.items {
 		if !m.visible(i) {
@@ -137,7 +134,7 @@ func (m dotfileList) renderItemLines(st ui.Styles) (lines []string, selected int
 }
 
 // renderMarker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
-func (m dotfileList) renderMarker(s ui.ItemState) string {
+func (m List) renderMarker(s ui.ItemState) string {
 	if s == ui.Syncing && len(m.spinner.Spinner.Frames) > 0 {
 		return ui.RenderSpinner(m.spinner)
 	}
@@ -148,7 +145,7 @@ func (m dotfileList) renderMarker(s ui.ItemState) string {
 //
 //	zshrc  ~/.zshrc
 //	└─ env  ~/.config/zsh/env.zsh
-func (m dotfileList) renderItemTitle(st ui.Styles, i int) string {
+func (m List) renderItemTitle(st ui.Styles, i int) string {
 	if i < 0 {
 		return ""
 	}
@@ -166,11 +163,24 @@ func (m dotfileList) renderItemTitle(st ui.Styles, i int) string {
 }
 
 // renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
-func (m dotfileList) renderGroupTitle(st ui.Styles, i int) string {
+func (m List) renderGroupTitle(st ui.Styles, i int) string {
 	return st.GroupName.Render(m.items[i].entry.Name) + "  " + ui.Tildify(m.items[i].entry.Target, m.home)
 }
 
 // statusMarker 는 상태 줄 앞에 붙일 표시와 그 색을 고를 상태다. 목록의 체크박스와 같은 표시를 쓴다.
-func (m dotfileList) statusMarker() (marker string, tone ui.ItemState) {
+func (m List) statusMarker() (marker string, tone ui.ItemState) {
 	return ui.ToneMarker(m.StatusTone, m.renderMarker(ui.Syncing))
+}
+
+// renderSummary 는 연결된 항목 수와 전체 수를 ratio만큼 채운 게이지와 함께 그린다. 목록을 불러오기 전이면 빈 문자열이다.
+func (m List) renderSummary(st ui.Styles, ratio float64) string {
+	if !m.ready || m.loadErr != nil || len(m.items) == 0 {
+		return ""
+	}
+	return st.Muted.Render(fmt.Sprintf("연결됨 %d/%d ", m.syncedCount(), len(m.items))) + st.RenderGauge(ratio)
+}
+
+// Summary 는 진입 메뉴 카드에 붙이는 연결 비율이다. 화면 머리와 달리 움직이는 게이지 대신 지금 비율을 그대로 그린다.
+func (m List) Summary(st ui.Styles) string {
+	return m.renderSummary(st, m.syncedRatio())
 }

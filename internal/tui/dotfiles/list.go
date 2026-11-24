@@ -1,4 +1,6 @@
-package tui
+// Package dotfiles 는 진입 메뉴의 dotfiles 화면이다. manifest 항목을 보여 주고 이 컴퓨터에 연결하거나 연결을 끊는다.
+// 연결하기 전 확인 질문과 저장소 최신본과의 비교, 파일 미리보기도 여기서 다룬다.
+package dotfiles
 
 import (
 	"context"
@@ -26,8 +28,8 @@ type item struct {
 	flash, flashVelocity float64 // 상태가 바뀐 직후 남아 있는 강조색의 정도와 그 속도. 1에서 0으로 줄어든다
 }
 
-// dotfileList 는 dotfiles 메뉴의 목록 화면이다. manifest 항목을 보여 주고 켜고 끈다.
-type dotfileList struct {
+// List 는 dotfiles 메뉴의 목록 화면이다. manifest 항목을 보여 주고 켜고 끈다.
+type List struct {
 	client  *github.Client
 	copies  *localcopy.Dir
 	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때와 loaded_by 파일에 넣을 줄을 만들 때 쓴다
@@ -74,21 +76,21 @@ type dotfileList struct {
 	animating            bool    // animationTick이 예약돼 있으면 true
 }
 
-// newDotfileList 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [dotfileList.Init] 에서 시작한다.
-func newDotfileList(client *github.Client, copies *localcopy.Dir, version string) dotfileList {
+// New 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [List.Init] 에서 시작한다.
+func New(client *github.Client, copies *localcopy.Dir, version string) List {
 	home, _ := os.UserHomeDir() // 실패하면 manifest.Parse도 실패해서 목록이 뜨지 않는다
-	return dotfileList{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(ui.SyncSpinner))}
+	return List{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(ui.SyncSpinner))}
 }
 
 // Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 dotfiles를 처음 고를 때 한 번만 부른다.
-func (m dotfileList) Init() tea.Cmd {
+func (m List) Init() tea.Cmd {
 	return func() tea.Msg {
 		return loadEntries(context.Background(), m.client, m.copies, m.home)
 	}
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
-func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m List) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
 		m.ready = true
@@ -169,13 +171,13 @@ func (m dotfileList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // notify 는 상태 줄에 text를 띄운 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
-func (m dotfileList) notify(tone ui.StatusTone, text string) dotfileList {
+func (m List) notify(tone ui.StatusTone, text string) List {
 	m.StatusLine = ui.NewStatusLine(tone, text)
 	return m
 }
 
 // countStatusKey 는 목록에서 누른 키를 상태 줄에 센 목록 모델을 돌려준다.
-func (m dotfileList) countStatusKey() dotfileList {
+func (m List) countStatusKey() List {
 	m.StatusLine = m.StatusLine.CountKey()
 	return m
 }

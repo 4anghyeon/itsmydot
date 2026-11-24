@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"math"
@@ -32,7 +32,7 @@ func animationTick() tea.Cmd {
 }
 
 // syncedCount 는 연결된 항목 수다.
-func (m dotfileList) syncedCount() int {
+func (m List) syncedCount() int {
 	count := 0
 	for _, it := range m.items {
 		if it.state == ui.Synced {
@@ -43,7 +43,7 @@ func (m dotfileList) syncedCount() int {
 }
 
 // syncedRatio 는 전체 항목 중 연결된 항목의 비율이다. 게이지가 향하는 목표다.
-func (m dotfileList) syncedRatio() float64 {
+func (m List) syncedRatio() float64 {
 	if len(m.items) == 0 {
 		return 0
 	}
@@ -51,7 +51,7 @@ func (m dotfileList) syncedRatio() float64 {
 }
 
 // startAnimation 은 애니메이션이 멈춰 있으면 다시 시작한다. 이미 돌고 있으면 tick을 겹쳐 예약하지 않는다.
-func (m dotfileList) startAnimation() (dotfileList, tea.Cmd) {
+func (m List) startAnimation() (List, tea.Cmd) {
 	if m.animating {
 		return m, nil
 	}
@@ -60,7 +60,7 @@ func (m dotfileList) startAnimation() (dotfileList, tea.Cmd) {
 }
 
 // stepAnimation 은 한 프레임만큼 게이지와 강조색을 움직인다. 모두 멈추면 다음 tick을 예약하지 않는다.
-func (m dotfileList) stepAnimation() (dotfileList, tea.Cmd) {
+func (m List) stepAnimation() (List, tea.Cmd) {
 	moving := false
 
 	target := m.syncedRatio()

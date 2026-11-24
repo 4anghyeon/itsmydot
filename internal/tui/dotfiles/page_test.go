@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"errors"
@@ -54,7 +54,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 		err:   errors.New(strings.Repeat("very long network error ", 10)),
 	})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
-	m = next.(dotfileList)
+	m = next.(List)
 
 	for _, line := range strings.Split(viewText(m), "\n") {
 		if w := lipgloss.Width(line); w > 60 {
@@ -67,7 +67,7 @@ func TestViewFitsTerminalWidth(t *testing.T) {
 func TestViewHeaderMaxWidthAndFooterGap(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 24})
-	m = next.(dotfileList)
+	m = next.(List)
 	m.Status, m.StatusTone = "끝났어요", ui.StatusDone
 
 	lines := strings.Split(viewText(m), "\n")
@@ -107,7 +107,7 @@ func TestEmptyStatusLineHasNoBackground(t *testing.T) {
 func TestHelpLineWraps(t *testing.T) {
 	m := loadedModel(item{entry: entry("gitconfig", "/home/me/.gitconfig"), state: ui.Synced})
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
-	m = next.(dotfileList)
+	m = next.(List)
 
 	lines := strings.Split(strings.TrimRight(viewText(m), "\n"), "\n")
 	footer := strings.Join(lines[len(lines)-4:], "\n")

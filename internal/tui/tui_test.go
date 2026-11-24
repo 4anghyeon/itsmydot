@@ -50,8 +50,6 @@ func TestEntryMenu(t *testing.T) {
 	m := rootFixture(t)
 	if msg := m.Init()(); msg == nil {
 		t.Fatal("Init should ask for the background color")
-	} else if _, ok := msg.(entriesLoadedMsg); ok {
-		t.Fatal("manifest should not load before entering dotfiles")
 	}
 
 	v := ansi.Strip(m.View().Content)
@@ -67,8 +65,8 @@ func TestEntryMenu(t *testing.T) {
 		t.Fatalf("1 should enter dotfiles and load the manifest (screen=%d)", m.screen)
 	}
 	m = updateRoot(m, cmd())
-	if !m.dotfiles.ready || len(m.dotfiles.items) != 1 {
-		t.Fatalf("dotfiles should be loaded: ready=%v items=%d err=%v", m.dotfiles.ready, len(m.dotfiles.items), m.dotfiles.loadErr)
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "gitconfig") {
+		t.Fatalf("dotfiles should be loaded:\n%s", v)
 	}
 
 	m, cmd = pressRoot(t, m, "esc")
@@ -118,8 +116,8 @@ func TestMenuCards(t *testing.T) {
 	if strings.Contains(ansi.Strip(first), "연결됨") {
 		t.Error("summary should not show before loading")
 	}
-	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("a", "/home/me/.a"), state: ui.Synced}, {entry: entry("b", "/home/me/.b")}}})
-	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "연결됨 1/2") {
+	m = loadDotfilesFromMenu(t, m)
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "연결됨 0/1") {
 		t.Errorf("dotfiles card should show the synced count:\n%s", v)
 	}
 	for line := range strings.SplitSeq(ansi.Strip(m.View().Content), "\n") {
@@ -143,12 +141,25 @@ func TestEntryMenuQuits(t *testing.T) {
 func TestRootForwardsResultsWhileOnMenu(t *testing.T) {
 	m := rootFixture(t)
 	m = updateRoot(m, tea.WindowSizeMsg{Width: 70, Height: 20})
-	m = updateRoot(m, entriesLoadedMsg{items: []item{{entry: entry("gitconfig", "/home/me/.gitconfig")}}})
-	// brewfiles 화면은 터미널 폭을 받아야 구분선을 그 폭만큼 긋는다.
-	brewfiles := ansi.Strip(m.brewfiles.View().Content)
-	if !m.dotfiles.ready || m.dotfiles.width != 70 || !strings.Contains(brewfiles, strings.Repeat("─", 70)) {
-		t.Errorf("messages should reach both lists: ready=%v width=%d\n%s", m.dotfiles.ready, m.dotfiles.width, brewfiles)
+	m = loadDotfilesFromMenu(t, m)
+	if v := ansi.Strip(m.View().Content); m.screen != menuScreen || !strings.Contains(v, "연결됨 0/1") {
+		t.Errorf("result should reach dotfiles while on the menu (screen=%d):\n%s", m.screen, v)
 	}
+	// 두 목록 화면 모두 터미널 폭을 받아야 구분선을 그 폭만큼 긋는다.
+	for name, v := range map[string]string{"dotfiles": m.dotfiles.View().Content, "brewfiles": m.brewfiles.View().Content} {
+		if !strings.Contains(ansi.Strip(v), strings.Repeat("─", 70)) {
+			t.Errorf("%s should get the terminal width:\n%s", name, ansi.Strip(v))
+		}
+	}
+}
+
+// loadDotfilesFromMenu 는 dotfiles에 들어가 불러오기를 시작한 뒤 결과가 오기 전에 진입 메뉴로 돌아와 결과를 받는다.
+func loadDotfilesFromMenu(t *testing.T, m Model) Model {
+	t.Helper()
+	m, load := pressRoot(t, m, "1")
+	m, back := pressRoot(t, m, "esc")
+	m = updateRoot(m, back())
+	return updateRoot(m, load())
 }
 
 // 진입 메뉴에서 brewfiles에 처음 들어갈 때만 불러온다.

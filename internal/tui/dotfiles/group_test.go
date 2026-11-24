@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 )
 
 // groupFixture 는 그룹 zshrc와 하위 항목 env, git으로 목록 모델을 만든다. 가짜 저장소에는 세 파일이 모두 있다.
-func groupFixture(t *testing.T) (m dotfileList, home string) {
+func groupFixture(t *testing.T) (m List, home string) {
 	t.Helper()
 	home = t.TempDir()
 	copies := localcopy.New(t.TempDir())
@@ -41,14 +41,14 @@ func groupFixture(t *testing.T) (m dotfileList, home string) {
 		items[i] = item{entry: e.entry, parent: e.parent, copyPath: copyPath}
 	}
 
-	m = newDotfileList(client, copies, "")
+	m = New(client, copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
-	return next.(dotfileList), home
+	return next.(List), home
 }
 
 // turnOnEnv 는 하위 항목 env를 켜서 그룹 zshrc까지 연결된 상태를 만든다.
-func turnOnEnv(t *testing.T, m dotfileList) dotfileList {
+func turnOnEnv(t *testing.T, m List) List {
 	t.Helper()
 	m, _ = press(t, m, "down")
 	m, cmd := confirmToggle(t, m)

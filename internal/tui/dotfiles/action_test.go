@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"os"
@@ -474,10 +474,10 @@ func TestToggleLoadedBy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := newDotfileList(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
-	m = next.(dotfileList)
+	m = next.(List)
 
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)
@@ -534,10 +534,10 @@ func TestToggleLoadedBySymlink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := newDotfileList(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
+	m := New(githubtest.NewClient(t, map[string]string{e.Source: "from repo"}), copies, "")
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
-	m = next.(dotfileList)
+	m = next.(List)
 
 	m, cmd := confirmToggle(t, m)
 	m = runCmd(t, m, cmd)

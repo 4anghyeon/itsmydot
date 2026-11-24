@@ -1,4 +1,4 @@
-package tui
+package dotfiles
 
 import (
 	"testing"
@@ -43,9 +43,9 @@ func TestHangulKeysInModel(t *testing.T) {
 		item{entry: entry("a", "/home/me/.a")},
 		item{entry: entry("b", "/home/me/.b")},
 	)
-	update := func(m dotfileList, msg tea.KeyPressMsg) (dotfileList, tea.Cmd) {
+	update := func(m List, msg tea.KeyPressMsg) (List, tea.Cmd) {
 		next, cmd := m.Update(msg)
-		return next.(dotfileList), cmd
+		return next.(List), cmd
 	}
 
 	m, _ = update(m, hangul('ㅓ'))
