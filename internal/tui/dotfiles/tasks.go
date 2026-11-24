@@ -46,8 +46,8 @@ type previewLoadedMsg struct {
 	err  error
 }
 
-// loadEntries 는 GitHub에서 manifest를 받아 파싱하고 각 항목의 현재 상태를 확인한다. 디스크는 바꾸지 않는다.
-func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir, home string) entriesLoadedMsg {
+// loadEntries 는 GitHub에서 manifest를 받아 파싱하고 section 항목의 현재 상태를 확인한다. 디스크는 바꾸지 않는다.
+func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.Dir, home string, section Section) entriesLoadedMsg {
 	data, err := client.Fetch(ctx, "manifest.yaml")
 	if err != nil {
 		return entriesLoadedMsg{err: err}
@@ -61,7 +61,7 @@ func loadEntries(ctx context.Context, client *github.Client, copies *localcopy.D
 
 	// 하위 항목은 그룹 바로 뒤에 이어 붙여서 목록 순서가 화면 순서와 같게 한다.
 	var items []item
-	for _, e := range m.Entries {
+	for _, e := range section.entries(m) {
 		items = append(items, checkItem(e, "", copies, hashes, home))
 		for _, child := range e.Children {
 			items = append(items, checkItem(child, e.Name, copies, hashes, home))

@@ -67,7 +67,7 @@ func (m List) startAnimation() (List, tea.Cmd) {
 		return m, nil
 	}
 	m.animating = true
-	return m, animationTick()
+	return m, m.tag(animationTick())
 }
 
 // stepAnimation 은 한 프레임만큼 게이지와 강조색을 움직인다. 모두 멈추면 다음 tick을 예약하지 않는다.
@@ -100,7 +100,7 @@ func (m List) stepAnimation() (List, tea.Cmd) {
 		m.animating = false
 		return m, nil
 	}
-	return m, animationTick()
+	return m, m.tag(animationTick())
 }
 
 func settled(position, velocity, target float64) bool {

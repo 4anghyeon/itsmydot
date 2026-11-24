@@ -1,5 +1,6 @@
 // Package dotfiles 는 진입 메뉴의 dotfiles 화면이다. manifest 항목을 보여 주고 이 컴퓨터에 연결하거나 연결을 끊는다.
 // 연결하기 전 확인 질문과 저장소 최신본과의 비교, 파일 미리보기도 여기서 다룬다.
+// agentfiles 화면도 같은 목록을 manifest의 다른 섹션으로 띄운 것이다.
 package dotfiles
 
 import (
@@ -28,8 +29,40 @@ type item struct {
 	flash, flashVelocity float64 // 상태가 바뀐 직후 남아 있는 강조색의 정도와 그 속도. 1에서 0으로 줄어든다
 }
 
-// List 는 dotfiles 메뉴의 목록 화면이다. manifest 항목을 보여 주고 켜고 끈다.
+// Section 은 목록이 보여 줄 manifest 섹션이다.
+type Section string
+
+const (
+	EntriesSection    Section = "entries"    // dotfiles 화면이 보여 주는 entries 섹션
+	AgentfilesSection Section = "agentfiles" // agentfiles 화면이 보여 주는 agentfiles 섹션
+)
+
+// entries 는 manifest에서 이 섹션의 항목을 꺼낸다.
+func (s Section) entries(m *manifest.Manifest) []manifest.Entry {
+	if s == AgentfilesSection {
+		return m.Agentfiles
+	}
+	return m.Entries
+}
+
+// sectionMsg 는 목록이 시작한 작업의 결과에 그 목록의 섹션을 붙인 메시지다.
+// 루트는 작업 결과를 모든 목록에 넘기고 섹션마다 항목 이름이 겹칠 수 있어서, 섹션이 다른 목록은 이 메시지를 버린다.
+type sectionMsg struct {
+	section Section
+	msg     tea.Msg
+}
+
+// tag 는 cmd의 결과에 이 목록의 섹션을 붙인다. 여러 명령을 묶은 tea.Batch에는 쓰지 않고 명령 하나씩 붙인다.
+func (m List) tag(cmd tea.Cmd) tea.Cmd {
+	section := m.section
+	return func() tea.Msg {
+		return sectionMsg{section: section, msg: cmd()}
+	}
+}
+
+// List 는 dotfiles나 agentfiles 메뉴의 목록 화면이다. manifest 한 섹션의 항목을 보여 주고 켜고 끈다.
 type List struct {
+	section Section
 	client  *github.Client
 	copies  *localcopy.Dir
 	home    string // 화면에서 경로를 ~로 줄여 보여 줄 때와 loaded_by 파일에 넣을 줄을 만들 때 쓴다
@@ -76,21 +109,28 @@ type List struct {
 	animating            bool    // animationTick이 예약돼 있으면 true
 }
 
-// New 는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다. 실제 불러오기는 [List.Init] 에서 시작한다.
-func New(client *github.Client, copies *localcopy.Dir, version string) List {
+// New 는 manifest의 section을 보여 주는 처음 목록 상태를 만든다. version은 제목 옆에 보여 줄 버전이다.
+// 실제 불러오기는 [List.Init] 에서 시작한다.
+func New(client *github.Client, copies *localcopy.Dir, version string, section Section) List {
 	home, _ := os.UserHomeDir() // 실패하면 manifest.Parse도 실패해서 목록이 뜨지 않는다
-	return List{client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(ui.SyncSpinner))}
+	return List{section: section, client: client, copies: copies, home: home, version: version, spinner: spinner.New(spinner.WithSpinner(ui.SyncSpinner))}
 }
 
-// Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 dotfiles를 처음 고를 때 한 번만 부른다.
+// Init 은 manifest 불러오기를 시작한다. 진입 메뉴에서 이 목록을 처음 고를 때 한 번만 부른다.
 func (m List) Init() tea.Cmd {
-	return func() tea.Msg {
-		return loadEntries(context.Background(), m.client, m.copies, m.home)
-	}
+	return m.tag(func() tea.Msg {
+		return loadEntries(context.Background(), m.client, m.copies, m.home, m.section)
+	})
 }
 
 // Update 는 불러오기와 동기화 결과, 키 입력을 화면 상태에 반영한다.
 func (m List) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if tagged, ok := msg.(sectionMsg); ok {
+		if tagged.section != m.section {
+			return m, nil
+		}
+		msg = tagged.msg
+	}
 	switch msg := msg.(type) {
 	case entriesLoadedMsg:
 		m.ready = true

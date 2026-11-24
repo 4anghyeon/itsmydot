@@ -81,7 +81,7 @@ func toggleFixture(t *testing.T, files map[string]string) (m List, target string
 	if err != nil {
 		t.Fatal(err)
 	}
-	m = New(githubtest.NewClient(t, files), copies, "")
+	m = New(githubtest.NewClient(t, files), copies, "", EntriesSection)
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: []item{{entry: e, copyPath: copyPath}}})
 	return next.(List), target

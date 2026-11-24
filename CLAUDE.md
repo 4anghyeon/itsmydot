@@ -9,7 +9,7 @@
 
 ## 구조
 
-- `internal/tui`에는 진입 메뉴만 둔다. 메뉴 화면은 화면마다 패키지 하나(`dotfiles`, `brewfiles`)이고 `List`, `New`, 메뉴 카드에 쓰는 `Summary`를 공개한다.
+- `internal/tui`에는 진입 메뉴만 둔다. 메뉴 화면은 화면마다 패키지 하나(`dotfiles`, `brewfiles`)이고 `List`, `New`, 메뉴 카드에 쓰는 `Summary`를 공개한다. agentfiles 화면은 `dotfiles` 목록을 manifest의 `agentfiles` 섹션으로 하나 더 띄운 것이다.
 - 두 화면이 같이 쓰는 코드는 화면 패키지가 아니라 `internal/tui/ui`에 둔다.
 - `internal/tui` 밖의 패키지(`link`, `manifest`, `github` 등)는 화면을 모른다.
 

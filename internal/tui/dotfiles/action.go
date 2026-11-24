@@ -179,9 +179,9 @@ func (m List) updateCopy(i int) (List, tea.Cmd) {
 	it.state, it.err = ui.Syncing, nil
 	m = m.notify(ui.StatusBusy, it.entry.Name+" 최신본을 받는 중이에요...")
 	entry, client, copies := it.entry, m.client, m.copies
-	fetch := func() tea.Msg {
+	fetch := m.tag(func() tea.Msg {
 		return fetchCopy(context.Background(), client, copies, entry)
-	}
+	})
 	return m, tea.Batch(fetch, m.spinner.Tick)
 }
 
@@ -196,9 +196,9 @@ func (m List) startSync(indexes ...int) (List, tea.Cmd) {
 		it.state, it.err = ui.Syncing, nil
 		names = append(names, it.entry.Name)
 		entry, client, copies, home := it.entry, m.client, m.copies, m.home
-		cmds = append(cmds, func() tea.Msg {
+		cmds = append(cmds, m.tag(func() tea.Msg {
 			return syncEntry(context.Background(), client, copies, entry, home)
-		})
+		}))
 	}
 	m = m.notify(ui.StatusBusy, strings.Join(names, ", ")+" 받는 중이에요...")
 	return m, tea.Batch(append(cmds, m.spinner.Tick)...)

@@ -18,9 +18,9 @@ func (m List) startCompare(i int) (List, tea.Cmd) {
 	m.comparingName = it.entry.Name
 	m = m.notify(ui.StatusBusy, it.entry.Name+" 저장소 최신본과 비교하는 중이에요...")
 	entry, copyPath, client := it.entry, it.copyPath, m.client
-	load := func() tea.Msg {
+	load := m.tag(func() tea.Msg {
 		return compareWithRepo(context.Background(), client, entry, copyPath)
-	}
+	})
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 
@@ -35,11 +35,11 @@ func (m List) startTargetCompare() (List, tea.Cmd) {
 	m.comparingName = it.entry.Name
 	m.confirmNote = it.entry.Name + " 저장소 파일과 비교하는 중이에요..."
 	entry, client := it.entry, m.client
-	load := func() tea.Msg {
+	load := m.tag(func() tea.Msg {
 		msg := compareWithRepo(context.Background(), client, entry, entry.Target)
 		msg.current = true
 		return msg
-	}
+	})
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 

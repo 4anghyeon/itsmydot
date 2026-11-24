@@ -73,10 +73,10 @@ func (m List) openPreview() (List, tea.Cmd) {
 	}
 	m.preview.loading = true
 	entry, client := it.entry, m.client
-	load := func() tea.Msg {
+	load := m.tag(func() tea.Msg {
 		data, err := client.Fetch(context.Background(), entry.Source)
 		return previewLoadedMsg{name: entry.Name, key: key, data: data, err: err}
-	}
+	})
 	return m, tea.Batch(load, m.spinner.Tick)
 }
 

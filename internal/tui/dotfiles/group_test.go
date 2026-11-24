@@ -41,7 +41,7 @@ func groupFixture(t *testing.T) (m List, home string) {
 		items[i] = item{entry: e.entry, parent: e.parent, copyPath: copyPath}
 	}
 
-	m = New(client, copies, "")
+	m = New(client, copies, "", EntriesSection)
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
 	return next.(List), home
@@ -269,7 +269,7 @@ func TestLoadEntriesWithChildren(t *testing.T) {
       - {name: env, source: files/zsh/00-env.zsh, target: ` + filepath.Join(home, "env.zsh") + `}
 `})
 
-	msg := loadEntries(context.Background(), client, localcopy.New(t.TempDir()), "")
+	msg := loadEntries(context.Background(), client, localcopy.New(t.TempDir()), "", EntriesSection)
 	if msg.err != nil {
 		t.Fatalf("loadEntries: %v", msg.err)
 	}
@@ -335,7 +335,7 @@ func folderFixture(t *testing.T) (m List, home string) {
 		checkItem(manifest.Entry{Name: "a", Source: "files/skills/a.md", Target: filepath.Join(home, "a.md")}, "skills", copies, nil, home),
 		checkItem(manifest.Entry{Name: "b", Source: "files/skills/b.md", Target: filepath.Join(home, "b.md")}, "skills", copies, nil, home),
 	}
-	m = New(client, copies, "")
+	m = New(client, copies, "", EntriesSection)
 	m.home = home
 	next, _ := m.Update(entriesLoadedMsg{items: items})
 	return next.(List), home
