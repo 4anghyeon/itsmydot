@@ -132,3 +132,11 @@ func (st styles) renderHelp(width int, pairs ...string) string {
 	}
 	return strings.Join(append(lines, line), "\n ")
 }
+
+// ratio 는 part가 total에서 차지하는 비율이다. total이 0이면 0이다.
+func ratio(part, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(part) / float64(total)
+}

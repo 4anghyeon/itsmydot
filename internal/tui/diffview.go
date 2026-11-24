@@ -64,9 +64,6 @@ func newDiffStyles(tones diffTones, mark, muted color.Color) diffStyles {
 	}
 }
 
-// diffHorizontalStep 은 좌우 방향키 한 번에 옆으로 미는 칸 수다.
-const diffHorizontalStep = 8
-
 // diffMaxHeight 는 터미널 높이를 모를 때 비교 보기와 미리보기 본문을 보여 줄 최대 줄 수다.
 const diffMaxHeight = 20
 
@@ -89,30 +86,6 @@ func (m dotfileList) handleDiffKey(key string) (dotfileList, tea.Cmd) {
 	y, x := scrollBy(key, m.diffScreen.yOffset, m.diffScreen.xOffset, layout.height, len(m.diffScreen.rows))
 	m.diffScreen.yOffset, m.diffScreen.xOffset = m.clampDiffOffsets(layout, y, x)
 	return m, nil
-}
-
-// scrollBy 는 스크롤 키에 맞춰 세로 위치 y와 가로 위치 x를 옮긴다. 비교 보기와 미리보기가 같은 키를 쓴다.
-// page는 한 쪽의 줄 수이고 total은 전체 줄 수다. 내용 밖으로 나간 위치는 부르는 쪽에서 자른다.
-func scrollBy(key string, y, x, page, total int) (int, int) {
-	switch key {
-	case "up", "k":
-		y--
-	case "down", "j":
-		y++
-	case "pgup":
-		y -= page
-	case "pgdown", "space":
-		y += page
-	case "home":
-		y = 0
-	case "end":
-		y = total
-	case "left", "h":
-		x -= diffHorizontalStep
-	case "right", "l":
-		x += diffHorizontalStep
-	}
-	return y, x
 }
 
 // clampDiffOffsets 는 스크롤 위치를 내용이 있는 범위 안으로 자른다.
@@ -296,18 +269,4 @@ func (side diffStyles) renderContent(line diff.Line, x, width int) string {
 	}
 	flush()
 	return out.String()
-}
-
-// renderScrollbarCell 은 본문 오른쪽 스크롤 막대의 row번째 칸이다. 지금 보이는 범위는 █, 나머지는 ░로 그린다.
-// 터미널 창의 회색 스크롤 막대와 헷갈리지 않게 █는 강조색으로 칠한다.
-func (st styles) renderScrollbarCell(row, height, offset, total int) string {
-	thumb := max(height*height/total, 1)
-	start := 0
-	if total > height {
-		start = (offset*(height-thumb) + (total-height)/2) / (total - height)
-	}
-	if row >= start && row < start+thumb {
-		return lipgloss.NewStyle().Foreground(st.palette.accent).Render("█")
-	}
-	return st.muted.Render("░")
 }

@@ -74,9 +74,7 @@ type brewfileList struct {
 	// installing 은 마지막으로 설치를 시작한 패키지의 Key다. 설치가 끝나면 설치 상태를 다시 보고 실패한 수를 센다.
 	installing []string
 
-	status          string
-	statusTone      statusTone
-	keysSinceStatus int
+	statusLine
 }
 
 // newBrewfileList 는 처음 목록 상태를 만든다. 실제 불러오기는 [brewfileList.Init] 에서 시작한다.
@@ -404,19 +402,14 @@ func (m brewfileList) installedCount() (installed, total int) {
 	return installed, total
 }
 
-// notify 는 상태 줄에 text를 띄우고 키 수를 처음부터 다시 센다. text가 비어 있으면 상태 줄을 비운다.
+// notify 는 상태 줄에 text를 띄운 목록 모델을 돌려준다. text가 비어 있으면 상태 줄을 비운다.
 func (m brewfileList) notify(tone statusTone, text string) brewfileList {
-	m.status, m.statusTone, m.keysSinceStatus = text, tone, 0
+	m.statusLine = newStatusLine(tone, text)
 	return m
 }
 
-// countStatusKey 는 목록에서 누른 키를 세다가 statusKeyLimit에 닿으면 알림을 지운다.
+// countStatusKey 는 목록에서 누른 키를 상태 줄에 센 목록 모델을 돌려준다.
 func (m brewfileList) countStatusKey() brewfileList {
-	if m.status != "" && m.statusTone != statusBusy {
-		m.keysSinceStatus++
-		if m.keysSinceStatus >= statusKeyLimit {
-			m = m.notify(statusInfo, "")
-		}
-	}
+	m.statusLine = m.statusLine.countKey()
 	return m
 }

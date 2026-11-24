@@ -5,6 +5,7 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // listRow 는 트리 목록 한 줄을 이루는 조각들이다.
@@ -65,4 +66,25 @@ func (st styles) renderRows(rows []listRow) (lines []string, selected int) {
 // renderSpinner 는 체크박스 안에 스피너의 현재 모양을 넣어 그린다. 받거나 설치하는 중인 줄에 쓴다.
 func renderSpinner(s spinner.Model) string {
 	return "[" + s.View() + "]"
+}
+
+// renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다. 폭 width를 넘으면 줄을 바꾸고 0이면 바꾸지 않는다.
+func (st styles) renderDescription(text string, width int) string {
+	if text == "" {
+		return ""
+	}
+	const indent = 2
+	if width > 0 {
+		// 설명 앞에는 화면 왼쪽 여백 한 칸이 더 붙는다.
+		text = ansi.Wrap(text, max(width-1-indent, 1), " ")
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		prefix := strings.Repeat(" ", indent)
+		if i == 0 {
+			prefix = st.descriptionBar.Render("┃") + " "
+		}
+		lines[i] = prefix + st.description.Render(line)
+	}
+	return strings.Join(lines, "\n")
 }

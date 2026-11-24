@@ -7,7 +7,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // View 는 항목 목록과 그 아래에 커서 항목의 설명이나 확인 질문, 상태 줄을 그린다.
@@ -135,27 +134,6 @@ func (m dotfileList) renderItemLines(st styles) (lines []string, selected int) {
 	return st.renderRows(rows)
 }
 
-// renderDescription 은 커서가 있는 항목의 설명을 인용문처럼 왼쪽 막대를 붙여 그린다. 폭 width를 넘으면 줄을 바꾸고 0이면 바꾸지 않는다.
-func (st styles) renderDescription(text string, width int) string {
-	if text == "" {
-		return ""
-	}
-	const indent = 2
-	if width > 0 {
-		// 설명 앞에는 화면 왼쪽 여백 한 칸이 더 붙는다.
-		text = ansi.Wrap(text, max(width-1-indent, 1), " ")
-	}
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		prefix := strings.Repeat(" ", indent)
-		if i == 0 {
-			prefix = st.descriptionBar.Render("┃") + " "
-		}
-		lines[i] = prefix + st.description.Render(line)
-	}
-	return strings.Join(lines, "\n")
-}
-
 // renderMarker 는 체크박스를 그린다. 받는 중이면 ~ 자리에 스피너의 현재 모양을 넣는다.
 func (m dotfileList) renderMarker(s itemState) string {
 	if s == syncing && len(m.spinner.Spinner.Frames) > 0 {
@@ -188,4 +166,9 @@ func (m dotfileList) renderItemTitle(st styles, i int) string {
 // renderGroupTitle 은 메뉴 제목에 쓰는 그룹 한 줄이다.
 func (m dotfileList) renderGroupTitle(st styles, i int) string {
 	return st.groupName.Render(m.items[i].entry.Name) + "  " + tildify(m.items[i].entry.Target, m.home)
+}
+
+// statusMarker 는 상태 줄 앞에 붙일 표시와 그 색을 고를 상태다. 목록의 체크박스와 같은 표시를 쓴다.
+func (m dotfileList) statusMarker() (marker string, tone itemState) {
+	return toneMarker(m.statusTone, m.renderMarker(syncing))
 }

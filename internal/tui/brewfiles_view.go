@@ -128,15 +128,6 @@ func (m brewfileList) followCursor() int {
 	return clampListOffset(m.offset, selected, m.listHeight(st), len(list))
 }
 
-// clampListOffset 은 창의 맨 위 위치 offset을 selected 줄이 보이고 total줄 안에서 창이 꽉 차는 범위로 옮긴다.
-func clampListOffset(offset, selected, height, total int) int {
-	if selected >= 0 {
-		offset = min(offset, selected)
-		offset = max(offset, selected-height+1)
-	}
-	return min(max(offset, 0), max(total-height, 0))
-}
-
 // renderNoticeLines 는 목록을 보여 줄 수 없을 때 목록 자리에 놓을 안내다.
 func (m brewfileList) renderNoticeLines(st styles) []string {
 	switch {
@@ -288,12 +279,4 @@ func (m brewfileList) renderMissingLines(st styles) []string {
 		"",
 		" " + st.muted.Render("자세한 내용은 https://brew.sh 를 참고해 주세요"),
 	}
-}
-
-// ratio 는 part가 total에서 차지하는 비율이다. total이 0이면 0이다.
-func ratio(part, total int) float64 {
-	if total == 0 {
-		return 0
-	}
-	return float64(part) / float64(total)
 }
